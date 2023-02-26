@@ -1,15 +1,15 @@
 # MSX1 for [MiSTer Board](https://github.com/MiSTer-devel/Main_MiSTer/wiki)
 
 ## Features
-- reference HW Philips SVG8020/00
+- reference HW Philips VG8020/00
 - RAM 64kB in slot 3
 - Sound YM2149(PSG)
-- Support two cartrige
+- Support two cartridges
 - Automatic detect cartrige mapper. (Gamemaster2, Konami, Konami SCC, ASCII8, ASCII16, Linear64k) 
 - Manual select mapper (R-TYPE)
 - Joystick.
 - FDD support (VY0010). Use DSK image
-- Cassete support. Analog or CAS emmulation
+- Cassette support. Analog or CAS emulation
 - PAL/NTSC mode
 - Load bios for experimets
 

@@ -1,0 +1,90 @@
+<?xml version="1.0" ?>
+<!--
+ROM layout
+U38
+0000h-7FFFh : cps-400s_main.rom
+8000h-BFFFh : cps-400s_disk.rom
+C000h-FFFFh : cps-400s_sub.rom
+U44
+0000h-3FFFh : cps-400s_hangul2.rom
+4000h-7FFFh : cps-400s_hangul1.rom
+8000h-BFFFh : not used (all FFh)
+C000h-FFFFh : cps-400s_kanji.rom
+
+cps-400s_disk.rom is not working now.
+Machine works if you use below disk.rom
+  <filename>hb-f1xdmk2_disk.rom</filename>
+  <SHA1>12f2cc79b3d09723840bae774be48c0d721ec1c6</SHA1>
+-->
+<msxConfig>
+  <type>MSX2</type>
+  <kbd_layout>/yX/cWdlZv//ZP//cHMh////YP9hRgH///9XUCZUAv//MFUxMgQD//+AUzNRRwX//0MnNTRWBv///0I3UgcQ//8iQDZEABH//yMkQRdFEv///yD/FRP//2Ngdxb/FP//////////df///////////////////3L/dv//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////Yv//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////hIH///+Cg4b/h4X///////90//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////8=</kbd_layout>
+  <primary slot="0">
+    <secondary slot="0">
+      <block start="0">
+        <type>ROM</type>
+        <block_count>2</block_count>
+        <filename>cps-400s_main.rom</filename>
+        <SHA1>affa3c5cd8db79a1450ad8a7f405a425b251653d</SHA1>
+      </block>
+    </secondary>
+    <secondary slot="1">
+      <block start="1">
+        <type>ROM</type>
+        <block_count>1</block_count>
+        <filename>cps-400s_hangul1.rom</filename>
+        <SHA1>d2b058989a700ca772b9591f42c01ed0f45f74d6</SHA1>
+      </block>
+      <block start="2">
+        <type>ROM</type>
+        <block_count>1</block_count>
+        <filename>cps-400s_kanji.rom</filename>
+        <SHA1>45e8a3a3f977683541ac1829d310a3f9e6e1b3cf</SHA1>
+      </block>
+    </secondary>
+    <secondary slot="2">
+      <block start="0">
+        <type>RAM MAPPER</type>
+        <block_count>8</block_count>
+      </block>
+    </secondary>
+    <secondary slot="3">
+      <block start="0">
+        <type>ROM</type>
+        <block_count>1</block_count>
+        <filename>cps-400s_sub.rom</filename>
+        <SHA1>794fb246c9b78187a2ef3f5d3346bbf2da13c855</SHA1>
+      </block>
+      <block start="1">
+        <type>ROM</type>
+        <block_count>1</block_count>
+        <filename>cps-400s_hangul2.rom</filename>
+        <SHA1>5c69c17886a375df4cbd88f6c3c5e6e7becd28cd</SHA1>
+      </block>
+    </secondary>
+  </primary>
+  <primary slot="1">
+    <secondary slot="0">
+      <block start="0">
+        <type>SLOT A</type>
+      </block>
+    </secondary>
+  </primary>
+  <primary slot="2">
+    <secondary slot="0">
+      <block start="1">
+        <type>FDC</type>
+        <block_count>1</block_count>
+        <filename>cps-400s_disk.rom</filename>
+        <SHA1>914f6ccb25d78621186001f2f5e2aaa2d628cd0c</SHA1>
+      </block>
+    </secondary>
+  </primary>
+  <primary slot="3">
+    <secondary slot="0">
+      <block start="0">
+        <type>SLOT B</type>
+      </block>
+    </secondary>
+  </primary>
+</msxConfig>

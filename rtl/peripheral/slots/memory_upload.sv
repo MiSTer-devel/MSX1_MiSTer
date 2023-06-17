@@ -75,6 +75,7 @@ module memory_upload
                     pattern == 3'd2 ? 8'h00     :
                     pattern == 3'd3 ? fill_poss[8] ? fill_poss[1] ? 8'hff : 8'h00 : fill_poss[1] ? 8'h00 : 8'hff :
                     pattern == 3'd4 ? fill_poss[8] ? fill_poss[0] ? 8'h00 : 8'hff : fill_poss[0] ? 8'hff : 8'h00 :  //Tested 8245
+                    pattern == 3'd5 ? fill_poss[7] ? 8'hff : 8'h00                                               :
                                     8'hFF;
    wire [3:0] curr_conf = config_typ_t'(conf[3][7:4]);
    always @(posedge clk) begin

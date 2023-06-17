@@ -1,14 +1,14 @@
 <?xml version="1.0" ?>
 <msxConfig>
-  <type>MSX2</type>
+  <type>MSX1</type>
   <kbd_layout>/yX/cWdlZv//ZP//cHMh////YP9hRgH///9XUCZUAv//MFUxMgQD//+AUzNRRwX//0MnNTRWBv///0I3UgcQ//8iQDZEABH//yMkQRdFEv///yD/FRP//2Ngdxb/FP//////////df///////////////////3L/dv//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////Yv//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////hIH///+Cg4b/h4X///////90//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////8=</kbd_layout>
   <primary slot="0">
     <secondary slot="0">
       <block start="0">
         <type>ROM</type>
         <block_count>2</block_count>
-        <filename>yis503iii_basic-bios2.rom</filename>
-        <SHA1>0f851ee7a1cf79819f61cc89e9948ee72a413802</SHA1>
+        <filename>v20sbios.rom</filename>
+        <SHA1>9fb289ea5c11d497ee00703f64e82575d1c59923</SHA1>
       </block>
     </secondary>
   </primary>
@@ -27,24 +27,10 @@
     </secondary>
   </primary>
   <primary slot="3">
-    <secondary slot="0">
-      <block start="0">
-        <type>ROM</type>
-        <block_count>1</block_count>
-        <filename>yis503iii_msx2sub.rom</filename>
-        <SHA1>03bf6d2ac86f5c9ab618e155442787c700f99fed</SHA1>
-      </block>
-      <block start="1">
-        <type>ROM</type>
-        <block_count>1</block_count>
-        <filename>yis503iii_cpm.rom</filename>
-        <SHA1>f4f7a54cdf5a9dd6c59f7cb219c2c5eb0a00fa8a</SHA1>
-      </block>
-    </secondary>
     <secondary slot="2">
       <block start="0">
-        <type>RAM MAPPER</type>
-        <block_count>8</block_count>
+        <type>RAM</type>
+        <block_count>4</block_count>
       </block>
     </secondary>
   </primary>

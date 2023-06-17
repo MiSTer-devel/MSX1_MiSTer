@@ -1,0 +1,49 @@
+<?xml version="1.0" ?>
+<msxConfig>
+  <type>MSX1</type>
+  <kbd_layout>/yX/cWdlZv//ZP//cHMh////YP9hRgH///9XUCZUAv//MFUxMgQD//+AUzNRRwX//0MnNTRWBv///0I3UgcQ//8iQDZEABH//yMkQRdFEv///yD/FRP//2Ngdxb/FP//////////df///////////////////3L/dv//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////Yv//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////hIH///+Cg4b/h4X///////90//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////8=</kbd_layout>
+  <primary slot="0">
+    <secondary slot="0">
+      <block start="0">
+        <type>ROM</type>
+        <block_count>2</block_count>
+        <filename>gfc1080bios.rom</filename>
+        <SHA1>6b0be712b9c95c1e912252ab5703e1c0bc457d9e</SHA1>
+      </block>
+      <block start="2">
+        <type>ROM</type>
+        <block_count>1</block_count>
+        <filename>gfc1080han.rom</filename>
+        <SHA1>141b44212ba28e7d03e0b54126fedd9e0807dc42</SHA1>
+      </block>
+      <block start="3">
+        <type>ROM</type>
+        <block_count>1</block_count>
+        <filename>gfc1080pasocalc.rom</filename>
+        <SHA1>a5581fa3ce10f90f15ba3dc53d57b02d6e4af172</SHA1>
+      </block>
+    </secondary>
+  </primary>
+  <primary slot="1">
+    <secondary slot="0">
+      <block start="0">
+        <type>SLOT A</type>
+      </block>
+    </secondary>
+  </primary>
+  <primary slot="2">
+    <secondary slot="0">
+      <block start="0">
+        <type>RAM</type>
+        <block_count>4</block_count>
+      </block>
+    </secondary>
+  </primary>
+  <primary slot="3">
+    <secondary slot="0">
+      <block start="0">
+        <type>SLOT B</type>
+      </block>
+    </secondary>
+  </primary>
+</msxConfig>

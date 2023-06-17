@@ -150,7 +150,8 @@ def getValues(block, secondary) :
     values['count']    = int(block.find('block_count').text) if block.find('block_count') is not None else 0
     values['filename'] = block.find('filename').text if block.find('filename') is not None else None
     values['SHA1']     = block.find('SHA1').text if block.find('SHA1') is not None else None  
-    values['pattern']  = int(block.find('pattern').text) if block.find('pattern') is not None else 3  
+    values['pattern']  = int(block.find('pattern').text) if block.find('pattern') is not None else 3 
+    values['skip']     = int(block.find('skip').text) if block.find('skip') is not None else None 
     if secondary is not None and block.find('ref') is not None :
         values['ref'] = getRefereced(secondary, block.find('ref').text)
 
@@ -178,7 +179,11 @@ def createMSXpack(root, fileHandle) :
                         if values["SHA1"] is not None :
                             if values["SHA1"] in rom_hashes.keys() :
                                 infile = open(rom_hashes[values["SHA1"]], "rb")
-                                fileHandle.write(infile.read())
+                                if values["skip"] is not None :
+                                    infile.seek(values["skip"], os.SEEK_SET)
+                                write_size = fileHandle.write(infile.read(values['count'] * 16 * 1024))
+                                if write_size < values['count'] * 16 * 1024 :
+                                    fileHandle.write(bytes([0xFF] * (values['count'] * 16 * 1024 - write_size)))
                             else :
                                 fileHandle.close()
                                 raise Exception(f"Skip: {filename} Not found ROM {0} SHA1:{1}",values["filename"],values["SHA1"])

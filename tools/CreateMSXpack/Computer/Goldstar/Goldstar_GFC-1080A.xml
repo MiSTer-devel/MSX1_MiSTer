@@ -1,9 +1,6 @@
 <?xml version="1.0" ?>
 <!--
   same bios (GFC-1080A == FC-80U)
-
-  original fc80uhan.rom is 8KB size.
-  Make this 16KB with 0xFF padded.
 -->
 <msxConfig>
   <type>MSX1</type>
@@ -19,8 +16,8 @@
       <block start="2">
         <type>ROM</type>
         <block_count>1</block_count>
-        <filename>fc80uhan_16kb.rom</filename>
-        <SHA1>30f775a8e42e9e56cf2225eda313f6b7f47568c5</SHA1>
+        <filename>fc80uhan.rom</filename>
+        <SHA1>58dbe73ae80c2c409e766c3ace730ecd7bec89d0</SHA1>
       </block>
     </secondary>
   </primary>

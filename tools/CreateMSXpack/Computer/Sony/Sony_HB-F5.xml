@@ -7,8 +7,37 @@
       <block start="0">
         <type>ROM</type>
         <block_count>2</block_count>
-        <filename>yis503iii_basic-bios2.rom</filename>
-        <SHA1>0f851ee7a1cf79819f61cc89e9948ee72a413802</SHA1>
+        <filename>hb-f5_basic-bios2.rom</filename>
+        <SHA1>0081ea0d25bc5cd8d70b60ad8cfdc7307812c0fd</SHA1>
+      </block>
+    </secondary>
+  </primary>
+  <primary slot="0">
+    <secondary slot="1">
+      <block start="0">
+        <type>ROM</type>
+        <block_count>1</block_count>
+        <filename>f5_msx2sub.rom</filename>
+        <SHA1>b8e30d604d319d511cbfbc61e5d8c38fbb9c5a33</SHA1>
+      </block>
+    </secondary>
+  </primary>
+    <primary slot="0">
+    <secondary slot="1">
+      <block start="1">
+        <type>ROM</type>
+        <block_count>1</block_count>
+        <filename>hb-f5_firmware.rom</filename>
+        <SHA1>06ba91d6732ee8a2ecd5dcc38b0ce42403d86708</SHA1>
+      </block>
+    </secondary>
+  </primary>
+  <primary slot="0">
+    <secondary slot="2">
+      <block start="0">
+        <type>RAM</type>
+        <block_count>4</block_count>
+        <pattern>1</pattern>
       </block>
     </secondary>
   </primary>
@@ -23,28 +52,6 @@
     <secondary slot="0">
       <block start="0">
         <type>SLOT B</type>
-      </block>
-    </secondary>
-  </primary>
-  <primary slot="3">
-    <secondary slot="0">
-      <block start="0">
-        <type>ROM</type>
-        <block_count>1</block_count>
-        <filename>yis503iii_msx2sub.rom</filename>
-        <SHA1>03bf6d2ac86f5c9ab618e155442787c700f99fed</SHA1>
-      </block>
-      <block start="1">
-        <type>ROM</type>
-        <block_count>1</block_count>
-        <filename>yis503iii_cpm.rom</filename>
-        <SHA1>f4f7a54cdf5a9dd6c59f7cb219c2c5eb0a00fa8a</SHA1>
-      </block>
-    </secondary>
-    <secondary slot="2">
-      <block start="0">
-        <type>RAM MAPPER</type>
-        <block_count>8</block_count>
       </block>
     </secondary>
   </primary>

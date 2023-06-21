@@ -721,8 +721,16 @@ nvram_backup nvram_backup
 
 ///////////////// CAS EMULATE /////////////////
 wire ioctl_isCAS, buff_mem_ready, motor, CAS_dout, play, rewind;
+logic cas_load = 0;
+always @(posedge clk21m) begin
+   logic ioctl_download_last; 
+   if (~ioctl_isCAS & ioctl_download_last )  begin
+      cas_load <= 1'b1;
+   end
+   ioctl_download_last <= ioctl_isCAS;         
+end
 
-assign play         = ~motor;
+assign play         = ~motor & cas_load;
 assign ioctl_isCAS  = ioctl_download & (ioctl_index[5:0] == 6'd5);
 assign rewind       = status[9] | ioctl_isCAS | reset;
 

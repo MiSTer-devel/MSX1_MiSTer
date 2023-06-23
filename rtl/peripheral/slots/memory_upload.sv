@@ -367,7 +367,7 @@ module memory_upload
                         data_id       <= ROM_RAM;
                         if (~bram_rq) ram_addr <= sram_addr;
                         if (sdram_size != 0) save_ram_addr <= ram_addr;
-                        $display("           FILL SRAM ID:%d addr:%x size:%d kB (save:%x)",ref_sram, ~bram_rq ? sram_addr : ram_addr, sram_size, save_ram_addr);
+                        $display("           FILL SRAM ID: %d addr:%x size:%d kB (save:%x)",ref_sram, ~bram_rq ? sram_addr : ram_addr, sram_size[24:10], save_ram_addr);
                      end else state <= STATE_STORE_SLOT_CONFIG;
                end
             end

@@ -685,9 +685,9 @@ sdram sdram
 dpram #(.addr_width(18)) systemRAM
 (
    .clock(clk21m),
-   .address_a(18'(upload_bram_rq ? upload_ram_addr : ram_addr)         ),
-   .wren_a( upload_bram_rq ? ~ram_rnw        : bram_ce & ~ram_rnw ),
-   .data_a( upload_bram_rq ? upload_ram_din  : ram_din           ),
+   .address_a(18'(upload_bram_rq ? upload_ram_addr : ram_addr)          ),
+   .wren_a( upload_bram_rq ? upload_ram_ce         : bram_ce & ~ram_rnw ),
+   .data_a( upload_bram_rq ? upload_ram_din        : ram_din            ),
    .q_a(bram_dout),
    .address_b(18'(sram_addr)),
    .wren_b(sram_we),

@@ -158,8 +158,8 @@ wire mem_unmaped = mapper_konami_unmaped     |
                    flash_rq                  ;
                    
 wire [3:0] mapper_mask = mapper_mfrd_mask;
-wire sram_cs     = fmpac_sram_cs | gm2_sram_cs | ascii16_sram_cs | ascii8_sram_cs;
-wire sram_wr     = fmpac_sram_wr | gm2_sram_wr | ascii16_sram_wr | ascii8_sram_wr;
+wire sram_cs     = fmpac_sram_cs | gm2_sram_cs | ascii16_sram_cs | ascii8_sram_cs | halnote_sram_cs;
+wire sram_wr     = fmpac_sram_wr | gm2_sram_wr | ascii16_sram_wr | ascii8_sram_wr | halnote_sram_wr;
 
 //MAPPER NONE
 wire [26:0] mapper_none_addr = 27'(cpu_addr[13:0]) + (27'(offset_ram) << 14);
@@ -173,6 +173,7 @@ wire [26:0] mapper_offset_addr  = 27'({(cpu_addr[15:14] - offset_ram),cpu_addr[1
 
 wire [24:0] mapper_halnote_addr;
 wire        mapper_halnote_unmaped;
+wire        halnote_sram_cs, halnote_sram_wr;
 mapper_halnote halnote
 (
    //.rom_size(25'(size) << 14),
@@ -180,6 +181,8 @@ mapper_halnote halnote
    .cs(mapper == MAPPER_HALNOTE),
    .mem_unmaped(mapper_halnote_unmaped),
    .mem_addr(mapper_halnote_addr),
+   .sram_cs(halnote_sram_cs),
+   .sram_we(halnote_sram_wr),
    .*
 );
 

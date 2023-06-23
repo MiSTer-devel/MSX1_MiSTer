@@ -23,19 +23,19 @@ MAPPER_TYPES = ["MAPPER_UNUSED" , "MAPPER_RAM"    , "MAPPER_AUTO"  , "MAPPER_NON
                 "MAPPER_MFRSD3" , "MAPPER_GM2"    , "MAPPER_HALNOTE"                     ]
 MSX_TYPES    = ["MSX1", "MSX2"]
 
-BLOCK_TYPES = {"NONE"       : {"MEMORY": "NONE", "DEVICE" : "NONE" , "MAPPER" : "MAPPER_UNUSED" , "CONFIG" : "NONE"          },
-               "RAM"        : {"MEMORY": "RAM" , "DEVICE" : "NONE" , "MAPPER" : "MAPPER_NONE"   , "CONFIG" : "SLOT_INTERNAL" },
-               "RAM MAPPER" : {"MEMORY": "RAM" , "DEVICE" : "NONE" , "MAPPER" : "MAPPER_RAM"    , "CONFIG" : "SLOT_INTERNAL" },
-               "ROM"        : {"MEMORY": "ROM",  "DEVICE" : "NONE" , "MAPPER" : "MAPPER_NONE"   , "CONFIG" : "SLOT_INTERNAL" },
-               "FDC"        : {"MEMORY": "FDC" , "DEVICE" : "NONE" , "MAPPER" : "MAPPER_NONE"   , "CONFIG" : "SLOT_INTERNAL" },
-               "SLOT A"     : {"MEMORY": "ROM" , "DEVICE" : "NONE" , "MAPPER" : "MAPPER_UNUSED" , "CONFIG" : "SLOT_A"        },
-               "SLOT B"     : {"MEMORY": "ROM" , "DEVICE" : "NONE" , "MAPPER" : "MAPPER_UNUSED" , "CONFIG" : "SLOT_B"        },
-               "KBD LAYOUT" : {"MEMORY": "NONE", "DEVICE" : "NONE" , "MAPPER" : "MAPPER_UNUSED" , "CONFIG" : "KBD_LAYOUT"    },
-               "ROM_MIRROR" : {"MEMORY": "NONE", "DEVICE" : "NONE" , "MAPPER" : "MAPPER_NONE"   , "CONFIG" : "SLOT_INTERNAL" },
-               "IO_MIRROR"  : {"MEMORY": "NONE", "DEVICE" : "NONE" , "MAPPER" : "MAPPER_UNUSED" , "CONFIG" : "SLOT_INTERNAL" },
-               "MIRROR"     : {"MEMORY": "NONE", "DEVICE" : "NONE" , "MAPPER" : "MAPPER_NONE"   , "CONFIG" : "SLOT_INTERNAL" },
-               "HALNOTE"    : {"MEMORY": "ROM" , "DEVICE" : "NONE" , "MAPPER" : "MAPPER_HALNOTE", "CONFIG" : "SLOT_INTERNAL" },
-               "MSX-MUSIC"  : {"MEMORY": "ROM" , "DEVICE" : "OPL3" , "MAPPER" : "MAPPER_NONE"   , "CONFIG" : "SLOT_INTERNAL" },
+BLOCK_TYPES = {"NONE"       : {"MEMORY": "NONE", "DEVICE" : "NONE" , "MAPPER" : "MAPPER_UNUSED" , "CONFIG" : "NONE"         , "SRAM": 0  },
+               "RAM"        : {"MEMORY": "RAM" , "DEVICE" : "NONE" , "MAPPER" : "MAPPER_NONE"   , "CONFIG" : "SLOT_INTERNAL", "SRAM": 0  },
+               "RAM MAPPER" : {"MEMORY": "RAM" , "DEVICE" : "NONE" , "MAPPER" : "MAPPER_RAM"    , "CONFIG" : "SLOT_INTERNAL", "SRAM": 0  },
+               "ROM"        : {"MEMORY": "ROM",  "DEVICE" : "NONE" , "MAPPER" : "MAPPER_NONE"   , "CONFIG" : "SLOT_INTERNAL", "SRAM": 0  },
+               "FDC"        : {"MEMORY": "FDC" , "DEVICE" : "NONE" , "MAPPER" : "MAPPER_NONE"   , "CONFIG" : "SLOT_INTERNAL", "SRAM": 0  },
+               "SLOT A"     : {"MEMORY": "ROM" , "DEVICE" : "NONE" , "MAPPER" : "MAPPER_UNUSED" , "CONFIG" : "SLOT_A"       , "SRAM": 0  },
+               "SLOT B"     : {"MEMORY": "ROM" , "DEVICE" : "NONE" , "MAPPER" : "MAPPER_UNUSED" , "CONFIG" : "SLOT_B"       , "SRAM": 0  },
+               "KBD LAYOUT" : {"MEMORY": "NONE", "DEVICE" : "NONE" , "MAPPER" : "MAPPER_UNUSED" , "CONFIG" : "KBD_LAYOUT"   , "SRAM": 0  },
+               "ROM_MIRROR" : {"MEMORY": "NONE", "DEVICE" : "NONE" , "MAPPER" : "MAPPER_NONE"   , "CONFIG" : "SLOT_INTERNAL", "SRAM": 0  },
+               "IO_MIRROR"  : {"MEMORY": "NONE", "DEVICE" : "NONE" , "MAPPER" : "MAPPER_UNUSED" , "CONFIG" : "SLOT_INTERNAL", "SRAM": 0  },
+               "MIRROR"     : {"MEMORY": "NONE", "DEVICE" : "NONE" , "MAPPER" : "MAPPER_NONE"   , "CONFIG" : "SLOT_INTERNAL", "SRAM": 0  },
+               "HALNOTE"    : {"MEMORY": "ROM" , "DEVICE" : "NONE" , "MAPPER" : "MAPPER_HALNOTE", "CONFIG" : "SLOT_INTERNAL", "SRAM": 16 },
+               "MSX-MUSIC"  : {"MEMORY": "ROM" , "DEVICE" : "OPL3" , "MAPPER" : "MAPPER_NONE"   , "CONFIG" : "SLOT_INTERNAL", "SRAM": 0  },
                }
 
 def file_hash(filename):
@@ -96,6 +96,7 @@ def create_MSX_block(primary, secondary, values):
         head.append(mode)
         head.append(param)
         head.append(values["pattern"])
+        head.append(config['SRAM'])
 
     for i in range(len(head),16) :
         head.append(0)

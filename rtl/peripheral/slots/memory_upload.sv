@@ -265,7 +265,8 @@ module memory_upload
                         mapper      <= mapper_typ_t'(conf[8]);
                         mem_device  <= device_typ_t'(conf[4]);
                         data_size   <= {conf[5][2:0], conf[6],14'h0};
-                        sram_size   <= 25'd0;
+                        sram_size   <= 25'({conf[12], 10'd0});
+                        ref_sram    <= 3;
                         data_id     <= data_ID_t'(conf[4]);
                         mode        <= conf[9];
                         param       <= conf[10];

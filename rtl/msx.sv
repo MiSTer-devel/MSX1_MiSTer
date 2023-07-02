@@ -6,6 +6,7 @@ module msx
    input                    ce_10m7_p,
    input                    ce_3m58_p,
    input                    ce_3m58_n,
+   input                    ce_5m39_n,
    input                    ce_10hz,
    input                    clk_sdram,
    //Video
@@ -17,6 +18,7 @@ module msx
    output                   VS,
    output                   hblank,
    output                   vblank,
+   output                   ce_pix,
    //I/O
    output            [15:0] audio,
    input  [           10:0] ps2_key,
@@ -305,8 +307,19 @@ assign B              = vdp18 ? B_vdp18                     : {B_vdp,B_vdp[5:4]}
 assign HS             = vdp18 ? ~HS_n_vdp18                 : ~HS_n_vdp;
 assign VS             = vdp18 ? ~VS_n_vdp18                 : ~VS_n_vdp;
 assign DE             = vdp18 ? DE_vdp18                    : DE_vdp;
-assign hblank         = vdp18 ? hblank_vdp18                : 1'b0;
-assign vblank         = vdp18 ? vblank_vdp18                : 1'b0;
+assign hblank         = vdp18 ? hblank_vdp18                : hblank_vdp_cor;
+assign vblank         = vdp18 ? vblank_vdp18                : vblank_vdp;
+assign ce_pix         = vdp18 ? ce_5m39_n                   : ~DHClk_vdp;
+
+logic hblank_vdp_cor;
+always @(posedge clk21m) begin
+   if (hblank_vdp)
+      hblank_vdp_cor <= 1'b1;
+   else 
+      if (DHClk_vdp & DLClk_vdp)
+         hblank_vdp_cor <= 1'b0;
+end
+
 
 //VRAM access
 assign VRAM_address   = vdp18 ? {2'b00, VRAM_address_vdp18} : VRAM_address_vdp[15:0];
@@ -367,7 +380,7 @@ vdp18_core #(.compat_rgb_g(0)) vdp_vdp18
 wire        int_n_vdp;
 wire  [7:0] d_from_vdp;
 wire  [5:0] R_vdp, G_vdp, B_vdp;
-wire        HS_n_vdp, VS_n_vdp, DE_vdp, DLClk_vdp, Blank_vdp;
+wire        HS_n_vdp, VS_n_vdp, DE_vdp, DLClk_vdp, DHClk_vdp, Blank_vdp, hblank_vdp, vblank_vdp;
 wire [16:0] VRAM_address_vdp;
 wire  [7:0] VRAM_do_vdp;
 wire        VRAM_we_n_vdp;
@@ -394,16 +407,19 @@ vdp vdp_vdp
    .PVIDEOB(B_vdp),
    .PVIDEODE(DE_vdp),
    .BLANK_O(Blank_vdp),
+   .HBLANK(hblank_vdp),
+   .VBLANK(vblank_vdp),
    .PVIDEOHS_N(HS_n_vdp),
    .PVIDEOVS_N(VS_n_vdp),
    .PVIDEOCS_N(),
-   .PVIDEODHCLK(),
+   .PVIDEODHCLK(DHClk_vdp),
    .PVIDEODLCLK(DLClk_vdp),
-   .DISPRESO(msxConfig.scandoubler),
+   .DISPRESO(/*msxConfig.scandoubler*/ 0),
    .LEGACY_VGA(1),
    .RATIOMODE(3'b000),
    .NTSC_PAL_TYPE(msxConfig.video_mode == AUTO),
-   .FORCED_V_MODE(msxConfig.video_mode == PAL)
+   .FORCED_V_MODE(msxConfig.video_mode == PAL),
+   .BORDER(msxConfig.border)
 );
 
 wire [15:0] VRAM_address;

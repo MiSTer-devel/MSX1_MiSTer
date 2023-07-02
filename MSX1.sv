@@ -272,13 +272,13 @@ localparam CONF_STR = {
    "H0T9,Tape Rewind;",
    "-;",
    "P1,Video settings;",
-   "H2P1O[14:13],Video mode,AUTO,PAL,NTSC;",
-   "h2P1O[12],Video mode,PAL,NTSC;",
+   "h2P1O[14:13],Video mode,AUTO,PAL,NTSC;",
+   "H2P1O[12],Video mode,PAL,NTSC;",
    "P1O[2:1],Aspect ratio,Original,Full Screen,[ARC1],[ARC2];",
-   "P1O[4:3],Scanlines,No,25%,50%,75%;",
-   "P1O[6:5],Scale,Normal,V-Integer,Narrower HV-Integer,Wider HV-Integer;",
-   "P1O[7],Vertical Crop,No,Yes;",
-   //"h2P1O[38],Border,No,Yes;",   //TODO
+   "P1O[5:3],Scandoubler Fx,None,HQ2x-320,HQ2x-160,CRT 25%,CRT 50%,CRT 75%;",
+   "P1O[7:6],Scale,Normal,V-Integer,Narrower HV-Integer,Wider HV-Integer;",
+   "P1O[40],Vertical Crop,No,Yes;",
+   "P1O[41],Border,No,Yes;",
    "-;",
    "T[0],Reset;",
    "R[10],Reset & Detach ROM Cartridge;",					
@@ -505,15 +505,14 @@ sd_card sd_card
 /////////////////  VIDEO  /////////////////
 logic [9:0] vcrop;
 logic wide;
-wire scandoubler, vcrop_en, vga_de;
+wire  vcrop_en, vga_de;
 wire [1:0] ar;
 
 assign CLK_VIDEO   = clk21m;
-assign CE_PIXEL    = ce_10m7_p;
-assign VGA_SL      = status[4:3];
-assign vcrop_en    = status[7];
+assign VGA_SL      = status[5:3] > 2 ? status[4:3] - 2'd2 : 2'd0;
+assign vcrop_en    = status[40];
 assign ar          = status[2:1];
-assign scandoubler = forced_scandoubler || status[4:3];
+wire scandoubler = status[5:3] || forced_scandoubler;
 
 always @(posedge CLK_VIDEO) begin
 	vcrop <= 0;
@@ -546,19 +545,32 @@ video_freak video_freak
 	.SCALE(status[6:5])
 );
 
-gamma_fast gamma
+video_mixer #(.GAMMA(0)) video_mixer
 (
-	.clk_vid(CLK_VIDEO),
-	.ce_pix(CE_PIXEL),
-	.gamma_bus(gamma_bus),
-	.HSync(hsync),
-	.VSync(vsync),
-	.DE(blank_n),
-	.RGB_in({R,G,B}),
-	.HSync_out(VGA_HS),
-	.VSync_out(VGA_VS),
-	.DE_out(vga_de),
-	.RGB_out({VGA_R,VGA_G,VGA_B})
+   .CLK_VIDEO(CLK_VIDEO),
+   .hq2x(~status[5] & (status[4] ^ status[3])),
+   .scandoubler(scandoubler),
+   .gamma_bus(gamma_bus),
+   .ce_pix(ce_pix),
+   .R(R),
+   .G(G),
+   .B(B),
+   .HSync(hsync),
+   .VSync(vsync),
+   
+   .HBlank(hblank),
+   .VBlank(vblank),
+
+   .HDMI_FREEZE(),
+   .freeze_sync(),
+
+   .CE_PIXEL(CE_PIXEL),
+   .VGA_R(VGA_R),
+   .VGA_G(VGA_G),
+   .VGA_B(VGA_B),
+   .VGA_VS(VGA_VS),
+   .VGA_HS(VGA_HS),
+   .VGA_DE(vga_de)
 );
 
 /////////////////  Tape In   /////////////////

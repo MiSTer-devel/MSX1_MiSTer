@@ -289,6 +289,8 @@ ENTITY VDP IS
         PVIDEODLCLK         : OUT   STD_LOGIC;
 
         BLANK_O             : OUT   STD_LOGIC;
+        HBLANK              : OUT   STD_LOGIC;
+        VBLANK              : OUT   STD_LOGIC;
 
         -- DISPLAY RESOLUTION (0=15kHz, 1=31kHz)
         DISPRESO            : IN    STD_LOGIC;
@@ -296,6 +298,7 @@ ENTITY VDP IS
         NTSC_PAL_TYPE       : IN    STD_LOGIC;
         FORCED_V_MODE       : IN    STD_LOGIC;
         LEGACY_VGA          : IN    STD_LOGIC;
+        BORDER              : IN    STD_LOGIC;
 
         VDP_ID              : IN    STD_LOGIC_VECTOR(  4 DOWNTO 0 );
         OFFSET_Y            : IN    STD_LOGIC_VECTOR(  6 DOWNTO 0 )
@@ -838,6 +841,8 @@ ARCHITECTURE RTL OF VDP IS
     SIGNAL BWINDOW_Y                    : STD_LOGIC;
     SIGNAL BWINDOW                      : STD_LOGIC;
     SIGNAL BWINDOW_VGA                  : STD_LOGIC;
+    SIGNAL FF_HBLANK                    : STD_LOGIC;
+    SIGNAL FF_VBLANK                    : STD_LOGIC;
 
     -- DOT COUNTER - 8 ( READING ADDR )
     SIGNAL PREDOTCOUNTER_X              : STD_LOGIC_VECTOR(  8 DOWNTO 0 );
@@ -1099,6 +1104,9 @@ BEGIN
     -- THESE SIGNALS BELOW ARE OUTPUT DIRECTLY REGARDLESS OF DISPLAY MODE.
     PVIDEOCS_N  <= NOT (IVIDEOHS_N_NTSC_PAL XOR IVIDEOVS_N_NTSC_PAL);
 
+    HBLANK      <= FF_HBLANK;
+    VBLANK      <= FF_VBLANK;
+
     -----------------------------------------------------------------------------
     -- INTERRUPT
     -----------------------------------------------------------------------------
@@ -1238,8 +1246,17 @@ BEGIN
     BEGIN
         IF( RESET = '1' )THEN
             BWINDOW <= '0';
+            FF_HBLANK <= '0';
+            FF_VBLANK <= '0';
         ELSIF( CLK21M'EVENT AND CLK21M = '1' )THEN
             BWINDOW <= BWINDOW_X AND BWINDOW_Y;
+            IF (BORDER = '1') THEN
+                FF_HBLANK <= NOT BWINDOW_X;
+                FF_VBLANK <= NOT BWINDOW_Y;
+            ELSE
+                FF_HBLANK <= NOT WINDOW_X;
+                FF_VBLANK <= NOT PREWINDOW_Y;
+            END IF;
         END IF;
     END PROCESS;
 

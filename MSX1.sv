@@ -265,7 +265,7 @@ localparam CONF_STR = {
    "H6R[39],SRAM Load;",
    "h1-;",
    "h1S5,DSK,Mount Drive A:;",
-   "S4,VHD,Load SD card;",
+   "SC4,VHD,Load SD card;",
    "-;",
    "O[8],Tape Input,File,ADC;",
    "H0F5,CAS,Cas File,31600000;",
@@ -367,7 +367,7 @@ pll pll
 
 clock clock
 (
-   .*
+	.*
 );
 
 /////////////////    RESET   /////////////////
@@ -506,7 +506,7 @@ sd_card sd_card
 logic [9:0] vcrop;
 logic wide;
 wire  vcrop_en, vga_de;
-wire [1:0] ar;
+wire  [1:0] ar;
 
 assign CLK_VIDEO   = clk21m;
 assign VGA_SL      = status[5:3] > 2 ? status[4:3] - 2'd2 : 2'd0;

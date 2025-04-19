@@ -70,6 +70,9 @@ Load them manually from the menu
 
 ## ROM BIOS
 Copy bios files to Games/MSX1 folder or load them manually from the menu
-- boot0.rom MSX2 BIOS 
-- boot1.rom MSX2 EXT
-- boot2.rom MSX2 DSK
+- BIOS files use the `.MSX` file extension.
+- Use the script `tools/CreateMSXPack/createMSXpack.py` to generate them.
+- Refer to the XML files in the `Computer` and `Extension` directories to determine which BIOS ROM files are needed.
+- Copy the required ROM files into the `tools/CreateMSXPack/ROM` directory.
+- Then, run the `createMSXpack.py` script.
+- The generated `.MSX` files will be located in the `tools/CreateMSXPack/MSX` directory.

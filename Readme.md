@@ -1,17 +1,17 @@
 # MSX1/MSX2 for [MiSTer Board](https://github.com/MiSTer-devel/Main_MiSTer/wiki)
 
 # Features MSX1
-- reference HW Philips SVG8020/00
+- Reference HW Philips VG8020/00
 - RAM 64kB in slot 3
 - Sound YM2149(PSG)
-- Support two cartrige
-- Automatic detect cartrige mapper. (Konami, Konami SCC, ASCII8, ASCII16, Linear64k) 
+- Support two cartridges
+- Automatic detect cartridge mapper. (Konami, Konami SCC, ASCII8, ASCII16, Linear64k) 
 - Manual select mapper (R-TYPE)
 - Joystick.
 - FDD support (VY0010). Use DSK image
-- Cassete support. Analog or CAS emmulation
+- Cassette support. Analog or CAS emulation
 - PAL/NTSC mode
-- Load bios for experimets
+- Load bios for experiments
 
 ## Memory limitations
 - No SDRAM 
@@ -35,20 +35,20 @@
 Load them manually from the menu
 
 # Features MSX2
-- reference HW Philips SVG8240/00
+- Reference HW Philips VG8240/00
 - RAM in slot 3/2
 - Sound YM2149(PSG)
 - Video V9938
-- Support two cartrige
-- Cartrige emulation (ROM, SCC, SCC+, FM-PAC, Gamemaster2)
-- Automatic detect cartrige mapper. (Konami, Konami SCC, ASCII8, ASCII16, Linear64k) 
+- Support two cartridges
+- Cartridge emulation (ROM, SCC, SCC+, FM-PAC, Gamemaster2)
+- Automatic detect cartridge mapper. (Konami, Konami SCC, ASCII8, ASCII16, Linear64k) 
 - Manual select mapper (R-TYPE)
 - Joystick.
 - FDD support.
 - RTC support
-- Cassete support. Analog or CAS emmulation
+- Cassette support. Analog or CAS emulation
 - PAL/NTSC mode
-- Load bios for experimets
+- Load bios for experiments
 
 ## Memory limitations
 - No SDRAM 

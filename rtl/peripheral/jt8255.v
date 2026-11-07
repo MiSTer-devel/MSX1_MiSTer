@@ -78,7 +78,8 @@ assign last_stbb = last_ackb;
 
 
 // Mode control
-always @(posedge clk, posedge rst) begin
+// MSX change: sync reset, async reset with variable porta_reset_default became latches
+always @(posedge clk) begin
     if( rst ) begin
         //ctrl       <= 7'h1b;
         //latch_a    <= 8'hff;
@@ -211,7 +212,7 @@ always @(posedge clk, posedge rst) begin
 end
 
 // CPU interface
-always @(posedge clk, posedge rst) begin
+always @(posedge clk) begin
     if( rst ) begin
         dout      <= 8'hff;
         last_read <= 0;

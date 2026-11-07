@@ -57,8 +57,8 @@ module subslot (
     // Read enable is active when chip select and read request are active
     wire mapper_rd = mapper_cs && cpu_bus.rd;// && ~expander_wo;
 
-    // On clock or reset, update the mapper_slot data
-    always @(posedge cpu_bus.clk or posedge cpu_bus.reset) begin
+    // Sync reset: async reset loading a non-constant init was synthesized as latches
+    always_ff @(posedge cpu_bus.clk) begin
         if (cpu_bus.reset) begin
             // Initialize mapper_slot array on reset
             mapper_slot[0] <= slot_expander_conf[0].init;

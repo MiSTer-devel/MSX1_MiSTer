@@ -75,11 +75,12 @@ module reset_status (
     output       [7:0] status
 );
     logic [7:0] r_status;
-    always_ff @(posedge clk or posedge reset) begin
+    // Sync reset: async reset loading a non-constant value was synthesized as latches
+    always_ff @(posedge clk) begin
         if (reset) begin
-            r_status = inverted ? 8'hFF : 8'h00;
+            r_status <= inverted ? 8'hFF : 8'h00;
         end else if (wr) begin
-            r_status = inverted ? data | 8'h7F : (r_status & 8'h20) | (data & 8'hA0);
+            r_status <= inverted ? data | 8'h7F : (r_status & 8'h20) | (data & 8'hA0);
         end
     end
 

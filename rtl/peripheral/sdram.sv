@@ -22,7 +22,8 @@ module sdram
 (
     input             init,        // reset to initialize RAM
     input             clk,         // clock 64MHz
-   
+    input             core_phase,  // toggles every clk_core cycle (clk = 4x clk_core, aligned)
+
     input             doRefresh,
 
     inout  reg [15:0] SDRAM_DQ,    // 16 bit bidirectional data bus
@@ -55,6 +56,16 @@ module sdram
     output reg        ch3_ready,
 	output reg        ch3_done
 );
+
+// ch1 is driven by clk_core combinational logic (CPU address decode, longer than one clk
+// period). It is sampled only on the 2nd clk edge after a clk_core edge, which makes
+// a 2-cycle multicycle constraint clk_core -> ch1 capture registers valid (MSX1.sdc).
+reg core_phase_1, core_phase_2;
+always @(posedge clk) begin
+    core_phase_1 <= core_phase;
+    core_phase_2 <= core_phase_1;
+end
+wire ch1_sample = core_phase_1 ^ core_phase_2;
 
 assign SDRAM_nCS  = chip;
 assign SDRAM_nRAS = command[2];
@@ -125,17 +136,19 @@ always @(posedge clk) begin
     
     reg        doRefresh_1;
     
-    ch1_req_1 <= memory_bus_ch1.ram_cs;
     ch2_req_1 <= ch2_req;
     ch3_req_1 <= ch3_req;
-      
+
     doRefresh_1 <= doRefresh;
 
-    if (memory_bus_ch1.ram_cs & ~ch1_req_1) begin
-        ch1_rq     <= 1;
-        ch1_rnw_1  <= memory_bus_ch1.rnw;
-        ch1_addr_1 <= memory_bus_ch1.addr;
-        ch1_din_1  <= memory_bus_ch1.data;
+    if (ch1_sample) begin
+        ch1_req_1 <= memory_bus_ch1.ram_cs;
+        if (memory_bus_ch1.ram_cs & ~ch1_req_1) begin
+            ch1_rq     <= 1;
+            ch1_rnw_1  <= memory_bus_ch1.rnw;
+            ch1_addr_1 <= memory_bus_ch1.addr;
+            ch1_din_1  <= memory_bus_ch1.data;
+        end
     end
     if (ch2_req & ~ch2_req_1) begin
         ch2_rq <= 1;
@@ -228,7 +241,7 @@ always @(posedge clk) begin
                 chip          <= 0;
             end 
             else if(ch1_rq) begin
-                if (memory_bus_ch1.rnw)
+                if (ch1_rnw_1)      // captured value; live rnw may already belong to the next access
                     {cas_addr[12:9],SDRAM_BA,SDRAM_A,cas_addr[8:0]} <= {2'b00, 1'b1, ch1_addr_1[25:1]};
                 else
                     {cas_addr[12:9],SDRAM_BA,SDRAM_A,cas_addr[8:0]} <= {~ch1_addr_1[0],ch1_addr_1[0], 1'b1, ch1_addr_1[25:1]};

@@ -716,6 +716,7 @@ sdram sdram
 (
    .init(~locked_sdram),
    .clk(clk_sdram),
+   .core_phase(clock_bus.ce_10m7_p),   // clkdiv4[0]: register toggling every clk_core cycle
    .doRefresh(1'd0),
 
    .memory_bus_ch1(memory_bus_sdram_ch1),

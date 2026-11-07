@@ -91,7 +91,7 @@ module mapper_eseRam (
     assign mmc_enable = bank[0][7:6] == 2'b01 && cpu_bus.addr[15:13] == 3'b010 && megaSD_enable;
     assign ram_addr   = {7'b0, bank_base, cpu_bus.addr[12:0]};                   
     
-    assign out.ram_cs = cs && (cpu_bus.rd && ~mmc_enable) || ram_wr;
+    assign out.ram_cs = cs && ((cpu_bus.rd && ~mmc_enable) || ram_wr);   // only in own slot
     assign out.addr   = cs ? ram_addr : {27{1'b1}};
     assign out.rnw    = cs ? ~ram_wr : 1'b1;
     assign out.data   = cs && mmc_enable ? ext_SD_card_bus.data_from_SD : '1;

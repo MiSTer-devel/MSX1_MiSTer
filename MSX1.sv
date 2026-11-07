@@ -252,8 +252,8 @@ wire      [63:0] img_size;
 wire             img_readonly;
 wire      [15:0] sdram_sz;
 wire      [64:0] rtc;
-wire             reset;
-wire             hard_reset;
+logic            reset      = 1'b1;    // registered in clk_core, see CLOCKS / RESET
+logic            hard_reset = 1'b1;
 wire      [31:0] uart_speed;
 
 //[0]     RESET
@@ -327,8 +327,6 @@ localparam CONF_STR = {
    "I,BAD MSX CONF,NOT SUPPORTED CONF,NOT SUPPORTED BLOCK,BAD MSX FW CONF,NOT FW CONF,DEVICE MISSING,Exceeded number of IO_DEVICE,No CRC32 DB,Not find CRC32 in DB,SMALL MEMORY;",
    "V,v",`BUILD_DATE
 };
-assign hard_reset = RESET || status[0] || upload_reset;
-assign reset = hard_reset || status[10] || status[21] || (status[12] && block_device_SD.device_mp.img_mounted && io_device[DEV_WD2793][0].enable) ;
 
 wire [15:0] status_menumask;
 wire [1:0] sdram_size;
@@ -417,6 +415,19 @@ clock #(.sysCLK(sysCLK)) clock
 (
    .clock_bus(clock_bus)
 );
+
+/////////////////   RESET   /////////////////
+// Async sources (HPS reset, PLL not locked) are synchronized per clock domain
+// (async assert, sync release); the core reset is then a single register.
+wire rst_core_async, sdram_init;
+reset_sync rst_sync_core  (.clk(clk_core),  .arst(RESET || ~locked_sdram), .rst(rst_core_async));
+reset_sync rst_sync_sdram (.clk(clk_sdram), .arst(~locked_sdram),          .rst(sdram_init));
+
+always_ff @(posedge clk_core) begin
+   hard_reset <= rst_core_async || status[0] || upload_reset;
+   reset      <= rst_core_async || status[0] || upload_reset || status[10] || status[21]
+              || (status[12] && block_device_SD.device_mp.img_mounted && io_device[DEV_WD2793][0].enable);
+end
 
 ///////////////// Computer /////////////////
 wire  [7:0] R, G, B, cpu_din, cpu_dout;
@@ -715,7 +726,7 @@ wire  [24:0] dw_sdram_addr;
 wire   [7:0] sdram_dout, dw_sdram_din;
 sdram sdram
 (
-   .init(~locked_sdram),
+   .init(sdram_init),
    .clk(clk_sdram),
    .core_phase(clock_bus.ce_10m7_p),   // clkdiv4[0]: register toggling every clk_core cycle
    .doRefresh(1'd0),

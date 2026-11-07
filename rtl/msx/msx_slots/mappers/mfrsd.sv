@@ -229,10 +229,9 @@ module mapper_mfrsd1 (
     assign out.addr                       = ram_oe ? ram_addr[26:0] : {27{1'b1}};   // Output address, or '1 if not enabled
     assign out.ram_cs                     = ram_oe;                           // RAM chip select signal
     assign out.rnw                        = 1'b1;
-    assign out.data                       = flash_bus.data_valid ? flash_bus.data_from_flash    :
-                                                                   8'hFF                        ;
 
     // outputs not used by this mapper: neutral for the merge in mappers.sv
+    assign out.data    = 8'hFF;   // flash read data comes from mfrsd3 (shared data_valid)
     assign out.sram_cs = 1'b0;
     assign device_out.device_ref = 3'd0;
     assign device_out.we         = 1'b0;
@@ -390,10 +389,7 @@ module mapper_mfrsd (
 );
 
     MSX::mfrsd_config_t config_reg;
-    MSX::mapper_out_t mfrsd0_out;
-    MSX::mapper_out_t mfrsd1_out;
-    MSX::mapper_out_t mfrsd2_out;
-    MSX::mapper_out_t mfrsd3_out;
+    MSX::mapper_out_t sub_out[4];      // index = MFRSD subslot
     flash_bus_if flash_bus_mfrsd1();
     flash_bus_if flash_bus_mfrsd3();
 
@@ -402,20 +398,11 @@ module mapper_mfrsd (
     
     assign slot_expander_force_en = config_reg.isSlotExpanderEnabled && mfrds_cs;
 
-    assign out.addr   = mfrsd0_out.addr
-                      & mfrsd1_out.addr
-                      & mfrsd2_out.addr
-                      & mfrsd3_out.addr;
-
-    assign out.rnw    = mfrsd2_out.rnw;
-
-    assign out.data   = mfrsd3_out.data;
-
-    assign out.ram_cs = mfrsd0_out.ram_cs
-                      | mfrsd1_out.ram_cs
-                      | mfrsd2_out.ram_cs
-                      | mfrsd3_out.ram_cs;
-
+    always_comb begin
+        out = MSX::MAPPER_OUT_IDLE;
+        for (int i = 0; i < 4; i++)
+            out = MSX::mapper_out_merge(out, sub_out[i]);
+    end
 
     assign flash_bus.base_addr = flash_bus_mfrsd1.base_addr
                                | flash_bus_mfrsd3.base_addr;
@@ -448,7 +435,7 @@ module mapper_mfrsd (
         .ext_SD_card_bus(ext_SD_card_bus),
         .flash_bus(flash_bus_mfrsd3),
         .block_info(block_info),
-        .out(mfrsd3_out),
+        .out(sub_out[3]),
         .config_reg(config_reg)
     );
 
@@ -456,7 +443,7 @@ module mapper_mfrsd (
     mapper_mfrsd2 mapper_mfrsd2 (
         .cpu_bus(cpu_bus),
         .block_info(block_info),
-        .out(mfrsd2_out),
+        .out(sub_out[2]),
         .config_reg(config_reg),
         .data_to_mapper(data_to_mapper)
     );
@@ -466,7 +453,7 @@ module mapper_mfrsd (
         .cpu_bus(cpu_bus),
         .flash_bus(flash_bus_mfrsd1),
         .block_info(block_info),
-        .out(mfrsd1_out),
+        .out(sub_out[1]),
         .device_out(device_out),
         .config_reg(config_reg),
         .data_to_mapper(data_to_mapper)
@@ -475,12 +462,8 @@ module mapper_mfrsd (
     mapper_mfrsd0 mapper_mfrsd0 (
         .cpu_bus(cpu_bus),
         .block_info(block_info),
-        .out(mfrsd0_out),
+        .out(sub_out[0]),
         .config_reg(config_reg)
     );
-
-
-    // outputs not used by this mapper: neutral for the merge in mappers.sv
-    assign out.sram_cs = 1'b0;
 
 endmodule

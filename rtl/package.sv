@@ -339,7 +339,7 @@ endinterface
 package MSX;
 
     // One-directional bundles (driver -> readers) between slots, mappers and devices.
-    // Inactive values are neutral for the wired-AND / OR merge in mappers.sv.
+    // Inactive values are neutral for the wired-AND / OR merge (*_merge below).
     typedef struct packed {
         logic [26:0] addr;      // '1 when inactive (AND)
         logic        rnw;       // 1 when inactive (AND)
@@ -366,7 +366,32 @@ package MSX;
         logic        param;     // 1 when inactive (AND)
         logic  [7:0] data;      // FF when inactive
     } device_bus_t;            // mappers (cartridge devices) -> devices
-    
+
+    // Inactive (neutral) values and pairwise merge of the bundles above.
+    localparam mapper_out_t MAPPER_OUT_IDLE = {27'h7FFFFFF, 1'b1, 1'b0, 1'b0, 8'hFF};
+    localparam device_bus_t DEVICE_BUS_IDLE = {3'd0, 1'b0, 1'b0, 1'b1, 1'b1, 8'hFF};
+
+    function automatic mapper_out_t mapper_out_merge(input mapper_out_t a, input mapper_out_t b);
+        mapper_out_t r;
+        r.addr    = a.addr    & b.addr;
+        r.rnw     = a.rnw     & b.rnw;
+        r.ram_cs  = a.ram_cs  | b.ram_cs;
+        r.sram_cs = a.sram_cs | b.sram_cs;
+        r.data    = a.data    & b.data;
+        return r;
+    endfunction
+
+    function automatic device_bus_t device_bus_merge(input device_bus_t a, input device_bus_t b);
+        device_bus_t r;
+        r.device_ref = a.device_ref | b.device_ref;
+        r.we         = a.we         | b.we;
+        r.en         = a.en         | b.en;
+        r.mode       = a.mode       & b.mode;
+        r.param      = a.param      & b.param;
+        r.data       = a.data       & b.data;
+        return r;
+    endfunction
+
     typedef struct {
         logic           border;
         cas_audio_src_t cas_audio_src;

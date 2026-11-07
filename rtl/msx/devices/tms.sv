@@ -83,7 +83,9 @@ module dev_tms (
         .reset_n_i(~cpu_bus.reset),
 
         .csr_n_i(~(cs_enable && cpu_bus.rd)),
-        .csw_n_i(~(cs_enable && cpu_bus.wr && cpu_bus.req)),
+        // Level strobe like the real /CSW: vdp18_cpuio samples only on clk_en_10m7,
+        // a 1-clk req pulse was seen only when its phase happened to match
+        .csw_n_i(~(cs_enable && cpu_bus.wr)),
         .mode_i(cpu_bus.addr[0]),
         .cd_i(cpu_bus.data),
         .cd_o(q),

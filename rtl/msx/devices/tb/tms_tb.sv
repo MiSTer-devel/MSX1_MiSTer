@@ -10,7 +10,7 @@ clock_bus_if clock_bus(clk, clk);
 clock #(.sysCLK(21477270)) u_clock (.clock_bus(clock_bus));
 
 cpu_bus_if cpu_bus(clk, rst);
-video_bus_if video_bus();
+MSX::video_t video_bus;
 vram_bus_if  vram_bus();
 MSX::io_device_t io_device[3];
 

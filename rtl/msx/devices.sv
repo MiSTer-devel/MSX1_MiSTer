@@ -41,7 +41,7 @@ module devices  #(parameter sysCLK)
     cpu_bus_if.device_mp    cpu_bus,                                // CPU bus interface
     input  MSX::device_bus_t device_bus,                             // Device control bus interface
     FDD_if.FDC_mp           FDD_bus[3],
-    video_bus_if.device_mp  video_bus,
+    output MSX::video_t     video_bus,
     vram_bus_if.device_mp   vram_bus,
     memory_bus_if.device_mp memory_bus,
     input  MSX::block_info_t block_info,
@@ -73,9 +73,8 @@ module devices  #(parameter sysCLK)
     output [1:0]            ocm_slot2_mode
 );
 
-    video_bus_if            video_bus_tms();
+    MSX::video_t            video_bus_tms, video_bus_v99;
     vram_bus_if             vram_bus_tms();
-    video_bus_if            video_bus_v99();
     vram_bus_if             vram_bus_v99();
 
     // Výstupy kombinující jednotlivé zařízení
@@ -95,20 +94,12 @@ module devices  #(parameter sysCLK)
     // VIDEO interfaces
     assign cpu_interrupt     = tms_interrupt | v99_interrupt | opm_irq | ym2148_irq;
 
-    assign video_bus.R       = video_bus_tms.R              | video_bus_v99.R;          // default black
-    assign video_bus.G       = video_bus_tms.G              | video_bus_v99.G;          // default black
-    assign video_bus.B       = video_bus_tms.B              | video_bus_v99.B;          // default black
-    assign video_bus.DE      = video_bus_tms.DE             | video_bus_v99.DE;
-    assign video_bus.HS      = video_bus_tms.HS             | video_bus_v99.HS;
-    assign video_bus.VS      = video_bus_tms.VS             | video_bus_v99.VS;
-    assign video_bus.hblank  = video_bus_tms.hblank         | video_bus_v99.hblank;
-    assign video_bus.vblank  = video_bus_tms.vblank         | video_bus_v99.vblank;
-    assign video_bus.ce_pix  = video_bus_tms.ce_pix         | video_bus_v99.ce_pix;
+    assign video_bus         = video_bus_tms | video_bus_v99;     // only the enabled VDP drives
 
-    assign vram_bus.addr     = vram_bus_tms.device_mp.addr  & vram_bus_v99.device_mp.addr;
-    assign vram_bus.data     = vram_bus_tms.device_mp.data  & vram_bus_v99.device_mp.data;
-    assign vram_bus.we_lo    = vram_bus_tms.device_mp.we_lo | vram_bus_v99.device_mp.we_lo;
-    assign vram_bus.we_hi    = vram_bus_tms.device_mp.we_hi | vram_bus_v99.device_mp.we_hi;
+    assign vram_bus.addr     = vram_bus_tms.addr  & vram_bus_v99.addr;
+    assign vram_bus.data     = vram_bus_tms.data  & vram_bus_v99.data;
+    assign vram_bus.we_lo    = vram_bus_tms.we_lo | vram_bus_v99.we_lo;
+    assign vram_bus.we_hi    = vram_bus_tms.we_hi | vram_bus_v99.we_hi;
 
     assign vram_bus_tms.q_lo = vram_bus.q_lo;
     assign vram_bus_tms.q_hi = vram_bus.q_hi;

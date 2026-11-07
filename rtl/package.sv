@@ -265,24 +265,6 @@ interface flash_bus_if;
     );
 endinterface
 
-interface video_bus_if;
-    logic  [7:0] R;
-    logic  [7:0] G;
-    logic  [7:0] B;
-    logic        DE;
-    logic        HS;
-    logic        VS;
-    logic        hblank;
-    logic        vblank;
-    logic        ce_pix;
-
-    modport device_mp (
-        output R, G, B, DE, HS, VS, hblank, vblank, ce_pix
-    );
-    modport display_mp (
-        input R, G, B, DE, HS, VS, hblank, vblank, ce_pix
-    );
-endinterface
 
 interface vram_bus_if;
     logic   [7:0] q_lo;
@@ -364,12 +346,16 @@ package MSX;
         logic        en;        // OR
         logic        mode;      // 1 when inactive (AND)
         logic        param;     // 1 when inactive (AND)
-        logic  [7:0] data;      // FF when inactive
     } device_bus_t;            // mappers (cartridge devices) -> devices
+
+    typedef struct packed {
+        logic  [7:0] R, G, B;
+        logic        DE, HS, VS, hblank, vblank, ce_pix;
+    } video_t;                 // VDP -> video output; inactive VDP drives 0 (OR merge)
 
     // Inactive (neutral) values and pairwise merge of the bundles above.
     localparam mapper_out_t MAPPER_OUT_IDLE = {27'h7FFFFFF, 1'b1, 1'b0, 1'b0, 8'hFF};
-    localparam device_bus_t DEVICE_BUS_IDLE = {3'd0, 1'b0, 1'b0, 1'b1, 1'b1, 8'hFF};
+    localparam device_bus_t DEVICE_BUS_IDLE = {3'd0, 1'b0, 1'b0, 1'b1, 1'b1};
 
     function automatic mapper_out_t mapper_out_merge(input mapper_out_t a, input mapper_out_t b);
         mapper_out_t r;
@@ -388,7 +374,6 @@ package MSX;
         r.en         = a.en         | b.en;
         r.mode       = a.mode       & b.mode;
         r.param      = a.param      & b.param;
-        r.data       = a.data       & b.data;
         return r;
     endfunction
 

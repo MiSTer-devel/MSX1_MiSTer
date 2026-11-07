@@ -122,6 +122,5 @@ module mapper_fm_pac (
     assign device_out.device_ref = 3'd0;
     assign device_out.mode       = 1'b1;
     assign device_out.param      = 1'b1;
-    assign device_out.data       = 8'hFF;
 
 endmodule

@@ -1,11 +1,11 @@
-   module msx #(parameter sysCLK)
+module msx #(parameter sysCLK)
 (
    input                    core_reset,
    input                    core_hard_reset,
    //Clock
    clock_bus_if.base_mp     clock_bus,
    //Video
-   video_bus_if.device_mp   video_bus,
+   output MSX::video_t      video_bus,
    vram_bus_if.device_mp    vram_bus,
    //Ext SD card
    ext_sd_card_if.device_mp ext_SD_card_bus,
@@ -60,17 +60,37 @@
 	*/
 );
 
-MSX::device_bus_t device_bus;
-MSX::block_info_t block_info;
-cpu_bus_if cpu_bus(clock_bus.clk, reset);
-memory_bus_if memory_bus_slots();
-memory_bus_if memory_bus_devices();
+//  -----------------------------------------------------------------------------
+//  -- Internal signals
+//  -----------------------------------------------------------------------------
+logic                reset = '0;
+logic                iack;
+wire                 cpu_interrupt;
+wire           [7:0] d_to_cpu;
+wire                 m1_n, mreq_n, iorq_n, rd_n, wr_n, rfsh_n;
+wire           [1:0] active_slot;
+logic                bus_read;
+wire           [7:0] device_data;
+wire                 device_oe_rq;
+wire           [7:0] d_from_slots;
+wire                 slot_oe_rq;
+wire           [7:0] data_to_mapper;
+wire           [7:0] slot_config;
+wire                 keybeep;
+wire                 reset_lock, reset_request;
+wire                 ocm_megaSD_enable, ocm_slot1_mode;
+wire           [1:0] ocm_slot2_mode;
+wire signed   [15:0] device_sound_L, device_sound_R;
 
+MSX::device_bus_t    device_bus;
+MSX::block_info_t    block_info;
+cpu_bus_if           cpu_bus(clock_bus.clk, reset);
+memory_bus_if        memory_bus_slots();
+memory_bus_if        memory_bus_devices();
 
 //  -----------------------------------------------------------------------------
 //  -- reset
 //  -----------------------------------------------------------------------------
-   logic reset = '0;
    always_ff @(posedge clock_bus.clk) begin
       reset <= core_hard_reset || (core_reset && ~reset_lock) || reset_request;
    end
@@ -84,20 +104,15 @@ assign audio_R = device_sound_R;
 //  -----------------------------------------------------------------------------
 //  -- T80 CPU
 //  -----------------------------------------------------------------------------
-wire [7:0] d_to_cpu;
-wire cpu_interrupt;
-wire m1_n, mreq_n, iorq_n, rd_n, wr_n, rfsh_n;
+assign cpu_bus.mreq    = ~mreq_n;
+assign cpu_bus.iorq    = ~iorq_n;
+assign cpu_bus.m1      = ~m1_n;
+assign cpu_bus.rd      = ~rd_n;
+assign cpu_bus.wr      = ~wr_n;
+assign cpu_bus.rfsh    = ~rfsh_n;
+assign cpu_bus.int_rq  = cpu_interrupt;
+assign cpu_bus.req     = ~((iorq_n & mreq_n) | (wr_n & rd_n) | iack);
 
-assign cpu_bus.cpu_mp.mreq    = ~mreq_n;
-assign cpu_bus.cpu_mp.iorq    = ~iorq_n;
-assign cpu_bus.cpu_mp.m1      = ~m1_n;
-assign cpu_bus.cpu_mp.rd      = ~rd_n;
-assign cpu_bus.cpu_mp.wr      = ~wr_n;
-assign cpu_bus.cpu_mp.rfsh    = ~rfsh_n;
-assign cpu_bus.cpu_mp.int_rq = cpu_interrupt;
-assign cpu_bus.cpu_mp.req     = ~((iorq_n & mreq_n) | (wr_n & rd_n) | iack);
-
-logic iack;
 always_ff @(posedge cpu_bus.clk) begin
    if (cpu_bus.reset)
    iack <= 0;
@@ -105,7 +120,7 @@ always_ff @(posedge cpu_bus.clk) begin
    if (iorq_n && mreq_n)
       iack <= 0;
    else
-      if (cpu_bus.cpu_mp.req)
+      if (cpu_bus.req)
          iack <= 1;
    end
 end
@@ -124,26 +139,23 @@ msx_cpu cpu (
    .rd_n      (rd_n),
    .wr_n      (wr_n),
    .rfsh_n    (rfsh_n),
-   .addr      (cpu_bus.cpu_mp.addr),
-   .dout      (cpu_bus.cpu_mp.data)
+   .addr      (cpu_bus.addr),
+   .dout      (cpu_bus.data)
 );
 
 //  -----------------------------------------------------------------------------
 //  -- Slots
 //  -----------------------------------------------------------------------------
-wire [1:0] active_slot;
-
-assign active_slot =    //~map_valid                             ? default_slot   :
-                        cpu_bus.device_mp.addr[15:14] == 2'b00 ? slot_config[1:0] :
-                        cpu_bus.device_mp.addr[15:14] == 2'b01 ? slot_config[3:2] :
-                        cpu_bus.device_mp.addr[15:14] == 2'b10 ? slot_config[5:4] :
-                                                                 slot_config[7:6] ;
+assign active_slot =    //~map_valid                ? default_slot   :
+                        cpu_bus.addr[15:14] == 2'b00 ? slot_config[1:0] :
+                        cpu_bus.addr[15:14] == 2'b01 ? slot_config[3:2] :
+                        cpu_bus.addr[15:14] == 2'b10 ? slot_config[5:4] :
+                                                    slot_config[7:6] ;
 
 //  -----------------------------------------------------------------------------
 //  -- CPU data multiplex
 //  -----------------------------------------------------------------------------
-logic bus_read;
-assign bus_read = cpu_bus.device_mp.rd || (cpu_bus.iorq && cpu_bus.device_mp.m1);
+assign bus_read = cpu_bus.rd || (cpu_bus.iorq && cpu_bus.m1);
 assign d_to_cpu = ~bus_read               ? 8'hFF           :
                   device_oe_rq            ? device_data     :                       // prior data
                   slot_oe_rq              ? d_from_slots    :                       // prior data
@@ -163,17 +175,8 @@ assign memory_bus.data    = memory_bus_slots.data    & memory_bus_devices.data;
 assign memory_bus_slots.q   = memory_bus.q;
 assign memory_bus_devices.q = memory_bus.q;
 
-wire  [7:0] device_data;
-wire  [7:0] data_to_mapper;
-wire  [7:0] slot_config;
-wire        device_oe_rq;
-wire        keybeep;
-wire        reset_lock, reset_request, ocm_megaSD_enable;
-wire [1:0]  ocm_slot2_mode;
-wire        ocm_slot1_mode;
 //wire [1:0]  dev_cpu_clock_sel;
 //wire        dev_cpu_wait;
-wire signed [15:0] device_sound_L, device_sound_R;
 devices #(.sysCLK(sysCLK)) devices
 (
    .clock_bus(clock_bus),
@@ -212,8 +215,6 @@ devices #(.sysCLK(sysCLK)) devices
    .ocm_slot2_mode(ocm_slot2_mode)
 );
 
-wire  [7:0] d_from_slots;
-wire        slot_oe_rq;
 msx_slots msx_slots
 (
    .clock_bus(clock_bus),

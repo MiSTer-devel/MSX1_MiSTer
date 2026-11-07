@@ -208,6 +208,5 @@ module mapper_megaram (
     assign device_out.we         = 1'b0;
     assign device_out.mode       = 1'b1;
     assign device_out.param      = 1'b1;
-    assign device_out.data       = 8'hFF;
 
 endmodule

@@ -139,6 +139,5 @@ module mapper_konami_scc (
     assign out.data    = 8'hFF;
     assign device_out.device_ref = 3'd0;
     assign device_out.we         = 1'b0;
-    assign device_out.data       = 8'hFF;
 
 endmodule

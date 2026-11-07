@@ -235,7 +235,6 @@ module mapper_mfrsd1 (
     assign out.sram_cs = 1'b0;
     assign device_out.device_ref = 3'd0;
     assign device_out.we         = 1'b0;
-    assign device_out.data       = 8'hFF;
 
 endmodule
 

@@ -232,7 +232,6 @@ module mappers (
     assign device_bus.mode       = device_merged.mode;
     assign device_bus.param      = device_merged.param;
     assign device_bus.device_ref = cpu_bus.mreq ? block_info.device_ref : '0;
-    assign device_bus.data       = 8'hFF;               // no mapper drives device data
 
     // SDCARD
     assign ext_SD_card_bus.rx             = ext_SD_card_ese.rx         |  ext_SD_card_mfrsd.rx;

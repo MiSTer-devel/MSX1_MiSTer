@@ -197,7 +197,7 @@ assign BUTTONS = 0;
 localparam VDNUM = 7;
 localparam sysCLK = 21477270;
 
-video_bus_if video_bus();
+MSX::video_t video_bus;
 clock_bus_if clock_bus(clk_core, clk_sdram);
 ext_sd_card_if ext_SD_card_bus();
 flash_bus_if flash_bus();
@@ -205,7 +205,6 @@ vram_bus_if vram_bus();
 FDD_if FDD_bus[3]();
 block_device_if block_device_FDD[6]();
 block_device_if block_device_SD();
-block_device_if block_device_nvram[4]();
 memory_bus_if memory_bus_msx();
 memory_bus_if memory_bus_upload();
 memory_bus_if memory_bus_flash();
@@ -348,7 +347,7 @@ assign info     = 8'(error);
 
 hps_io #(.CONF_STR(CONF_STR),.VDNUM(VDNUM)) hps_io
 (
-   .clk_sys(clock_bus.base_mp.clk),
+   .clk_sys(clock_bus.clk),
    .HPS_BUS(HPS_BUS),
    .EXT_BUS(),
    .gamma_bus(gamma_bus),
@@ -389,7 +388,7 @@ wire [5:0] mapper_A, mapper_B;
 wire       reload, ROM_A_load_hide, ROM_B_load_hide;
 user_config user_config
 (
-   .clk(clock_bus.base_mp.clk),
+   .clk(clock_bus.clk),
    .reset(reset),
    .HPS_status(status[63:0]),
    .sdram_size(sdram_size),
@@ -426,7 +425,7 @@ reset_sync rst_sync_sdram (.clk(clk_sdram), .arst(~locked_sdram),          .rst(
 always_ff @(posedge clk_core) begin
    hard_reset <= rst_core_async || status[0] || upload_reset;
    reset      <= rst_core_async || status[0] || upload_reset || status[10] || status[21]
-              || (status[12] && block_device_SD.device_mp.img_mounted && io_device[DEV_WD2793][0].enable);
+              || (status[12] && block_device_SD.img_mounted && io_device[DEV_WD2793][0].enable);
 end
 
 ///////////////// Computer /////////////////
@@ -472,7 +471,7 @@ wire       uart_rx;
 
 uart_rx #(.sysCLK(sysCLK)) uart_rx_i
 (
-   .clk(clock_bus.base_mp.clk),
+   .clk(clock_bus.clk),
    .reset(reset),
    .rx(UART_RXD),
    .uart_speed(uart_speed),
@@ -487,7 +486,7 @@ wire vsdmiso;
 wire sdmiso = vsd_sel ? vsdmiso : SD_MISO;
 
 logic vsd_sel = 0;
-always_ff @(posedge clock_bus.base_mp.clk) if(block_device_SD.device_mp.img_mounted) vsd_sel <= |img_size; //TODO je potřeba hlídat náběžnou hranu img mounted
+always_ff @(posedge clock_bus.clk) if(block_device_SD.img_mounted) vsd_sel <= |img_size; //TODO je potřeba hlídat náběžnou hranu img mounted
 
 assign SD_CS   = vsd_sel;
 assign SD_SCK  = sdclk  & ~vsd_sel;
@@ -495,7 +494,7 @@ assign SD_MOSI = sdmosi & ~vsd_sel;
 
 logic sd_act;
 logic [31:0] timeout = 0;
-always_ff @(posedge clock_bus.base_mp.clk) begin
+always_ff @(posedge clock_bus.clk) begin
     logic old_mosi, old_miso;
 
     old_mosi <= sdmosi;
@@ -513,7 +512,7 @@ end
 //////////////////   SPI   ///////////////////
 spi_divmmc spi
 (
-   .clk_sys(clock_bus.base_mp.clk),
+   .clk_sys(clock_bus.clk),
    .ext_SD_card_bus(ext_SD_card_bus),
    .ready(),
 
@@ -526,17 +525,17 @@ spi_divmmc spi
 sd_card sd_card
 (
     .reset(reset),
-    .clk_sys(clock_bus.base_mp.clk),
-    .img_mounted(block_device_SD.device_mp.img_mounted),
+    .clk_sys(clock_bus.clk),
+    .img_mounted(block_device_SD.img_mounted),
     .img_size(img_size),
-    .sd_lba(block_device_SD.device_mp.lba),
-    .sd_rd(block_device_SD.device_mp.rd),
-    .sd_wr(block_device_SD.device_mp.wr),
-    .sd_ack(block_device_SD.device_mp.ack),
-    .sd_buff_addr(block_device_SD.device_mp.buff_addr[8:0]),
-    .sd_buff_dout(block_device_SD.device_mp.buff_dout),
-    .sd_buff_din(block_device_SD.device_mp.buff_din),
-    .sd_buff_wr(block_device_SD.device_mp.buff_wr),
+    .sd_lba(block_device_SD.lba),
+    .sd_rd(block_device_SD.rd),
+    .sd_wr(block_device_SD.wr),
+    .sd_ack(block_device_SD.ack),
+    .sd_buff_addr(block_device_SD.buff_addr[8:0]),
+    .sd_buff_dout(block_device_SD.buff_dout),
+    .sd_buff_din(block_device_SD.buff_din),
+    .sd_buff_wr(block_device_SD.buff_wr),
 
     .clk_spi(clk_sdram),
     .sdhc(1),
@@ -564,7 +563,7 @@ video_freak video_freak
 (
 	.*,
 	.VGA_DE_IN(vga_de),
-   .VGA_VS(video_bus.display_mp.VS),
+   .VGA_VS(video_bus.VS),
 	.ARX((ar == 0) ? 12'd4 : {10'b0, (ar - 1'd1)}),
 	.ARY((ar == 0) ? 12'd3 : 12'd0),
 	.CROP_SIZE(en216p ? 12'd216 : 12'd0),
@@ -579,14 +578,14 @@ video_mixer #(.GAMMA(1), .LINE_LENGTH(582)) video_mixer
    .scandoubler(scandoubler),
    .gamma_bus(gamma_bus),
 
-   .ce_pix(video_bus.display_mp.ce_pix),
-   .R(video_bus.display_mp.R),
-   .G(video_bus.display_mp.G),
-   .B(video_bus.display_mp.B),
-   .HSync(video_bus.display_mp.HS),
-   .VSync(video_bus.display_mp.VS),
-   .HBlank(video_bus.display_mp.hblank),
-   .VBlank(video_bus.display_mp.vblank),
+   .ce_pix(video_bus.ce_pix),
+   .R(video_bus.R),
+   .G(video_bus.G),
+   .B(video_bus.B),
+   .HSync(video_bus.HS),
+   .VSync(video_bus.VS),
+   .HBlank(video_bus.hblank),
+   .VBlank(video_bus.vblank),
 
    .HDMI_FREEZE(0),
    .freeze_sync(),
@@ -607,7 +606,7 @@ assign tape_in = tape_adc_act & tape_adc;
 
 ltc2308_tape #(.ADC_RATE(120000), .CLK_RATE(21477272)) tape
 (
-   .clk(clock_bus.base_mp.clk),
+   .clk(clock_bus.clk),
    .ADC_BUS(ADC_BUS),
    .dout(tape_adc),
    .active(tape_adc_act)
@@ -625,7 +624,7 @@ error_t     error;
 MSX::kb_memory_t  kb_upload_memory;
 
 memory_upload memory_upload(
-    .clk(clock_bus.base_mp.clk),
+    .clk(clock_bus.clk),
     .upload(upload),
     .ioctl_download(ioctl_download),
     .ioctl_index(ioctl_index),
@@ -655,7 +654,7 @@ wire  [26:0] flash_addr;
 wire   [7:0] flash_dout;
 wire         flash_req, flash_ready, flash_done;
 flash flash (
-   .clk(clock_bus.base_mp.clk),
+   .clk(clock_bus.clk),
    .clk_sdram(clk_sdram),
    .flash_bus(flash_bus),
 
@@ -689,7 +688,7 @@ wire        ddr3_rd, ddr3_rd_download, ddr3_rd_cas, ddr3_wr_download, ddr3_ready
 
 assign ddr3_addr = ddr3_request_download ? ddr3_addr_download : ddr3_addr_cas ;
 assign ddr3_rd   = ddr3_request_download ? ddr3_rd_download   : ddr3_rd_cas   ;
-assign DDRAM_CLK = clock_bus.base_mp.clk;
+assign DDRAM_CLK = clock_bus.clk;
 
 
 logic [63:0] dout64;
@@ -709,7 +708,7 @@ ddram buffer
 );
 
 system_memory #(.BRAM_WIDTH(18)) system_memory(
-   .clk(clock_bus.base_mp.clk),
+   .clk(clock_bus.clk),
    .memory_bus_msx(memory_bus_msx),
    .memory_bus_upload(memory_bus_upload),
    .memory_bus_flash(memory_bus_flash),
@@ -753,19 +752,19 @@ sdram sdram
 // VDP video RAM
 spram #(.addr_width(16),.mem_name("VRA2")) vram_lo
 (
-   .clock(clock_bus.base_mp.clk),
-   .address(vram_bus.vram_mp.addr),
-   .wren(vram_bus.vram_mp.we_lo),
-   .data(vram_bus.vram_mp.data),
-   .q(vram_bus.vram_mp.q_lo)
+   .clock(clock_bus.clk),
+   .address(vram_bus.addr),
+   .wren(vram_bus.we_lo),
+   .data(vram_bus.data),
+   .q(vram_bus.q_lo)
 );
 spram #(.addr_width(16),.mem_name("VRA3")) vram_hi
 (
-   .clock(clock_bus.base_mp.clk),
-   .address(vram_bus.vram_mp.addr),
-   .wren(vram_bus.vram_mp.we_hi),
-   .data(vram_bus.vram_mp.data),
-   .q(vram_bus.vram_mp.q_hi)
+   .clock(clock_bus.clk),
+   .address(vram_bus.addr),
+   .wren(vram_bus.we_hi),
+   .data(vram_bus.data),
+   .q(vram_bus.q_hi)
 );
 
 ///////////////// NVRAM BACKUP ////////////////
@@ -774,7 +773,7 @@ wire [7:0]   backup_ram_din, backup_ram_dout;
 wire         backup_ram_req, backup_ram_rnw, backup_ram_ready;
 nvram_backup nvram_backup
 (
-   .clk(clock_bus.base_mp.clk),
+   .clk(clock_bus.clk),
    .lookup_SRAM(lookup_SRAM),
    .load_req(status[39] | load_sram),
    .save_req(status[38]),
@@ -802,7 +801,7 @@ nvram_backup nvram_backup
 ///////////////// CAS EMULATE /////////////////
 wire ioctl_isCAS, buff_mem_ready, motor, CAS_dout, play, rewind;
 logic cas_load = 0;
-always_ff @(posedge clock_bus.base_mp.clk) begin
+always_ff @(posedge clock_bus.clk) begin
    logic ioctl_download_last;
    if (~ioctl_isCAS & ioctl_download_last )  begin
       cas_load <= 1'b1;
@@ -816,8 +815,8 @@ assign rewind       = status[9] | ioctl_isCAS | reset;
 
 tape cass
 (
-   .clk(clock_bus.base_mp.clk),
-   .ce_5m3(clock_bus.base_mp.ce_5m39_p),
+   .clk(clock_bus.clk),
+   .ce_5m3(clock_bus.ce_5m39_p),
    .cas_out(CAS_dout),
    .ram_a(ddr3_addr_cas),
    .ram_di(ddr3_dout),
@@ -831,12 +830,11 @@ tape cass
 
 blockDevMux #(.VDNUM(VDNUM)) blockDevMux
 (
-   .clk(clock_bus.base_mp.clk),
+   .clk(clock_bus.clk),
    .reset(reset),
    .msx_config(msx_config),
    .block_device_FDD(block_device_FDD),
    .block_device_SD(block_device_SD),
-   .block_device_nvram(block_device_nvram),
    .sd_rd(sd_rd),
    .sd_wr(sd_wr),
    .sd_ack(sd_ack),
@@ -855,7 +853,7 @@ blockDevMux #(.VDNUM(VDNUM)) blockDevMux
 generate
 if (MSX::N_WD2793 > 0) begin : g_fdd0
    fdd #(.sysCLK(sysCLK), .SECTORS(9), .SECTOR_SIZE(512), .TRACKS(80), .ID("FDD0")) fdd0 (
-      .clk(clock_bus.base_mp.clk),
+      .clk(clock_bus.clk),
       .reset(reset),
       .FDD_bus(FDD_bus[0]),
       .block_device(block_device_FDD[0:1]),
@@ -881,7 +879,7 @@ end else begin : g_fdd0_none   // no FDC 0: block devices idle
 end
 if (MSX::N_WD2793 > 1) begin : g_fdd1
    fdd #(.sysCLK(sysCLK), .SECTORS(9), .SECTOR_SIZE(512), .TRACKS(80), .ID("FDD1")) fdd1 (
-      .clk(clock_bus.base_mp.clk),
+      .clk(clock_bus.clk),
       .reset(reset),
       .FDD_bus(FDD_bus[1]),
       .block_device(block_device_FDD[2:3]),
@@ -907,7 +905,7 @@ end else begin : g_fdd1_none   // no FDC 1: block devices idle
 end
 if (MSX::N_WD2793 > 2) begin : g_fdd2
    fdd #(.sysCLK(sysCLK), .SECTORS(9), .SECTOR_SIZE(512), .TRACKS(80), .ID("FDD2")) fdd2 (
-      .clk(clock_bus.base_mp.clk),
+      .clk(clock_bus.clk),
       .reset(reset),
       .FDD_bus(FDD_bus[2]),
       .block_device(block_device_FDD[4:5]),

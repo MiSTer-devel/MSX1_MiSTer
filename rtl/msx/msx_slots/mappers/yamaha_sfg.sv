@@ -72,7 +72,6 @@ module mapper_yamaha_sfg (
 
     assign device_out.en   = dev_en;
     assign device_out.we   = dev_we;
-    assign device_out.data = '1;
 
     // Multiplexing output data
     assign out.ram_cs   = rom_cs && cpu_bus.rd;

@@ -12,12 +12,6 @@
    //Flash acces to SDRAM
    flash_bus_if.device_mp   flash_bus,
    memory_bus_if.device_mp  memory_bus,
-   //debug
-   output MSX::cpu_regs_t   cpu_regs,   
-   output  [31:0]           opcode,
-   output  [1:0]            opcode_num,
-   output                   opcode_out,
-   output logic [15:0]      opcode_PC_start,
    //I/O
    output            [15:0] audio_L,
    output            [15:0] audio_R,
@@ -72,12 +66,6 @@ cpu_bus_if cpu_bus(clock_bus.clk, reset);
 memory_bus_if memory_bus_slots();
 memory_bus_if memory_bus_devices();
 
-//TODO tempoary disabled
-assign cpu_regs        = '{default: '0};
-assign opcode_num      = '0;
-assign opcode_out      = '0;
-assign opcode_PC_start = '0;
-assign opcode          = '0;
 
 //  -----------------------------------------------------------------------------
 //  -- reset

@@ -174,7 +174,6 @@ module emu
 
 
 ///////// Default values for ports not used in this core /////////
-assign ADC_BUS  = 'Z;
 assign USER_OUT = '1;
 assign {UART_RTS, UART_TXD, UART_DTR} = 0;
 
@@ -215,7 +214,6 @@ memory_bus_if memory_bus_sdram_ch1();
 memory_bus_if memory_bus_sdram_ch2();
 memory_bus_if memory_bus_sdram_ch3();
 
-MSX::cpu_regs_t    cpu_regs;
 MSX::user_config_t msx_user_config;
 MSX::config_cart_t cart_conf[2];
 MSX::block_t       slot_layout[64];
@@ -426,10 +424,6 @@ wire [15:0] cpu_addr, audio_L, audio_R;
 wire        cpu_wr, cpu_rd, cpu_mreq, cpu_iorq, cpu_m1;
 wire        sd_tx, sd_rx;
 wire  [7:0] d_to_sd, d_from_sd;
-wire [31:0] opcode;
-wire [1:0]  opcode_num;
-wire        opcode_out;
-wire [15:0] opcode_PC_start;
 assign joy[0] = joy0[5:0];
 assign joy[1] = joy1[5:0];
 msx #(.sysCLK(sysCLK)) MSX
@@ -443,11 +437,6 @@ msx #(.sysCLK(sysCLK)) MSX
    .ext_SD_card_bus(ext_SD_card_bus),
    .flash_bus(flash_bus),
    .FDD_bus(FDD_bus),
-   .cpu_regs(cpu_regs),
-   .opcode(opcode),
-   .opcode_num(opcode_num),
-   .opcode_out(opcode_out),
-   .opcode_PC_start(opcode_PC_start),
    .tape_motor_on(motor),
    .tape_in(msx_user_config.cas_audio_src == CAS_AUDIO_FILE  ? CAS_dout : tape_in),
    .rtc_time(rtc),
@@ -692,13 +681,8 @@ assign ddr3_rd   = ddr3_request_download ? ddr3_rd_download   : ddr3_rd_cas   ;
 assign DDRAM_CLK = clock_bus.base_mp.clk;
 
 
-logic [255:0] debug_data;
 logic [63:0] dout64;
 
-assign debug_data = {4'b0000, opcode_num, 2'b00, 8'b00000000, opcode_PC_start, opcode,
-                     cpu_regs.AF,  cpu_regs.BC,  cpu_regs.DE,  cpu_regs.HL,
-                     cpu_regs.AF2, cpu_regs.BC2, cpu_regs.DE2, cpu_regs.HL2,
-                     cpu_regs.IX, cpu_regs.IY, cpu_regs.SP, cpu_regs.PC};
 ddram buffer
 (
    .DDRAM_CLK(DDRAM_CLK),
@@ -710,8 +694,6 @@ ddram buffer
    .rd(ddr3_rd),
    .ready(ddr3_ready),
    .reset(reset),
-   .debug_data(debug_data),
-   .debug_wr(opcode_out),
    .*
 );
 

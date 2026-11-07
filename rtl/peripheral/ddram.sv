@@ -44,19 +44,16 @@ module ddram (
 	input         we,          // cpu requests write
 	input         rd,          // cpu requests read
 	output        ready,       // dout is valid. Ready to accept new read/write.
-	output [63:0] dout64, 
-	input [255:0] debug_data,
-	input         debug_wr	
+	output [63:0] dout64
 );
 
-typedef enum logic [2:0] {INIT, IDLE, READ, DEBUG, DEBUG_BLOCK} state_t; 
+typedef enum logic [1:0] {INIT, IDLE, READ} state_t;
 
-logic   old_rd, old_we, old_debug_wr;
-logic   rd_rq, wr_rq, debug_rq, cache_en;
+logic   old_rd, old_we;
+logic   rd_rq, wr_rq, cache_en;
 logic  [7:0] cached;
 logic  [7:0] ram_q;
 logic [27:0] ram_address;
-logic [23:0] debug_address;
 logic [63:0] ram_cache;
 
 state_t state;
@@ -67,7 +64,6 @@ assign dout64   = ram_cache;
 
 assign rd_rq    = ~old_rd && rd;
 assign wr_rq    = ~old_we && we;
-assign debug_rq = ~old_debug_wr && debug_wr;
 
 assign cache_en = (ram_address[27:3] == addr[27:3]) && ((cached & (8'd1 << addr[2:0])) != 8'd0);
 
@@ -79,7 +75,6 @@ begin
 	old_reset <= reset;
 	old_rd <= rd;
 	old_we <= we;
-	old_debug_wr <= debug_wr;
 
 	if(old_reset && ~reset) begin
 		state  <= INIT;
@@ -96,12 +91,6 @@ begin
 
 		case(state)
 			INIT: begin
-					DDRAM_BURSTCNT <= 1;
-					DDRAM_BE       <= 8'hFF;
-					DDRAM_ADDR     <= {5'b00110, 24'h400000}; // RAM at 0x32000000
-					DDRAM_DIN      <= {32'd0, 32'hDEAD0000};
-					DDRAM_WE 	   <= 1;
-					debug_address  <= 24'h420000;
 					state <= IDLE;
 			end
 			IDLE: begin
@@ -125,16 +114,6 @@ begin
 					state          <= READ;
 					cached         <= 0;
 					ram_address    <= addr;
-				end else begin
-					if (debug_rq && ~wr_rq) begin
-						DDRAM_BURSTCNT <= 4;
-						DDRAM_DIN      <= debug_data[63:0];
-						DDRAM_ADDR     <= {5'b00110, debug_address}; // RAM at 0x30000000
-						DDRAM_BE       <= 8'hFF;
-						DDRAM_WE 	   <= 1;
-						debug_address  <= debug_address + 24'h1;
-						state          <= DEBUG;
-					end
 				end
 			end
 			READ: begin
@@ -144,33 +123,6 @@ begin
 					cached    <= 8'hFF;
 					state     <= IDLE;
 				end	
-			end
-			DEBUG: begin
-					DDRAM_DIN      <= debug_data[{debug_address[1:0], 6'b000000} +:64];
-					DDRAM_WE 	   <= 1;
-					if (debug_address[1:0] == 3) begin
-						if (debug_address[16:0] == 17'h1FFFF) begin
-							state <= DEBUG_BLOCK;
-						end else begin
-							state     <= IDLE;
-							debug_address  <= debug_address + 24'h1;
-						end
-					end else begin
-						debug_address  <= debug_address + 24'h1;
-					end
-			end
-			DEBUG_BLOCK: begin
-				DDRAM_BURSTCNT <= 1;
-				DDRAM_BE       <= 8'hFF;
-				DDRAM_ADDR     <= {5'b00110, 24'h400000}; // RAM at 0x32000000
-				DDRAM_DIN      <= {32'd0, 8'hDE, 8'hAD, 8'h01, 5'h0, debug_address[19:17]};
-				DDRAM_WE 	   <= 1;
-				if (debug_address[19:17] == 3'd4) begin
-					debug_address  <= 24'h420000;
-				end else begin
-					debug_address  <= debug_address + 24'h1;
-				end
-				state <= IDLE;
 			end
 			default: ;
 		endcase

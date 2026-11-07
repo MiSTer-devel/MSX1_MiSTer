@@ -366,21 +366,6 @@ endinterface
 package MSX;
     
     typedef struct {
-        logic [15:0] AF;
-        logic [15:0] BC;
-        logic [15:0] DE;
-        logic [15:0] HL;
-        logic [15:0] AF2;
-        logic [15:0] BC2;
-        logic [15:0] DE2;
-        logic [15:0] HL2;
-        logic [15:0] IX;
-        logic [15:0] IY;
-        logic [15:0] PC;
-        logic [15:0] SP;
-    } cpu_regs_t; 
-
-    typedef struct {
         logic           border;
         cas_audio_src_t cas_audio_src;
         logic     [7:0] ocm_dip;

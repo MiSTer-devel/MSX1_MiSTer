@@ -198,6 +198,14 @@ initial begin
     expect_dev("RESET_STATUS", DEV_RESET_STATUS,  8'hF4, 8'hFF, 8'h01);
     expect_dev("MEM_MAPPER",   DEV_MSX2_RAM,      8'hFC, 8'hFC, 8'h00);
     if (!io_device[DEV_OCM_BOOT][0].enable) begin errors++; $display("FAIL OCM_BOOT not enabled"); end
+    // Kanji font JIS1+JIS2: 256 kB window into ESE-RAM at 40000h
+    expect_dev("KANJI", DEV_KANJI, 8'hD8, 8'hFC, 8'h00);
+    if (io_memory[io_device[DEV_KANJI][0].mem_ref].memory !== ese + 32'h40000 ||
+        io_memory[io_device[DEV_KANJI][0].mem_ref].memory_size !== 8'd16) begin
+        errors++;
+        $display("FAIL KANJI memory %07h size %0d (expected %07h, 16)", io_memory[io_device[DEV_KANJI][0].mem_ref].memory,
+                 io_memory[io_device[DEV_KANJI][0].mem_ref].memory_size, ese + 32'h40000);
+    end
     // IPL ROM: slot 3-3 page 0, mapper OCM_IPL, read-only, content in memory
     if (slot_layout[{2'd3, 2'd3, 2'd0}].mapper !== MAPPER_OCM_IPL || lookup_RAM[slot_layout[{2'd3, 2'd3, 2'd0}].ref_ram].ro !== 1'b1) begin
         errors++; $display("FAIL IPL block 3-3 page 0: mapper=%0d", slot_layout[{2'd3, 2'd3, 2'd0}].mapper);

@@ -461,6 +461,21 @@ def create_msx_config_device(device, outfile, files_with_sha1, constants):
                 rom_size = os.path.getsize(filename) - rom_skip
                 if 'rom_size' in parameters : rom_size  = convert_to_int(parameters['rom_size'])
 
+        # Device memory as a window into an existing block (shared_slot/subslot/block/offset/size):
+        # byte 6 = 0x80 | slot<<4 | subslot<<2 | block, byte 7 = offset, byte 5 = size (16 kB units)
+        shared_ref = 0
+        shared_offset = 0
+        if 'shared_slot' in parameters :
+            for attr in ('shared_subslot', 'shared_block', 'shared_size') :
+                if attr not in parameters :
+                    raise Exception(f"Device '{device}': missing attribute '{attr}'")
+            shared_ref = (0x80
+                          | ((convert_to_int(parameters['shared_slot']) & 3) << 4)
+                          | ((convert_to_int(parameters['shared_subslot']) & 3) << 2)
+                          | (convert_to_int(parameters['shared_block']) & 3))
+            shared_offset = convert_to_int(parameters.get('shared_offset', '0')) // 16384
+            rom_size = convert_to_int(parameters['shared_size'])
+
         if 'mask'     in parameters : port_mask = convert_to_8bit(parameters['mask'])
         if 'port'     in parameters : port      = convert_to_8bit(parameters['port'])
         #if 'param'    in parameters : param     = convert_to_8bit(parameters['param'])
@@ -472,9 +487,9 @@ def create_msx_config_device(device, outfile, files_with_sha1, constants):
             print(f"Device '{device}' nenalezeno. Zkontroluj device.json")
             continue       
         
-        data = struct.pack('BBBBBBBB', constants['conf']['DEVICE'], constants['device'][device], port, port_mask, param, size, 0, 0)
+        data = struct.pack('BBBBBBBB', constants['conf']['DEVICE'], constants['device'][device], port, port_mask, param, size, shared_ref, shared_offset & 0xFF)
         if debug_output:
-            print(f"DEVIC: {constants['conf']['DEVICE']} {constants['device'][device]:02X} {port:02X} {port_mask:02X} {param:02X} {size:02X} {0:02X} {0:02X}")
+            print(f"DEVIC: {constants['conf']['DEVICE']} {constants['device'][device]:02X} {port:02X} {port_mask:02X} {param:02X} {size:02X} {shared_ref:02X} {shared_offset & 0xFF:02X}")
         outfile.write(data)
 
         if filename:
@@ -508,8 +523,11 @@ def create_msx_config(config, file_name, path, files_with_sha1, constants, outpt
         with open(file_path, "wb") as outfile:
             #create_msx_config_header(config.get('type', ('MSX1',{})), config.get('video_standard', ('PAL',{})), outfile)
             create_msx_config_header(config, outfile)
-            create_msx_config_device(config.get('devices', []), outfile, files_with_sha1, constants)
+            # Devices with memory in a shared block go after the slots: the block must exist first
+            devices = config.get('devices', [])
+            create_msx_config_device([d for d in devices if 'shared_slot' not in d[1]], outfile, files_with_sha1, constants)
             create_msx_config_primary(config.get('primary', {}), outfile, files_with_sha1, constants)
+            create_msx_config_device([d for d in devices if 'shared_slot' in d[1]], outfile, files_with_sha1, constants)
             create_msx_config_kbd_layout(config.get('kbd_layout', None), outfile, constants) 
     except Exception as e:
         print(e)

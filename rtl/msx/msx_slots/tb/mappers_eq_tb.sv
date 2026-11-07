@@ -54,7 +54,8 @@ mappers_old dut_old (
     .clock_bus(clock_bus), .cpu_bus(cpu_bus), .ext_SD_card_bus(sd_old), .flash_bus(flash_old),
     .block_info(block_info), .device_bus(dev_old), .memory_bus(mem_old), .data(data_old),
     .data_to_mapper(data_to_mapper), .slot_expander_force_en(force_old),
-    .ocm_megaSD_enable(megaSD_en), .ocm_slot1_mode(slot1_mode), .ocm_slot2_mode(slot2_mode)
+    .ocm_megaSD_enable(megaSD_en), .ocm_slot1_mode(slot1_mode), .ocm_slot2_mode(slot2_mode),
+    .ocm_ipl_en(ipl_en)
 );
 
 wire [159:0] obs_new = {mem_new.addr, mem_new.rnw, mem_new.ram_cs, mem_new.sram_cs, mem_new.data,

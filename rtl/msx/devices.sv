@@ -189,10 +189,12 @@ module devices  #(parameter sysCLK)
 
     wire [26:0] kanji_ram_addr;
     wire        kanji_ram_cs;
+    wire        ocm_jis2_en;
     dev_kanji kanji (
         .cpu_bus(cpu_bus),
         .io_device(io_device[DEV_KANJI]),
         .io_memory(io_memory),
+        .jis2_en(ocm_jis2_en),
         .ram_cs(kanji_ram_cs),
         .ram_addr(kanji_ram_addr)
     );
@@ -208,6 +210,7 @@ module devices  #(parameter sysCLK)
         .ff_dip_req(msx_user_config.ocm_dip),
         .data(ocm_data),
         .ipl_en(ocm_ipl_en),
+        .jis2_en(ocm_jis2_en),
         .mapper_limit(ocm_mapper_limit),
         .megaSD_enable(ocm_megaSD_enable),
         .Slot1Mode(ocm_slot1_mode),

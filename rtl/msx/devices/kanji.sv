@@ -39,6 +39,7 @@ module dev_kanji (
     cpu_bus_if.device_mp       cpu_bus,
     input  MSX::io_device_t    io_device[3],
     input  MSX::io_device_mem_ref_t io_memory[8],
+    input                      jis2_en,             // JIS2 (DA-DBh) allowed (OCM: by IPL)
     output                     ram_cs,
     output              [26:0] ram_addr
 );
@@ -64,6 +65,7 @@ module dev_kanji (
         .rd(cs_enable && cpu_bus.rd),
         .hangul(hangul),
         .lascom(lascom),
+        .jis2_en(jis2_en),
         .ram_addr(ram_addr),
         .ram_cs(ram_cs)
     );
@@ -82,6 +84,7 @@ module kanji (
     input              rd,
     input              hangul,
     input              lascom,
+    input              jis2_en,
     output      [26:0] ram_addr,
     output             ram_cs
 );
@@ -122,7 +125,7 @@ module kanji (
                         end
                         2'd2: ;
                         2'd3: begin
-                            if (ram_size == 8'h10) begin
+                            if (ram_size == 8'h10 && jis2_en) begin
                                 addr   <= addr2;
                                 ram_en <= 1'b1;
                             end

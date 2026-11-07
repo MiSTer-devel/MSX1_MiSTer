@@ -16,11 +16,11 @@ clock_bus_if clock_bus(clk, clk);
 MSX::io_device_t io_device[3];
 logic [7:0] dip;
 wire  [7:0] data;
-wire        ipl_en, mapper_limit, megaSD_enable, Slot1Mode, rst_key_lock;
+wire        ipl_en, jis2_en, mapper_limit, megaSD_enable, Slot1Mode, rst_key_lock;
 wire  [1:0] Slot2Mode;
 
 dev_ocm dut (.cpu_bus(cpu_bus), .clock_bus(clock_bus), .io_device(io_device), .ff_dip_req(dip),
-             .data(data), .ipl_en(ipl_en), .mapper_limit(mapper_limit), .megaSD_enable(megaSD_enable),
+             .data(data), .ipl_en(ipl_en), .jis2_en(jis2_en), .mapper_limit(mapper_limit), .megaSD_enable(megaSD_enable),
              .Slot1Mode(Slot1Mode), .Slot2Mode(Slot2Mode), .rst_key_lock(rst_key_lock),
              .swio_reset(swio_reset));
 
@@ -118,11 +118,20 @@ initial begin
     expect_read("warm: lock mask kept", 8'h43, 8'h81);
     expect_read("warm: slot modes kept", 8'h42, {1'b0, dip[6], 3'b011, dip[2:0]});
 
+    // ---- JIS2 enabler: port 4Eh bit 7 (write_n), IPL phase only
+    check_bit("JIS2 by default", jis2_en, 1'b1);
+    io_write(8'h4E, 8'h80);
+    check_bit("JIS2 off by IPL", jis2_en, 1'b0);
+    io_write(8'h4E, 8'h00);
+    check_bit("JIS2 on by IPL", jis2_en, 1'b1);
+
     // ---- IPL phase ends only with port A8h
     io_write(8'hA9, 8'h00);
     check_bit("A9 does not end IPL", ipl_en, 1'b1);
     io_write(8'hA8, 8'hF0);
     check_bit("A8 ends IPL", ipl_en, 1'b0);
+    io_write(8'h4E, 8'h80);
+    check_bit("JIS2 write ignored after IPL", jis2_en, 1'b1);
 
     // ---- cold reset: lock mask cleared, MegaSD from DIP (now off)
     hard = 1; repeat (2) @(negedge clk); hard = 0;
@@ -143,6 +152,7 @@ initial begin
     io_write(8'h40, 8'hD4);
     expect_read("absent device", 8'h40, 8'hFF);
     check_bit("absent: no IPL", ipl_en, 1'b0);
+    check_bit("absent: JIS2 allowed", jis2_en, 1'b1);
 
     if (errors == 0) $display("PASS ocm_tb");
     else             $display("FAILED ocm_tb: %0d errors", errors);

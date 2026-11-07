@@ -6,7 +6,7 @@
   MAIN/XBASIC/OPLL/EXT/FREE ROMs are windows into ESE-RAM.
   ESE-RAM offsets (MSX_MiSTer emsx_top.vhd, SDRAM 600000h + offset):
     20000 MAIN 32k   28000 XBASIC 16k   2C000 OPLL 16k   30000 EXT+Kanji BASIC 48k
-    3C000 FREE 16k   40000 Kanji font 256k (TODO: KANJI device into ESE-RAM)
+    3C000 FREE 16k   40000 Kanji font JIS1+JIS2 256k (KANJI device, shared_*)
   Slot 3 expander after reset 2Bh: page 0 = 3-3 (IPL), page 1/2 = 3-2, page 3 = 3-0.
   Primary slot 3 must come first and subslot 3-2 before 3-1/3-3 and slot 0:
   shared_memory references an already created block.
@@ -23,6 +23,7 @@
   <device mask="0xFE" port="0xB4">RTC</device>
   <device mask="0xFE" port="0x7C">OPLL</device>
   <device mask="0xFF" port="0xF4" inverted="true">RESET_STATUS</device>
+  <device mask="0xFC" port="0xD8" shared_slot="3" shared_subslot="2" shared_block="1" shared_offset="0x40000" shared_size="262144">KANJI</device>
   <device>OCM_BOOT</device>       <!-- switched I/O ports 40h-4Fh, IPL phase (ocm.sv) -->
 
   <primary slot="3" expander_init="0x2B">

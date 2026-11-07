@@ -51,6 +51,7 @@ module dev_ocm
     input              [7:0] ff_dip_req,            // DIP-SW from OSD, 1 = on
     output logic       [7:0] data,
     output logic             ipl_en,                // IPL ROM visible (mapper OCM_IPL)
+    output                   jis2_en,               // kanji JIS2 (DA-DBh): 1 without OCM
     output                   mapper_limit,          // 1 = RAM mapper limited to 2048 kB
     output                   megaSD_enable,
     output logic             Slot1Mode,             // 1 = internal SCC-I in slot 1
@@ -89,6 +90,7 @@ module dev_ocm
     assign mapper_limit  = ~Mapper_ack;
     assign megaSD_enable = MegaSD_ack;
     assign rst_key_lock  = io43_id212[5];
+    assign jis2_en       = ~present || JIS2_ena;     // IPL: 0 for a 384 kB BIOS (JIS1 only)
 
     // IPL phase: reset .. first write to A8h
     always_ff @(posedge cpu_bus.clk) begin
@@ -120,6 +122,7 @@ module dev_ocm
         io41_id212_n = '1;
         Slot1Mode    = 1'b0;
         Slot2Mode    = 2'b00;
+        JIS2_ena     = 1'b1;
     end
 
     // Slot modes follow the virtual DIP-SW at 10 Hz (OCM 'virtual DIP-SW assignment')

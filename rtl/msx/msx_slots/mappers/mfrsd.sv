@@ -217,7 +217,7 @@ module mapper_mfrsd1 (
     assign flash_bus.we                   = flash_wr;
     assign flash_bus.data_to_flash        = flash_ce ? cpu_bus.data : '0;
     assign flash_bus.addr                 = flash_ce ? 23'h10000 + ram_addr[22:0] : '0;
-    assign flash_bus.base_addr            = flash_ce ? 23'h10000 - block_info.base_ram[22:0] : '0;
+    assign flash_bus.base_addr            = flash_ce ? 27'h10000 - block_info.base_ram : '0;
 
     wire ram_oe                           = flash_area && cs && ~enable_rd_scc_plus && cpu_bus.rd && ~flash_bus.data_valid;
 
@@ -332,7 +332,7 @@ module mapper_mfrsd3 (
     assign flash_bus.we            = flash_wr;
     assign flash_bus.data_to_flash = flash_ce ? cpu_bus.data : '0;
     assign flash_bus.addr          = flash_ce ? 23'h700000 + ram_addr[22:0] : '0;
-    assign flash_bus.base_addr     = flash_ce ? 23'h700000 - block_info.base_ram[22:0] : '0;
+    assign flash_bus.base_addr     = flash_ce ? 27'h700000 - block_info.base_ram : '0;
 
     assign out.data                = sd_card_read         ? ext_SD_card_bus.data_from_SD :
                                      flash_bus.data_valid ? flash_bus.data_from_flash    :

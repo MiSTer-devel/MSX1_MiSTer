@@ -236,7 +236,7 @@ interface ext_sd_card_if;
 endinterface
 
 interface flash_bus_if;
-    logic [22:0] base_addr;
+    logic [26:0] base_addr;     // full system address width (block may lie above 8 MB)
     logic [22:0] addr;
     logic  [7:0] data_to_flash;
     logic  [7:0] data_from_flash;

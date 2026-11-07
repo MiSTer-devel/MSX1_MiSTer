@@ -209,6 +209,8 @@ block_device_if block_device_SD();
 block_device_if block_device_nvram[4]();
 memory_bus_if memory_bus_msx();
 memory_bus_if memory_bus_upload();
+memory_bus_if memory_bus_flash();
+memory_bus_if memory_bus_backup();
 memory_bus_if memory_bus_sdram_ch1();
 memory_bus_if memory_bus_sdram_ch2();
 memory_bus_if memory_bus_sdram_ch3();
@@ -664,6 +666,23 @@ flash flash (
    .sdram_req(flash_req)
 );
 
+// flash and NVRAM backup use system addresses: map them through system_memory like CPU
+assign memory_bus_flash.addr     = flash_addr;
+assign memory_bus_flash.data     = flash_dout;
+assign memory_bus_flash.rnw      = 1'b0;
+assign memory_bus_flash.ram_cs   = flash_req;
+assign memory_bus_flash.sram_cs  = 1'b0;
+assign flash_ready               = memory_bus_flash.sdram_ready;
+assign flash_done                = memory_bus_flash.sdram_done;
+
+assign memory_bus_backup.addr    = backup_ram_addr;
+assign memory_bus_backup.data    = backup_ram_din;
+assign memory_bus_backup.rnw     = backup_ram_rnw;
+assign memory_bus_backup.ram_cs  = backup_ram_req;
+assign memory_bus_backup.sram_cs = 1'b0;
+assign backup_ram_dout           = memory_bus_backup.q;
+assign backup_ram_ready          = memory_bus_backup.sdram_ready;
+
 wire [27:0] ddr3_addr, ddr3_addr_download, ddr3_addr_cas;
 wire  [7:0] ddr3_dout, ddr3_din_download;
 wire        ddr3_rd, ddr3_rd_download, ddr3_rd_cas, ddr3_wr_download, ddr3_ready, ddr3_request_download;
@@ -700,8 +719,8 @@ system_memory #(.BRAM_WIDTH(18)) system_memory(
    .clk(clock_bus.base_mp.clk),
    .memory_bus_msx(memory_bus_msx),
    .memory_bus_upload(memory_bus_upload),
-   //.memory_bus_flash(),
-   //.memory_bus_backup(),
+   .memory_bus_flash(memory_bus_flash),
+   .memory_bus_backup(memory_bus_backup),
    .memory_bus_sdram_ch1(memory_bus_sdram_ch1),
    .memory_bus_sdram_ch2(memory_bus_sdram_ch2),
    .memory_bus_sdram_ch3(memory_bus_sdram_ch3),
@@ -721,21 +740,21 @@ sdram sdram
 
    .memory_bus_ch1(memory_bus_sdram_ch1),
 
-   .ch2_dout(),
-   .ch2_din(flash_dout),
-   .ch2_addr(flash_addr),
-   .ch2_req(flash_req),
-   .ch2_rnw(0),
-   .ch2_ready(flash_ready),
-   .ch2_done(flash_done),
+   .ch2_dout (memory_bus_sdram_ch2.q),
+   .ch2_din  (memory_bus_sdram_ch2.data),
+   .ch2_addr (memory_bus_sdram_ch2.addr),
+   .ch2_req  (memory_bus_sdram_ch2.ram_cs),
+   .ch2_rnw  (memory_bus_sdram_ch2.rnw),
+   .ch2_ready(memory_bus_sdram_ch2.sdram_ready),
+   .ch2_done (memory_bus_sdram_ch2.sdram_done),
 
-   .ch3_addr(backup_ram_addr),
-   .ch3_dout(backup_ram_dout),
-   .ch3_din(backup_ram_din),
-   .ch3_req(backup_ram_req),
-   .ch3_rnw(backup_ram_rnw),
-   .ch3_ready(backup_ram_ready),
-   .ch3_done(),
+   .ch3_dout (memory_bus_sdram_ch3.q),
+   .ch3_din  (memory_bus_sdram_ch3.data),
+   .ch3_addr (memory_bus_sdram_ch3.addr),
+   .ch3_req  (memory_bus_sdram_ch3.ram_cs),
+   .ch3_rnw  (memory_bus_sdram_ch3.rnw),
+   .ch3_ready(memory_bus_sdram_ch3.sdram_ready),
+   .ch3_done (memory_bus_sdram_ch3.sdram_done),
    .*
 );
 // VDP video RAM

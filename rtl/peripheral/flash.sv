@@ -49,7 +49,7 @@ module flash (
 	/* verilator lint_off WIDTHEXPAND */
 	logic  [2:0] index;
 	logic  [7:0] cmd[5];
-	logic [22:0] sdram_offset;
+	logic [26:0] sdram_offset;   // flash_bus.base_addr: 0x10000 - block base (system address)
 
 	assign debug_erase = erase;
 	

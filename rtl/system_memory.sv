@@ -1,15 +1,32 @@
+// System memory map: addresses below 2^BRAM_WIDTH live in BRAM, the rest in SDRAM at
+// addr - 2^BRAM_WIDTH. Every channel goes through the same map, so CPU, upload, flash
+// and NVRAM backup see the same byte at the same system address.
+//   msx / upload -> BRAM port A or SDRAM ch1
+//   flash        -> BRAM port B or SDRAM ch2   (writes, req held until done)
+//   backup       -> BRAM port B or SDRAM ch3   (1-clk req pulse, read / write)
 module system_memory #(parameter BRAM_WIDTH = 18) (
     input                   clk,
     memory_bus_if.ram_mp    memory_bus_msx,
     memory_bus_if.ram_mp    memory_bus_upload,
-    //memory_bus_if.ram_mp    memory_bus_flash,
-    //memory_bus_if.ram_mp    memory_bus_backup,
+    memory_bus_if.ram_mp    memory_bus_flash,
+    memory_bus_if.ram_mp    memory_bus_backup,
     memory_bus_if.device_mp memory_bus_sdram_ch1,
     memory_bus_if.device_mp memory_bus_sdram_ch2,
     memory_bus_if.device_mp memory_bus_sdram_ch3,
     input logic             upload
 );
 
+    function automatic logic in_bram(input logic [26:0] a);
+        return (BRAM_WIDTH > 0) && (a >> BRAM_WIDTH) == '0;
+    endfunction
+
+    function automatic logic [26:0] sdram_addr(input logic [26:0] a);
+        return (BRAM_WIDTH == 0) ? a : a - (27'd1 << BRAM_WIDTH);
+    endfunction
+
+    logic  [7:0] bram_data, bram_data_b;   // BRAM port A / B read data
+
+    // ---------------- ch1: msx / upload ----------------
     logic [26:0] addr;
     logic  [7:0] data;
     logic  [7:0] q;
@@ -23,20 +40,12 @@ module system_memory #(parameter BRAM_WIDTH = 18) (
     assign cs   = upload ? memory_bus_upload.ram_cs : memory_bus_msx.ram_cs;
     assign data = upload ? memory_bus_upload.data   : memory_bus_msx.data;
 
-    generate
-        if (BRAM_WIDTH == 0) begin
-            assign bram_cs  = 1'b0;
-            assign sdram_cs = cs;
-        end else begin
-            assign bram_cs  = addr[26:BRAM_WIDTH] == '0 && cs;
-            assign sdram_cs = addr[26:BRAM_WIDTH] != '0 && cs;
-        end
-    endgenerate
+    assign bram_cs  = cs &&  in_bram(addr);
+    assign sdram_cs = cs && ~in_bram(addr);
 
     assign q = bram_cs ? bram_data : memory_bus_sdram_ch1.q;
 
-    assign memory_bus_sdram_ch1.addr =
-        (BRAM_WIDTH == 0) ? addr : addr - (27'd1 << BRAM_WIDTH);
+    assign memory_bus_sdram_ch1.addr    = sdram_addr(addr);
     assign memory_bus_sdram_ch1.data    = data;
     assign memory_bus_sdram_ch1.rnw     = rnw;
     assign memory_bus_sdram_ch1.ram_cs  = sdram_cs;
@@ -50,7 +59,50 @@ module system_memory #(parameter BRAM_WIDTH = 18) (
     assign memory_bus_msx.sdram_ready    = memory_bus_sdram_ch1.sdram_ready;
     assign memory_bus_msx.sdram_done     = memory_bus_sdram_ch1.sdram_done;
 
-    logic [7:0] bram_data;
+    // ---------------- ch2: flash ----------------
+    wire flash_bram = in_bram(memory_bus_flash.addr);
+    logic flash_cs_q = 1'b0, flash_bram_done = 1'b0;
+    wire flash_bram_wr = memory_bus_flash.ram_cs && ~flash_cs_q && flash_bram && ~memory_bus_flash.rnw;
+
+    always_ff @(posedge clk) begin
+        flash_cs_q <= memory_bus_flash.ram_cs;
+        if (~memory_bus_flash.ram_cs) flash_bram_done <= 1'b0;
+        else if (flash_bram_wr)       flash_bram_done <= 1'b1;
+    end
+
+    assign memory_bus_sdram_ch2.addr    = sdram_addr(memory_bus_flash.addr);
+    assign memory_bus_sdram_ch2.data    = memory_bus_flash.data;
+    assign memory_bus_sdram_ch2.rnw     = memory_bus_flash.rnw;
+    assign memory_bus_sdram_ch2.ram_cs  = memory_bus_flash.ram_cs && ~flash_bram;
+    assign memory_bus_sdram_ch2.sram_cs = '0;
+
+    assign memory_bus_flash.q           = flash_bram ? bram_data_b : memory_bus_sdram_ch2.q;
+    assign memory_bus_flash.sdram_ready = flash_bram ? 1'b1            : memory_bus_sdram_ch2.sdram_ready;
+    assign memory_bus_flash.sdram_done  = flash_bram ? flash_bram_done : memory_bus_sdram_ch2.sdram_done;
+
+    // ---------------- ch3: NVRAM backup ----------------
+    wire backup_bram    = in_bram(memory_bus_backup.addr);
+    wire backup_bram_wr = memory_bus_backup.ram_cs && backup_bram && ~memory_bus_backup.rnw;
+
+    assign memory_bus_sdram_ch3.addr    = sdram_addr(memory_bus_backup.addr);
+    assign memory_bus_sdram_ch3.data    = memory_bus_backup.data;
+    assign memory_bus_sdram_ch3.rnw     = memory_bus_backup.rnw;
+    assign memory_bus_sdram_ch3.ram_cs  = memory_bus_backup.ram_cs && ~backup_bram;
+    assign memory_bus_sdram_ch3.sram_cs = '0;
+
+    // BRAM read data follows the (held) request address one clk later, as nvram_backup expects
+    assign memory_bus_backup.q           = backup_bram ? bram_data_b : memory_bus_sdram_ch3.q;
+    assign memory_bus_backup.sdram_ready = backup_bram ? 1'b1        : memory_bus_sdram_ch3.sdram_ready;
+    assign memory_bus_backup.sdram_done  = backup_bram ? 1'b1        : memory_bus_sdram_ch3.sdram_done;
+
+    // ---------------- BRAM ----------------
+    // Port B is shared by flash and backup; flash has priority. Both are rare and are not
+    // used at the same time (MFRSD flash programming vs. OSD SRAM save/load).
+    wire        b_flash = memory_bus_flash.ram_cs && flash_bram;
+    wire [26:0] b_addr  = b_flash ? memory_bus_flash.addr : memory_bus_backup.addr;
+    wire  [7:0] b_din   = b_flash ? memory_bus_flash.data : memory_bus_backup.data;
+    wire        b_wr    = flash_bram_wr || (backup_bram_wr && ~b_flash);
+
     generate
         if (BRAM_WIDTH > 0) begin : with_bram
             dpram #(.addr_width(BRAM_WIDTH), .mem_name("SYSTEM")) system_ram (
@@ -59,13 +111,14 @@ module system_memory #(parameter BRAM_WIDTH = 18) (
                 .wren_a(!rnw && bram_cs),
                 .data_a(data),
                 .q_a(bram_data),
-                .address_b(),
-                .wren_b(),
-                .data_b(),
-                .q_b()
+                .address_b(b_addr[BRAM_WIDTH-1:0]),
+                .wren_b(b_wr),
+                .data_b(b_din),
+                .q_b(bram_data_b)
             );
         end else begin : no_bram
-            assign bram_data = 8'hFF;
+            assign bram_data   = 8'hFF;
+            assign bram_data_b = 8'hFF;
         end
     endgenerate
 

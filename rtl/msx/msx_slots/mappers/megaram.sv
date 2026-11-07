@@ -93,7 +93,7 @@ module mapper_megaram (
     end
 
 
-    always @(posedge cpu_bus.clk) begin
+    always_ff @(posedge cpu_bus.clk) begin
         if (cpu_bus.reset) begin
             // Reset bank registers and disable SCC
             SccBank0    <= '{8'h00, 8'h00};

@@ -486,17 +486,17 @@ wire sdmosi;
 wire vsdmiso;
 wire sdmiso = vsd_sel ? vsdmiso : SD_MISO;
 
-reg vsd_sel = 0;
-always @(posedge clock_bus.base_mp.clk) if(block_device_SD.device_mp.img_mounted) vsd_sel <= |img_size; //TODO je potřeba hlídat náběžnou hranu img mounted
+logic vsd_sel = 0;
+always_ff @(posedge clock_bus.base_mp.clk) if(block_device_SD.device_mp.img_mounted) vsd_sel <= |img_size; //TODO je potřeba hlídat náběžnou hranu img mounted
 
 assign SD_CS   = vsd_sel;
 assign SD_SCK  = sdclk  & ~vsd_sel;
 assign SD_MOSI = sdmosi & ~vsd_sel;
 
-reg sd_act;
-reg [31:0] timeout = 0;
-always @(posedge clock_bus.base_mp.clk) begin
-    reg old_mosi, old_miso;
+logic sd_act;
+logic [31:0] timeout = 0;
+always_ff @(posedge clock_bus.base_mp.clk) begin
+    logic old_mosi, old_miso;
 
     old_mosi <= sdmosi;
     old_miso <= sdmiso;
@@ -555,8 +555,8 @@ assign VGA_SL = sl[1:0];
 assign CLK_VIDEO   = clk_sdram;
 assign scandoubler = forced_scandoubler || scale != 0;
 
-reg  en216p;
-always @(posedge CLK_VIDEO) begin
+logic en216p;
+always_ff @(posedge CLK_VIDEO) begin
 	en216p <= ((HDMI_WIDTH == 1920) && (HDMI_HEIGHT == 1080) && !scandoubler);
 end
 
@@ -802,7 +802,7 @@ nvram_backup nvram_backup
 ///////////////// CAS EMULATE /////////////////
 wire ioctl_isCAS, buff_mem_ready, motor, CAS_dout, play, rewind;
 logic cas_load = 0;
-always @(posedge clock_bus.base_mp.clk) begin
+always_ff @(posedge clock_bus.base_mp.clk) begin
    logic ioctl_download_last;
    if (~ioctl_isCAS & ioctl_download_last )  begin
       cas_load <= 1'b1;

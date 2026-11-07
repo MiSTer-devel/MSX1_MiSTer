@@ -60,7 +60,7 @@ module mapper_zemina80 (
     assign blockCompute = block < nrBlocks ? {1'b0,block} : 9'h100;
 
     // Bank switching logic
-    always @(posedge cpu_bus.clk) begin
+    always_ff @(posedge cpu_bus.clk) begin
         if (cpu_bus.reset) begin
             // Initialize bank values on reset
             bank[0] <= '{9'h100, 9'h100, 9'h000, 9'h001, 9'h002, 9'h003, 9'h100,  9'h100};

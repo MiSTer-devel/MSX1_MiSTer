@@ -68,7 +68,7 @@ module mapper_ascii8 (
     wire  [7:0] bank_base     = bank[block_info.id][{cpu_bus.addr[15], cpu_bus.addr[13]}];
     wire  [7:0] sram_bank_base = sramBank[block_info.id][{cpu_bus.addr[15], cpu_bus.addr[13]}];
 
-    always @(posedge cpu_bus.clk) begin
+    always_ff @(posedge cpu_bus.clk) begin
         if (cpu_bus.reset) begin
             bank       <= '{'{default: '0},'{default: '0}};
             sramBank   <= '{'{default: '0},'{default: '0}};

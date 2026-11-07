@@ -78,7 +78,7 @@ assign ROM_B_load_hide    = cart_conf[1].typ != CART_TYP_ROM;
 logic  [7:0] lastConfig;
 wire [7:0] act_config = {cart_conf[1].typ, cart_conf[0].typ};
 
-always @(posedge clk) begin
+always_ff @(posedge clk) begin
     if (reload) lastConfig <= act_config;
 end
 

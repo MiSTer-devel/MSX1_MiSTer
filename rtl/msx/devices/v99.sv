@@ -79,7 +79,7 @@ module dev_v99 (
     
 
     logic hblank_cor;
-    always @(posedge cpu_bus.clk) begin
+    always_ff @(posedge cpu_bus.clk) begin
         if (hblank)
             hblank_cor <= 1'b1;
         else 

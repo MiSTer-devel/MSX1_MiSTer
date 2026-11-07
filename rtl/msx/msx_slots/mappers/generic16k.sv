@@ -62,7 +62,7 @@ module mapper_generic16k (
     assign blockCompute = block < nrBlocks ? {1'b0,block} : 9'h100;
 
     // Bank switching logic
-    always @(posedge cpu_bus.clk) begin
+    always_ff @(posedge cpu_bus.clk) begin
         if (cpu_bus.reset) begin
             // Initialize bank values on reset
             bank[0] <= '{9'h00, 9'h01};

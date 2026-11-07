@@ -67,7 +67,7 @@ assign FDD_bus.SIDEn  = ~side;
 
 //wire [1:0] dbg_status = {drq, intrq};
 
-always @(posedge cpu_bus.clk) begin
+always_ff @(posedge cpu_bus.clk) begin
    if (cpu_bus.reset) begin
       philips_sideReg  <= 8'd0;
       philips_driveReg <= 8'd0;

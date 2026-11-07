@@ -68,7 +68,7 @@ module mapper_konami_scc (
     logic [1:0] sccEnable;      // SCC enable flag for each bank
 
     // Bank switching logic: On reset, set default bank values. On write, update bank values.
-    always @(posedge cpu_bus.clk) begin
+    always_ff @(posedge cpu_bus.clk) begin
         if (cpu_bus.reset) begin
             // Reset bank registers and disable SCC
             bank1         <= '{'h00, 'h00}; // Default bank 1 values

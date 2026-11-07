@@ -98,7 +98,7 @@ assign cpu_bus.cpu_mp.int_rq = cpu_interrupt;
 assign cpu_bus.cpu_mp.req     = ~((iorq_n & mreq_n) | (wr_n & rd_n) | iack);
 
 logic iack;
-always @(posedge cpu_bus.clk) begin
+always_ff @(posedge cpu_bus.clk) begin
    if (cpu_bus.reset)
    iack <= 0;
    else begin

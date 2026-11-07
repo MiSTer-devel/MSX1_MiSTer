@@ -59,7 +59,7 @@ module mapper_fm_pac (
     end
 
     // Main control logic
-    always @(posedge cpu_bus.clk) begin
+    always_ff @(posedge cpu_bus.clk) begin
         if (cpu_bus.reset) begin
             // Reset states
             enable  <= '{default: 8'b0};

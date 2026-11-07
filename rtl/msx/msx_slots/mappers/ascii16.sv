@@ -110,7 +110,7 @@ module mapper_ascii16 (
         endcase
     end
 
-    always @(posedge cpu_bus.clk) begin
+    always_ff @(posedge cpu_bus.clk) begin
         if (cpu_bus.reset) begin
             bank[0]      <= '{8'h00, 8'h00};
             bank[1]      <= '{8'h00, 8'h00};

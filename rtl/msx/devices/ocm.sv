@@ -66,7 +66,7 @@ module dev_ocm
     
     wire  io_cs = io_device[0].enable && cpu_bus.iorq && ~cpu_bus.m1 && cpu_bus.addr[7:4] == 4'b0100;
 
-    always @(posedge cpu_bus.clk) begin
+    always_ff @(posedge cpu_bus.clk) begin
         if (cpu_bus.reset) begin
             en <= io_device[0].enable;
             if (io_device[0].enable && en == 0) $display("OCM Boot START");       

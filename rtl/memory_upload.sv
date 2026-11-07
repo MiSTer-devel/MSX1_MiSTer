@@ -42,7 +42,7 @@ module memory_upload
     logic [26:0] ioctl_size[5] = '{default: 27'd0};
     logic        load = 1'b0;
 
-    always @(posedge clk) begin
+    always_ff @(posedge clk) begin
         logic ioctl_download_last;
         load <= 1'b0;
         if (~ioctl_download & ioctl_download_last) begin
@@ -127,7 +127,7 @@ module memory_upload
     logic        crc_en;
     logic        ram_ce;
 
-    always @(posedge clk) begin
+    always_ff @(posedge clk) begin
         logic [24:0] data_size;
         logic [7:0]  temp[8];
         logic [5:0]  block_num;

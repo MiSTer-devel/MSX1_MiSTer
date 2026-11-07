@@ -74,11 +74,11 @@ module flash (
 
 	logic old_we;
 	logic state;
-	always @(posedge clk) begin
+	always_ff @(posedge clk) begin
 		old_we <= flash_bus.we;
 	end
 
-	always @(posedge clk) begin
+	always_ff @(posedge clk) begin
 		erase_block <= 0;
 //			erase_chip  <= 0;
 		if (~valid) index <= 0;
@@ -136,7 +136,7 @@ module flash (
 
 	logic erase;
 //write to SDRAM
-	always @(posedge clk) begin
+	always_ff @(posedge clk) begin
 		logic sdram_need_wr;
 		logic [15:0] write_cnt;
 		if (reset) sdram_req <= 0;

@@ -63,7 +63,7 @@ module mapper_generic8k (
     
     wire [1:0] sel_bank = {cpu_bus.addr[15],cpu_bus.addr[13]};
     // Bank switching logic
-    always @(posedge cpu_bus.clk) begin
+    always_ff @(posedge cpu_bus.clk) begin
         if (cpu_bus.reset) begin
             // Initialize bank values on reset
             bank[0] <= '{9'h000, 9'h001, 9'h002, 9'h003};

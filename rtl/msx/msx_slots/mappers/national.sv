@@ -56,7 +56,7 @@ module mapper_national (
 
     wire sram_rq  =  cpu_bus.rd && control[1] && cpu_bus.addr[13:0] == 14'h3FFD;
 
-    always @(posedge cpu_bus.clk) begin
+    always_ff @(posedge cpu_bus.clk) begin
         
         if (!cpu_bus.wr) 
             sram_wr <= '0;

@@ -25,10 +25,10 @@ module tape
 	input           play,
 	input           rewind,
 	input 			enable,
-	output  reg [27:0]	ram_a,
+	output  logic [27:0]	ram_a,
 	input   [7:0]   ram_di,
 	input   [63:0]  ram_di64,
-	output  reg     ram_rd,
+	output  logic     ram_rd,
 	input           buff_mem_ready,
 	output          cas_out
 );
@@ -51,10 +51,10 @@ wire sig = cas_sig == ram_di64;
 
 assign cas_out = output_bit & output_on;
 
-reg output_on = 0;
-reg header;
-reg [10:0] counter;
-always @(posedge clk) begin
+logic output_on = 0;
+logic header;
+logic [10:0] counter;
+always_ff @(posedge clk) begin
 	
 	ram_rd <= 0;
 
@@ -130,9 +130,9 @@ always @(posedge clk) begin
 end
 
 // Send byte
-reg [3:0] byte_pos = 0;
-always @(posedge clk) begin
-reg [10:0] byte_out;
+logic [3:0] byte_pos = 0;
+always_ff @(posedge clk) begin
+logic [10:0] byte_out;
 	if (byte_pos == 0) begin
 		byte_out = header ? 11'b11111111111 : {2'b11, ram_di, 1'b0}; // 1'b0 startbit, 2'b11 stop bit
 		byte_pos = 4'd11;
@@ -147,10 +147,10 @@ reg [10:0] byte_out;
 end
 
 // Send bit
-reg send_bit;
-reg output_bit;
-always @(posedge clk) begin
-reg bit_out;
+logic send_bit;
+logic output_bit;
+always_ff @(posedge clk) begin
+logic bit_out;
 		if (ce_baud) begin
 			if (cnt == 2'h0) begin
 				output_bit = 1;
@@ -161,10 +161,10 @@ reg bit_out;
 end
 
 // Baud generator
-reg [1:0] cnt = 2'h0;
-reg ce_baud;
-always @(posedge clk) begin
-	reg [10:0] baud_div;
+logic [1:0] cnt = 2'h0;
+logic ce_baud;
+always_ff @(posedge clk) begin
+	logic [10:0] baud_div;
 	ce_baud = 0;
 	if (ce_5m3 && play) begin
 		if (baud_div == 11'h0) begin

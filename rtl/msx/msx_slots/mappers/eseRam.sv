@@ -51,7 +51,7 @@ module mapper_eseRam (
 
     logic [7:0] bank[4];
 
-    always @(posedge cpu_bus.clk) begin
+    always_ff @(posedge cpu_bus.clk) begin
         if (cpu_bus.reset) begin
             bank <= '{8'h00, 8'h00, 8'h00, 8'h00};
         end else begin
@@ -99,7 +99,7 @@ module mapper_eseRam (
     // SD card function
     logic mmc_cs;
 
-    always @(posedge cpu_bus.clk) begin
+    always_ff @(posedge cpu_bus.clk) begin
         logic mmc_en;
         logic mmc_mod;
 

@@ -54,7 +54,7 @@ module mapper_konami (
     logic [7:0] bank1[2], bank2[2], bank3[2];
 
     // Bank switching logic
-    always @(posedge cpu_bus.clk) begin
+    always_ff @(posedge cpu_bus.clk) begin
         if (cpu_bus.reset) begin
             // Initialize bank values on reset
             bank1 <= '{'h01, 'h01};  // Default bank 1 values

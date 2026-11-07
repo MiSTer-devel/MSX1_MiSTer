@@ -74,7 +74,7 @@ module mapper_mfrsd1 (
 
     wire cs = ((block_info.typ == MAPPER_MFRSD1) || ~config_reg.isSlotExpanderEnabled) && cpu_bus.mreq;
 
-    always @(posedge cpu_bus.clk) begin
+    always_ff @(posedge cpu_bus.clk) begin
         if (cpu_bus.reset) begin
             mapper_reg   <= 8'd0;
             offset_reg   <= 10'd0;
@@ -132,7 +132,7 @@ module mapper_mfrsd1 (
 
     wire [2:0] page8kB  = cpu_bus.addr[15:13] - 3'd2;
 
-    always @(posedge cpu_bus.clk) begin
+    always_ff @(posedge cpu_bus.clk) begin
         if (cpu_bus.reset) begin
             bank      <= '{8'd0,8'd1,8'd2,8'd3};
             scc_banks <= '{8'd0,8'd1,8'd2,8'd3};
@@ -290,7 +290,7 @@ module mapper_mfrsd3 (
     logic [7:0] bank[4];
     logic       selected_sd;
 
-    always @(posedge cpu_bus.clk) begin
+    always_ff @(posedge cpu_bus.clk) begin
         if (cpu_bus.reset) begin
             bank <= '{8'd0, 8'd1, 8'd0, 8'd0};
         end else begin
@@ -301,7 +301,7 @@ module mapper_mfrsd3 (
     end
 
 
-    always @(posedge cpu_bus.clk) begin
+    always_ff @(posedge cpu_bus.clk) begin
 
         ext_SD_card_bus.rx <= 1'b0;
         ext_SD_card_bus.tx <= 1'b0;

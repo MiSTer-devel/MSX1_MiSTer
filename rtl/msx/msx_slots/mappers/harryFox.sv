@@ -54,7 +54,7 @@ module mapper_harryFox (
     logic [2:0] bank[2][4];          // Storage for bank data, two entries for two different mapper IDs
     
     // Initialize or update bank and SRAM enable signals
-    always @(posedge cpu_bus.clk) begin
+    always_ff @(posedge cpu_bus.clk) begin
         if (cpu_bus.reset) begin
             // Initialize banks on reset
             bank[0]    <= '{'b100, 'b000, 'b001, 'b100};

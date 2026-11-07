@@ -837,7 +837,7 @@ module TV80#( parameter Mode      = 0,
     always @(negedge RESET_n or posedge CLK_n) begin
         if (~RESET_n)
             RFSH_n <= '1;
-        else if (CLK_n && CEN) begin
+        else if (CEN) begin  // was CLK_n && CEN: clock must not be used as data
             if (MCycle == 3'b001 && ((TState == 3'd2 && WAIT_n) || TState == 3'd3))
                 RFSH_n <= '0;
             else
@@ -863,7 +863,7 @@ module TV80#( parameter Mode      = 0,
             INT_s <= '0;
             NMI_s <= '0;
             OldNMI_n <= '0;
-        end else if (CLK_n && CEN) begin
+        end else if (CEN) begin
             BusReq_s <= ~BUSRQ_n;
             INT_s <= ~INT_n;
 
@@ -893,7 +893,7 @@ module TV80#( parameter Mode      = 0,
             Auto_Wait_t1 <= '0;
             Auto_Wait_t2 <= '0;
             M1_n <= '1;
-        end else if (CLK_n && CEN) begin
+        end else if (CEN) begin
             if (T_Res)
                 Auto_Wait_t1 <= '0;
             else

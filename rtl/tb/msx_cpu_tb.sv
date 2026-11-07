@@ -1,0 +1,121 @@
+// msx_cpu test: runs a Z80 program (msx_cpu_prog.svh) and hashes the bus transaction trace.
+// The hash depends only on transaction order and content, not on timing, so it must be
+// identical for any correct implementation; golden values come from the derived-clock
+// version (before CE). The memory model can delay read data by LAT clk cycles to find
+// the latency margin.
+//
+// Plusargs: +sel=<0..3> CPU speed (0 3.58, 2 5.39, 1 10.7 MHz), +wait=<0..7> M1 waits,
+//           +lat=<n> memory read latency, +n=<transactions>, +golden=<hex> expected hash,
+//           +trace=<file> optional transaction dump
+// Run: wsl.exe -- bash rtl/tb/run_msx_cpu.sh
+module msx_cpu_tb;
+
+logic clk = 0;
+always #1 clk = ~clk;
+
+clock_bus_if clock_bus(clk, clk);
+clock #(.sysCLK(21477270)) u_clock (.clock_bus(clock_bus));
+
+int unsigned sel = 0, waits = 0, lat = 0, ntrans = 200000, golden = 0;
+logic        reset = 1;
+
+logic        m1_n, mreq_n, iorq_n, rd_n, wr_n, rfsh_n;
+logic [15:0] addr;
+logic  [7:0] dout, di;
+logic        int_rq = 0;
+
+msx_cpu dut (
+    .clock_bus (clock_bus.base_mp),
+    .reset     (reset),
+    .clock_sel (2'(sel)),
+    .m1_wait   (3'(waits)),
+    .int_rq    (int_rq),
+    .di        (di),
+    .m1_n, .mreq_n, .iorq_n, .rd_n, .wr_n, .rfsh_n,
+    .addr      (addr),
+    .dout      (dout)
+);
+
+// ---------------- memory / IO model ----------------
+logic [7:0] mem [0:65535];
+initial begin
+    foreach (mem[i]) mem[i] = 8'h00;
+    `include "msx_cpu_prog.svh"
+end
+
+wire mem_rd = ~mreq_n & ~rd_n;
+wire io_rd  = ~iorq_n & ~rd_n;
+wire int_ack = ~iorq_n & ~m1_n;
+logic [7:0] io_rd_cnt = 0;
+int         rd_age = 0;          // clk edges since the current memory read was first seen
+logic       mem_rd_q = 0;
+
+always @(posedge clk) begin
+    mem_rd_q <= mem_rd;
+    rd_age   <= (mem_rd && mem_rd_q) ? rd_age + 1 : 0;
+end
+
+wire [7:0] mem_q   = mem[addr];
+wire [7:0] io_q    = addr[7:0] ^ io_rd_cnt;
+// Read data valid LAT edges after the read was first sampled; garbage (~data) before.
+wire       mem_ok  = (lat == 0) || (mem_rd_q && rd_age + 1 >= lat);
+assign di = int_ack ? 8'hFF : io_rd ? io_q : mem_rd ? (mem_ok ? mem_q : ~mem_q) : 8'hFF;
+
+// ---------------- transaction trace ----------------
+typedef enum logic [2:0] { T_M1, T_MRD, T_MWR, T_IORD, T_IOWR, T_INTA } ttype_t;
+logic        act_q = 0, int_pend = 0;
+int unsigned count = 0, cycles = 0, ints = 0, iowr_ce10 = 0, iowr_noce10 = 0;
+logic [31:0] hash = 32'h811C9DC5;
+int          fd = 0;
+
+function automatic logic [31:0] fnv(input logic [31:0] h, input logic [7:0] b);
+    return (h ^ 32'(b)) * 32'h01000193;
+endfunction
+
+wire act = (~mreq_n & rfsh_n & (~rd_n | ~wr_n)) | (~iorq_n & (~rd_n | ~wr_n)) | int_ack;
+
+always @(posedge clk) begin
+    if (!reset) cycles++;
+    act_q <= act;
+    if (!reset && act && !act_q) begin
+        ttype_t t;
+        logic [7:0] d;
+        t = int_ack ? T_INTA : ~iorq_n ? (~rd_n ? T_IORD : T_IOWR) :
+            ~m1_n ? T_M1 : (~rd_n ? T_MRD : T_MWR);
+        d = (t == T_MWR || t == T_IOWR) ? dout : (t == T_IORD) ? io_q : (t == T_INTA) ? 8'hFF : mem_q;
+        hash = fnv(fnv(fnv(fnv(hash, 8'(t)), addr[15:8]), addr[7:0]), d);
+        if (fd) $fdisplay(fd, "%0d %0d %04h %02h", count, t, addr, d);
+        count++;
+        // Phase of the 1-cycle bus req pulse vs ce_10m7_p (VDP18 samples only on it)
+        if (t == T_IOWR) begin if (clock_bus.ce_10m7_p) iowr_ce10++; else iowr_noce10++; end
+        if (t == T_MWR && addr >= 16'h2000) mem[addr] <= dout;
+        if (t == T_IORD) io_rd_cnt <= io_rd_cnt + 1;
+        // INT raised at the start of an instruction fetch, so it is sampled at the end of
+        // that instruction regardless of sub-cycle timing (a bus-triggered INT one clk
+        // before the sampling point would test timing, not behaviour)
+        if (count % 997 == 0) int_pend <= 1;
+        if (t == T_INTA) begin int_rq <= 0; ints++; end
+        else if (t == T_M1 && (int_pend || count % 997 == 0)) begin int_rq <= 1; int_pend <= 0; end
+    end
+end
+
+initial begin
+    string tf;
+    void'($value$plusargs("sel=%d", sel));
+    void'($value$plusargs("wait=%d", waits));
+    void'($value$plusargs("lat=%d", lat));
+    void'($value$plusargs("n=%d", ntrans));
+    void'($value$plusargs("golden=%h", golden));
+    if ($value$plusargs("trace=%s", tf)) fd = $fopen(tf, "w");
+    repeat (20) @(posedge clk);
+    reset = 0;
+    wait (count >= ntrans);
+    $display("RESULT sel=%0d wait=%0d lat=%0d n=%0d hash=%08h cycles=%0d ints=%0d iowr_req_on_ce10=%0d/%0d",
+             sel, waits, lat, count, hash, cycles, ints, iowr_ce10, iowr_ce10 + iowr_noce10);
+    if (golden != 0)
+        $display("%s msx_cpu_tb (golden %08h)", hash == golden ? "PASS" : "FAILED", golden);
+    if (fd) $fclose(fd);
+    $finish;
+end
+
+endmodule

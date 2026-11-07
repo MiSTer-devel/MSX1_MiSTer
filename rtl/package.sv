@@ -168,7 +168,6 @@ interface cpu_bus_if(
     input       clk,
     input       reset
 );
-    wire        cpu_clk;
     wire        mreq;
     wire        iorq;
     wire        rd;
@@ -184,7 +183,6 @@ interface cpu_bus_if(
     modport cpu_mp (
         input   clk,
         input   reset,
-        output  cpu_clk,
         output  mreq,
         output  iorq,
         output  rd,
@@ -200,7 +198,6 @@ interface cpu_bus_if(
     
     modport device_mp (
         input   clk,
-        input   cpu_clk,
         input   reset,
         input   mreq,
         input   iorq,

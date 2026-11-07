@@ -105,17 +105,6 @@ assign audio_R            = compr_R[audio_mix_R[16:14]];
 //  -----------------------------------------------------------------------------
 wire [7:0] d_to_cpu;
 wire cpu_interrupt;
-
-
-logic cpu_clk;
-always_comb begin
-   case(msx_config.cpu_clock_sel[1:0])
-      2'b00: cpu_clk = clock_bus.ce_3m58_n;
-      2'b01: cpu_clk = clock_bus.ce_10m7_n;
-      2'b10: cpu_clk = clock_bus.ce_5m39_n;
-      2'b11: cpu_clk = clock_bus.ce_3m58_n;
-      endcase
-end
 wire m1_n, mreq_n, iorq_n, rd_n, wr_n, rfsh_n;
 
 assign cpu_bus.cpu_mp.mreq    = ~mreq_n;
@@ -124,7 +113,6 @@ assign cpu_bus.cpu_mp.m1      = ~m1_n;
 assign cpu_bus.cpu_mp.rd      = ~rd_n;
 assign cpu_bus.cpu_mp.wr      = ~wr_n;
 assign cpu_bus.cpu_mp.rfsh    = ~rfsh_n;
-assign cpu_bus.cpu_mp.cpu_clk = cpu_clk;
 assign cpu_bus.cpu_mp.int_rq = cpu_interrupt;
 assign cpu_bus.cpu_mp.req     = ~((iorq_n & mreq_n) | (wr_n & rd_n) | iack);
 
@@ -142,44 +130,22 @@ always @(posedge cpu_bus.clk) begin
 end
 
 
-TV80a #(.Mode(0), .R800_MULU(1), .IOWait(1)) Z80
-(
-   .RESET_n(~reset),
-   .R800_mode('0),
-   .CLK_n(cpu_clk),
-   .WAIT_n(wait_n),
-   .INT_n(~cpu_interrupt),
-   .NMI_n('1),
-   .BUSRQ_n('1),
-   .M1_n(m1_n),
-   .MREQ_n(mreq_n),
-   .IORQ_n(iorq_n),
-   .RD_n(rd_n),
-   .WR_n(wr_n),
-   .RFSH_n(rfsh_n),
-   .HALT_n(),
-   .BUSAK_n(),
-   .A(cpu_bus.cpu_mp.addr),
-   .DI(d_to_cpu),
-   .DO(cpu_bus.cpu_mp.data)
+msx_cpu cpu (
+   .clock_bus (clock_bus),
+   .reset     (reset),
+   .clock_sel (msx_config.cpu_clock_sel[1:0]),
+   .m1_wait   (msx_config.wait_count),          // TODO OCM: dev_cpu_wait
+   .int_rq    (cpu_interrupt),
+   .di        (d_to_cpu),
+   .m1_n      (m1_n),
+   .mreq_n    (mreq_n),
+   .iorq_n    (iorq_n),
+   .rd_n      (rd_n),
+   .wr_n      (wr_n),
+   .rfsh_n    (rfsh_n),
+   .addr      (cpu_bus.cpu_mp.addr),
+   .dout      (cpu_bus.cpu_mp.data)
 );
-//  -----------------------------------------------------------------------------
-//  -- WAIT CPU
-//  -----------------------------------------------------------------------------
-logic wait_n;
-logic [2:0] wait_count = 0;
-logic last_m1;
-
-always_ff @(negedge cpu_bus.cpu_clk) begin
-   last_m1 <= cpu_bus.device_mp.m1;
-   if (~last_m1 && cpu_bus.device_mp.m1) begin
-      wait_count <= msx_config.wait_count;
-   end else if (wait_count != 3'd0) begin
-      wait_count <= wait_count - 3'b01;
-   end
-end
-
-assign wait_n = wait_count == 3'd00; // && ~dev_cpu_wait; //TODO OCM
 
 //  -----------------------------------------------------------------------------
 //  -- Slots

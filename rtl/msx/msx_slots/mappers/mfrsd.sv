@@ -72,7 +72,11 @@ module mapper_mfrsd1 (
     logic [7:0] mapper_reg, scc_mode;
     logic [9:0] offset_reg;
 
-    wire cs = ((block_info.typ == MAPPER_MFRSD1) || ~config_reg.isSlotExpanderEnabled) && cpu_bus.mreq;
+    // Expander disabled: every access to the cartridge slot (any subslot type) goes to
+    // subslot 1, as openMSX MegaFlashRomSCCPlusSD::getSubSlot(). Other slots are not ours.
+    wire cart_slot = block_info.typ == MAPPER_MFRSD0 || block_info.typ == MAPPER_MFRSD1 ||
+                     block_info.typ == MAPPER_MFRSD2 || block_info.typ == MAPPER_MFRSD3;
+    wire cs = ((block_info.typ == MAPPER_MFRSD1) || (~config_reg.isSlotExpanderEnabled && cart_slot)) && cpu_bus.mreq;
 
     always_ff @(posedge cpu_bus.clk) begin
         if (cpu_bus.reset) begin

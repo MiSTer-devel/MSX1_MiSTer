@@ -415,7 +415,6 @@ pll pll
 
 clock #(.sysCLK(sysCLK)) clock
 (
-   .reset(RESET),
    .clock_bus(clock_bus)
 );
 

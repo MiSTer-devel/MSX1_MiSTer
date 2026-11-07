@@ -452,6 +452,9 @@ package MSX;
         logic [5:0] fdd;
     } msx_config_t;
 
+    // clk_core frequency in Hz (pll outclk_1). The only place it is defined.
+    localparam int CLK_CORE_HZ = 21477270;
+
     // Synthesized copies of multi-instance devices (hardware is a superset of all
     // configurations; io_device keeps 3 slots per type). Lower a count for a smaller
     // build: a configuration needing more copies fails with ERR_MISSING_SOURCE

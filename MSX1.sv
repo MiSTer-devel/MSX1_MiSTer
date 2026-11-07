@@ -172,6 +172,8 @@ module emu
    input         OSD_STATUS
 );
 
+// emu bridges the MSX system (rtl/msx_system.sv) to the MiSTer framework:
+// hps_io, PLL and clock enables, video output, SDRAM / DDR3 / SD card / ADC pins.
 
 ///////// Default values for ports not used in this core /////////
 assign USER_OUT = '1;
@@ -184,100 +186,58 @@ assign HDMI_FREEZE = 0;
 assign HDMI_BLACKOUT = 0;
 assign HDMI_BOB_DEINT = 0;
 
-assign AUDIO_S = 1;
-assign AUDIO_L = audio_L;
-assign AUDIO_R = audio_R;
+assign AUDIO_S   = 1;
 assign AUDIO_MIX = 0;
 
 assign LED_POWER = 0;
-assign LED_USER  = vsd_sel & sd_act;
-assign LED_DISK  = {1'b1, ~vsd_sel & sd_act};
-assign BUTTONS = 0;
+assign BUTTONS   = 0;
 
 localparam VDNUM = 7;
-localparam sysCLK = 21477270;
 
-MSX::video_t video_bus;
+/////////////////   CLOCKS   /////////////////
+wire clk_core, clk_sdram, locked_sdram;
+pll pll
+(
+   .refclk(CLK_50M),
+   .rst(RESET),
+   .outclk_0(clk_sdram),   // 85.909080 MHz = 4x clk_core
+   .outclk_1(clk_core),    // 21.477270 MHz = MSX::CLK_CORE_HZ
+   .locked(locked_sdram)
+);
+
 clock_bus_if clock_bus(clk_core, clk_sdram);
-ext_sd_card_if ext_SD_card_bus();
-flash_bus_if flash_bus();
-vram_bus_if vram_bus();
-FDD_if FDD_bus[3]();
-block_device_if block_device_FDD[6]();
-block_device_if block_device_SD();
-memory_bus_if memory_bus_msx();
-memory_bus_if memory_bus_upload();
-memory_bus_if memory_bus_flash();
-memory_bus_if memory_bus_backup();
-memory_bus_if memory_bus_sdram_ch1();
-memory_bus_if memory_bus_sdram_ch2();
-memory_bus_if memory_bus_sdram_ch3();
+clock #(.sysCLK(MSX::CLK_CORE_HZ)) clock
+(
+   .clock_bus(clock_bus)
+);
 
-MSX::user_config_t msx_user_config;
-MSX::config_cart_t cart_conf[2];
-MSX::block_t       slot_layout[64];
-MSX::lookup_RAM_t  lookup_RAM[16];
-MSX::lookup_SRAM_t lookup_SRAM[4];
-MSX::io_device_t   io_device[32][3];
-MSX::io_device_mem_ref_t io_memory[8];
-MSX::slot_expander_t slot_expander[4];
-MSX::msx_config_t msx_config;
+/////////////////   RESET   /////////////////
+// Async sources (HPS reset, PLL not locked) are synchronized per clock domain
+// (async assert, sync release); the core reset is registered in msx_system.
+wire rst_core_async, sdram_init, reset;
+reset_sync rst_sync_core  (.clk(clk_core),  .arst(RESET || ~locked_sdram), .rst(rst_core_async));
+reset_sync rst_sync_sdram (.clk(clk_sdram), .arst(~locked_sdram),          .rst(sdram_init));
 
-wire             forced_scandoubler;
-wire             scandoubler;
-wire      [21:0] gamma_bus;
-wire       [1:0] buttons;
-wire     [127:0] status;
-wire      [10:0] ps2_key;
-wire      [24:0] ps2_mouse;
-wire      [31:0] joy0, joy1;
-wire       [5:0] joy[2];
-wire             ioctl_download;
-wire      [15:0] ioctl_index;
-wire             ioctl_wr;
-wire      [26:0] ioctl_addr;
-wire       [7:0] ioctl_dout;
-wire      [31:0] sd_lba[0:VDNUM-1];
-wire       [5:0] sd_blk_cnt[0:VDNUM-1];
-wire [VDNUM-1:0] sd_rd;
-wire [VDNUM-1:0] sd_wr;
-wire [VDNUM-1:0] sd_ack;
-wire      [13:0] sd_buff_addr;
-wire       [7:0] sd_buff_dout;
-wire       [7:0] sd_buff_din[0:VDNUM-1];
-wire             sd_buff_wr;
-wire [VDNUM-1:0] img_mounted;
-wire      [63:0] img_size;
-wire             img_readonly;
-wire      [15:0] sdram_sz;
-wire      [64:0] rtc;
-logic            reset      = 1'b1;    // registered in clk_core, see CLOCKS / RESET
-logic            hard_reset = 1'b1;
-wire      [31:0] uart_speed;
-
-//[0]     RESET
-//[2:1]   Aspect ratio
-//[5:3]   Scandoubler
-//[8:6]   Scale
-//[9]     Tape rewind
-//[10]    Reset & Detach
-//[11]    OCM INTERNAL MAPPER SIZE
-//[12]    OCM Reset after mount
-//[14:13] VideoMode
-//[15]    OCM CPU SPEED
-//[16]    OCM CPU TYPE
-//[20:17] SLOT A CART TYPE
-//21      Reset
-//[23:22] RESERVA
-//[25:24] RESERVA
-//[28:26] RESERVA
-//[32:29] SLOT B CART TYPE
-//[34:33] RESERVA
-//[37:35] RESERVA
-//[38]    SRAM SAVE
-//[39]    SRAM LOAD
-//[40]    Tape input
-//[41]    BORDER
+/////////////////   HPS   /////////////////
+// status bits (O/T/R in CONF_STR, CONF_STR_SLOT_A/B in rtl/msx_config.sv):
+//  [0]      reset (system menu)
+//  [2:1]    aspect ratio
+//  [5:3]    scandoubler Fx
+//  [8:6]    scale
+//  [9]      tape rewind
+//  [10]     reset & detach ROM cartridge
+//  [11]     OCM internal mapper size
+//  [12]     OCM reset after SD mount
+//  [15]     OCM CPU speed
+//  [16]     OCM CPU type (menu only, not used yet)
+//  [20:17]  slot A cartridge type
+//  [21]     reset / reset and close OSD
+//  [32:29]  slot B cartridge type
+//  [38]     SRAM save
+//  [39]     SRAM load
+//  [40]     tape input (file / ADC)
+//  [41]     border
+// Free: [14:13], [28:22], [37:33], [127:42]
 `include "build_id.v"
 localparam CONF_STR = {
    "MSX1;UART115200,MIDI;",
@@ -327,23 +287,36 @@ localparam CONF_STR = {
    "V,v",`BUILD_DATE
 };
 
-wire [15:0] status_menumask;
-wire [1:0] sdram_size;
-wire [7:0] info;
-wire info_req;
-
-assign status_menumask[0] = io_device[DEV_OCM_BOOT][0].enable || cart_conf[0].typ == CART_TYP_MFRSD;
-assign status_menumask[1] = ROM_A_load_hide || io_device[DEV_OCM_BOOT][0].enable ;
-assign status_menumask[2] = ROM_B_load_hide || io_device[DEV_OCM_BOOT][0].enable ;
-assign status_menumask[3] = io_device[DEV_OCM_BOOT][0].enable;
-assign status_menumask[9:4] = msx_config.fdd[5:0];
-assign status_menumask[10] = lookup_SRAM[0].size + lookup_SRAM[1].size + lookup_SRAM[2].size + lookup_SRAM[3].size == 0;
-assign status_menumask[11] = msx_user_config.cas_audio_src == CAS_AUDIO_ADC;
-assign status_menumask[15:12] = '0;
-assign sdram_size         = sdram_sz[15] ? sdram_sz[1:0] : 2'b00;
-
-assign info_req = error != ERR_NONE;
-assign info     = 8'(error);
+wire             forced_scandoubler;
+wire      [21:0] gamma_bus;
+wire       [1:0] buttons;
+wire     [127:0] status;
+wire      [15:0] status_menumask;
+wire             info_req;
+wire       [7:0] info;
+wire      [10:0] ps2_key;
+wire      [24:0] ps2_mouse;
+wire      [31:0] joy0, joy1;
+wire             ioctl_download;
+wire      [15:0] ioctl_index;
+wire             ioctl_wr;
+wire      [26:0] ioctl_addr;
+wire       [7:0] ioctl_dout;
+wire      [31:0] sd_lba[0:VDNUM-1];
+wire       [5:0] sd_blk_cnt[0:VDNUM-1];
+wire [VDNUM-1:0] sd_rd;
+wire [VDNUM-1:0] sd_wr;
+wire [VDNUM-1:0] sd_ack;
+wire      [13:0] sd_buff_addr;
+wire       [7:0] sd_buff_dout;
+wire       [7:0] sd_buff_din[0:VDNUM-1];
+wire             sd_buff_wr;
+wire [VDNUM-1:0] img_mounted;
+wire      [63:0] img_size;
+wire             img_readonly;
+wire      [15:0] sdram_sz;
+wire      [64:0] rtc;
+wire      [31:0] uart_speed;
 
 hps_io #(.CONF_STR(CONF_STR),.VDNUM(VDNUM)) hps_io
 (
@@ -383,103 +356,89 @@ hps_io #(.CONF_STR(CONF_STR),.VDNUM(VDNUM)) hps_io
    .uart_speed(uart_speed)
 );
 
-/////////////////   CONFIG   /////////////////
-wire [5:0] mapper_A, mapper_B;
-wire       reload, ROM_A_load_hide, ROM_B_load_hide;
-user_config user_config
+// HPS image slots: 1..6 floppy drives, 0 virtual SD card
+block_device_if block_device_FDD[6]();
+block_device_if block_device_SD();
+MSX::msx_config_t msx_config;
+
+blockDevMux #(.VDNUM(VDNUM)) blockDevMux
 (
    .clk(clock_bus.clk),
    .reset(reset),
-   .HPS_status(status[63:0]),
-   .sdram_size(sdram_size),
-   .cart_conf(cart_conf),
-   .reload(reload),
-   .ROM_A_load_hide(ROM_A_load_hide),
-   .ROM_B_load_hide(ROM_B_load_hide),
-   .msx_user_config(msx_user_config),
-   .ocmMode(io_device[DEV_OCM_BOOT][0].enable)
-);
-/////////////////   CLOCKS   /////////////////
-wire clk_core, clk_sdram, locked_sdram;
-pll pll
-(
-   .refclk(CLK_50M),
-   .rst(RESET),
-   .outclk_0(clk_sdram),   //85.909090
-   .outclk_1(clk_core),    //21.477270
-   .locked(locked_sdram)
+   .msx_config(msx_config),
+   .block_device_FDD(block_device_FDD),
+   .block_device_SD(block_device_SD),
+   .sd_rd(sd_rd),
+   .sd_wr(sd_wr),
+   .sd_ack(sd_ack),
+   .sd_lba(sd_lba),
+   .sd_blk_cnt(sd_blk_cnt),
+   .sd_buff_din(sd_buff_din),
+   .sd_buff_addr(sd_buff_addr),
+   .sd_buff_dout(sd_buff_dout),
+   .sd_buff_wr(sd_buff_wr),
+   .img_mounted(img_mounted),
+   .img_size(img_size),
+   .img_readonly(img_readonly)
 );
 
-clock #(.sysCLK(sysCLK)) clock
-(
-   .clock_bus(clock_bus)
-);
+/////////////////   MSX SYSTEM   /////////////////
+MSX::video_t     video_bus;
+ext_sd_card_if   ext_SD_card_bus();
+memory_bus_if    memory_bus_sdram_ch1();
+memory_bus_if    memory_bus_sdram_ch2();
+memory_bus_if    memory_bus_sdram_ch3();
+wire       [5:0] joy[2];
+wire             tape_in;
+wire      [27:0] ddr3_addr;
+wire       [7:0] ddr3_dout;
+wire      [63:0] ddr3_dout64;
+wire             ddr3_rd, ddr3_ready;
 
-/////////////////   RESET   /////////////////
-// Async sources (HPS reset, PLL not locked) are synchronized per clock domain
-// (async assert, sync release); the core reset is then a single register.
-wire rst_core_async, sdram_init;
-reset_sync rst_sync_core  (.clk(clk_core),  .arst(RESET || ~locked_sdram), .rst(rst_core_async));
-reset_sync rst_sync_sdram (.clk(clk_sdram), .arst(~locked_sdram),          .rst(sdram_init));
-
-always_ff @(posedge clk_core) begin
-   hard_reset <= rst_core_async || status[0] || upload_reset;
-   reset      <= rst_core_async || status[0] || upload_reset || status[10] || status[21]
-              || (status[12] && block_device_SD.img_mounted && io_device[DEV_WD2793][0].enable);
-end
-
-///////////////// Computer /////////////////
-wire  [7:0] R, G, B, cpu_din, cpu_dout;
-wire [15:0] cpu_addr, audio_L, audio_R;
-wire        cpu_wr, cpu_rd, cpu_mreq, cpu_iorq, cpu_m1;
-wire        sd_tx, sd_rx;
-wire  [7:0] d_to_sd, d_from_sd;
 assign joy[0] = joy0[5:0];
 assign joy[1] = joy1[5:0];
-msx #(.sysCLK(sysCLK)) MSX
-(
-   .core_reset(reset),
-   .core_hard_reset(hard_reset),
-   .clock_bus(clock_bus.base_mp),
-   .memory_bus(memory_bus_msx),
-   .video_bus(video_bus),
-   .vram_bus(vram_bus),
-   .ext_SD_card_bus(ext_SD_card_bus),
-   .flash_bus(flash_bus),
-   .FDD_bus(FDD_bus),
-   .tape_motor_on(motor),
-   .tape_in(msx_user_config.cas_audio_src == CAS_AUDIO_FILE  ? CAS_dout : tape_in),
-   .rtc_time(rtc),
-   .sram_save(status[38]),
-   .sram_load(status[39]),
-   .ioctl_addr(ioctl_addr[26:0]),
-   .slot_expander(slot_expander),
-   .slot_layout(slot_layout),
-   .lookup_RAM(lookup_RAM),
-   .lookup_SRAM(lookup_SRAM),
-   .io_device(io_device),
-   .io_memory(io_memory),
-   .msx_config(msx_config),
-   .joy(joy),
-   .kb_upload_memory(kb_upload_memory),
-   .*
-);
 
-//////////////////   UART ///////////////////
-wire [7:0] uart_rx_data;
-wire       uart_rx;
-
-uart_rx #(.sysCLK(sysCLK)) uart_rx_i
+msx_system msx_system
 (
-   .clk(clock_bus.clk),
+   .clock_bus(clock_bus),
+   .rst_core_async(rst_core_async),
    .reset(reset),
-   .rx(UART_RXD),
+   .status(status),
+   .status_menumask(status_menumask),
+   .info_req(info_req),
+   .info(info),
+   .ps2_key(ps2_key),
+   .joy(joy),
+   .ioctl_download(ioctl_download),
+   .ioctl_index(ioctl_index),
+   .ioctl_addr(ioctl_addr),
+   .rtc(rtc),
+   .sdram_sz(sdram_sz),
    .uart_speed(uart_speed),
-   .data_rx(uart_rx),
-   .data(uart_rx_data)
+   .img_readonly(img_readonly),
+   .img_size(img_size),
+   .sd_img_mounted(block_device_SD.img_mounted),
+   .block_device_FDD(block_device_FDD),
+   .msx_config(msx_config),
+   .video_bus(video_bus),
+   .audio_L(AUDIO_L),
+   .audio_R(AUDIO_R),
+   .uart_rxd(UART_RXD),
+   .tape_adc(tape_in),
+   .ext_SD_card_bus(ext_SD_card_bus),
+   .memory_bus_sdram_ch1(memory_bus_sdram_ch1),
+   .memory_bus_sdram_ch2(memory_bus_sdram_ch2),
+   .memory_bus_sdram_ch3(memory_bus_sdram_ch3),
+   .ddr3_addr(ddr3_addr),
+   .ddr3_rd(ddr3_rd),
+   .ddr3_dout(ddr3_dout),
+   .ddr3_dout64(ddr3_dout64),
+   .ddr3_ready(ddr3_ready)
 );
 
-//////////////////   SD   ///////////////////
+/////////////////   SD CARD   /////////////////
+// Ext SD card of the MSX cartridges: real SD card on the SD-SPI pins,
+// or the virtual SD image (block_device_SD) once one is mounted.
 wire sdclk;
 wire sdmosi;
 wire vsdmiso;
@@ -509,7 +468,9 @@ always_ff @(posedge clock_bus.clk) begin
     if((old_mosi ^ sdmosi) || (old_miso ^ sdmiso)) timeout <= 0;
 end
 
-//////////////////   SPI   ///////////////////
+assign LED_USER = vsd_sel & sd_act;
+assign LED_DISK = {1'b1, ~vsd_sel & sd_act};
+
 spi_divmmc spi
 (
    .clk_sys(clock_bus.clk),
@@ -544,8 +505,10 @@ sd_card sd_card
     .mosi(sdmosi),
     .miso(vsdmiso)
 );
-/////////////////  VIDEO  /////////////////
+
+/////////////////   VIDEO   /////////////////
 wire       vga_de;
+wire       scandoubler;
 wire [1:0] ar    = status[2:1];
 wire [2:0] scale = status[5:3];
 wire [2:0] sl    = scale != 0 ? scale - 1'd1 : 3'd0;
@@ -561,14 +524,20 @@ end
 
 video_freak video_freak
 (
-	.*,
-	.VGA_DE_IN(vga_de),
+   .CLK_VIDEO(CLK_VIDEO),
+   .CE_PIXEL(CE_PIXEL),
    .VGA_VS(video_bus.VS),
-	.ARX((ar == 0) ? 12'd4 : {10'b0, (ar - 1'd1)}),
-	.ARY((ar == 0) ? 12'd3 : 12'd0),
-	.CROP_SIZE(en216p ? 12'd216 : 12'd0),
-	.CROP_OFF(0),
-	.SCALE(status[8:6])
+   .HDMI_WIDTH(HDMI_WIDTH),
+   .HDMI_HEIGHT(HDMI_HEIGHT),
+   .VGA_DE(VGA_DE),
+   .VIDEO_ARX(VIDEO_ARX),
+   .VIDEO_ARY(VIDEO_ARY),
+   .VGA_DE_IN(vga_de),
+   .ARX((ar == 0) ? 12'd4 : {10'b0, (ar - 1'd1)}),
+   .ARY((ar == 0) ? 12'd3 : 12'd0),
+   .CROP_SIZE(en216p ? 12'd216 : 12'd0),
+   .CROP_OFF(0),
+   .SCALE(status[8:6])
 );
 
 video_mixer #(.GAMMA(1), .LINE_LENGTH(582)) video_mixer
@@ -599,12 +568,11 @@ video_mixer #(.GAMMA(1), .LINE_LENGTH(582)) video_mixer
    .VGA_DE(vga_de)
 );
 
-/////////////////  Tape In   /////////////////
-wire tape_adc, tape_adc_act, tape_in;
-
+/////////////////   TAPE INPUT (ADC)   /////////////////
+wire tape_adc, tape_adc_act;
 assign tape_in = tape_adc_act & tape_adc;
 
-ltc2308_tape #(.ADC_RATE(120000), .CLK_RATE(21477272)) tape
+ltc2308_tape #(.ADC_RATE(120000), .CLK_RATE(MSX::CLK_CORE_HZ)) tape
 (
    .clk(clock_bus.clk),
    .ADC_BUS(ADC_BUS),
@@ -612,123 +580,50 @@ ltc2308_tape #(.ADC_RATE(120000), .CLK_RATE(21477272)) tape
    .active(tape_adc_act)
 );
 
-/////////////////  LOAD PACK   /////////////////
-wire upload_ram_ce, upload_sdram_rq, upload_bram_rq, upload, upload_reset;
-wire  [7:0] upload_ram_din, config_msx;
-wire [26:0] upload_ram_addr;
-wire  [7:0] kbd_din;
-wire  [8:0] kbd_addr;
-wire        kbd_request, kbd_we;
-wire        load_sram;
-error_t     error;
-MSX::kb_memory_t  kb_upload_memory;
-
-memory_upload memory_upload(
-    .clk(clock_bus.clk),
-    .upload(upload),
-    .ioctl_download(ioctl_download),
-    .ioctl_index(ioctl_index),
-    .ioctl_addr(ioctl_addr),
-    .rom_eject(status[10]),
-    .reload(reload),
-    .ddr3_addr(ddr3_addr_download),
-    .ddr3_rd(ddr3_rd_download),
-    .ddr3_dout(ddr3_dout),
-    .ddr3_ready(ddr3_ready),
-    .ddr3_request(ddr3_request_download),
-    .memory_bus(memory_bus_upload),
-    .kb_upload_memory(kb_upload_memory),
-    .slot_expander(slot_expander),
-    .slot_layout(slot_layout),
-    .lookup_RAM(lookup_RAM),
-    .lookup_SRAM(lookup_SRAM),
-    .cart_conf(cart_conf),
-    .load_sram(load_sram),
-    .io_device(io_device),
-    .io_memory(io_memory),
-    .msx_config(msx_config),
-    .error(error),
-    .reset(upload_reset)
-);
-wire  [26:0] flash_addr;
-wire   [7:0] flash_dout;
-wire         flash_req, flash_ready, flash_done;
-flash flash (
-   .clk(clock_bus.clk),
-   .clk_sdram(clk_sdram),
-   .flash_bus(flash_bus),
-
-   .sdram_ready(flash_ready),
-   .sdram_done(flash_done),
-   .sdram_addr(flash_addr),
-   .sdram_din(flash_dout),
-   .sdram_req(flash_req)
-);
-
-// flash and NVRAM backup use system addresses: map them through system_memory like CPU
-assign memory_bus_flash.addr     = flash_addr;
-assign memory_bus_flash.data     = flash_dout;
-assign memory_bus_flash.rnw      = 1'b0;
-assign memory_bus_flash.ram_cs   = flash_req;
-assign memory_bus_flash.sram_cs  = 1'b0;
-assign flash_ready               = memory_bus_flash.sdram_ready;
-assign flash_done                = memory_bus_flash.sdram_done;
-
-assign memory_bus_backup.addr    = backup_ram_addr;
-assign memory_bus_backup.data    = backup_ram_din;
-assign memory_bus_backup.rnw     = backup_ram_rnw;
-assign memory_bus_backup.ram_cs  = backup_ram_req;
-assign memory_bus_backup.sram_cs = 1'b0;
-assign backup_ram_dout           = memory_bus_backup.q;
-assign backup_ram_ready          = memory_bus_backup.sdram_ready;
-
-wire [27:0] ddr3_addr, ddr3_addr_download, ddr3_addr_cas;
-wire  [7:0] ddr3_dout, ddr3_din_download;
-wire        ddr3_rd, ddr3_rd_download, ddr3_rd_cas, ddr3_wr_download, ddr3_ready, ddr3_request_download;
-
-assign ddr3_addr = ddr3_request_download ? ddr3_addr_download : ddr3_addr_cas ;
-assign ddr3_rd   = ddr3_request_download ? ddr3_rd_download   : ddr3_rd_cas   ;
+/////////////////   DDR3 (configuration packs, cassette images)   /////////////////
 assign DDRAM_CLK = clock_bus.clk;
-
-
-logic [63:0] dout64;
 
 ddram buffer
 (
+   .reset(reset),
    .DDRAM_CLK(DDRAM_CLK),
+   .DDRAM_BUSY(DDRAM_BUSY),
+   .DDRAM_BURSTCNT(DDRAM_BURSTCNT),
+   .DDRAM_ADDR(DDRAM_ADDR),
+   .DDRAM_DOUT(DDRAM_DOUT),
+   .DDRAM_DOUT_READY(DDRAM_DOUT_READY),
+   .DDRAM_RD(DDRAM_RD),
+   .DDRAM_DIN(DDRAM_DIN),
+   .DDRAM_BE(DDRAM_BE),
+   .DDRAM_WE(DDRAM_WE),
    .addr(ddr3_addr),
    .dout(ddr3_dout),
-   .dout64(dout64),
    .din(),
    .we(),
    .rd(ddr3_rd),
    .ready(ddr3_ready),
-   .reset(reset),
-   .*
+   .dout64(ddr3_dout64)
 );
 
-system_memory #(.BRAM_WIDTH(18)) system_memory(
-   .clk(clock_bus.clk),
-   .memory_bus_msx(memory_bus_msx),
-   .memory_bus_upload(memory_bus_upload),
-   .memory_bus_flash(memory_bus_flash),
-   .memory_bus_backup(memory_bus_backup),
-   .memory_bus_sdram_ch1(memory_bus_sdram_ch1),
-   .memory_bus_sdram_ch2(memory_bus_sdram_ch2),
-   .memory_bus_sdram_ch3(memory_bus_sdram_ch3),
-   .upload(upload)
-);
-
-wire         sdram_ready, sdram_rnw, dw_sdram_we, dw_sdram_ready;
-wire  [26:0] sdram_addr;
-wire  [24:0] dw_sdram_addr;
-wire   [7:0] sdram_dout, dw_sdram_din;
+/////////////////   SDRAM   /////////////////
 sdram sdram
 (
    .init(sdram_init),
    .clk(clk_sdram),
    .core_phase(clock_bus.ce_10m7_p),   // clkdiv4[0]: register toggling every clk_core cycle
    .doRefresh(1'd0),
+
+   .SDRAM_DQ(SDRAM_DQ),
+   .SDRAM_A(SDRAM_A),
+   .SDRAM_DQML(SDRAM_DQML),
+   .SDRAM_DQMH(SDRAM_DQMH),
+   .SDRAM_BA(SDRAM_BA),
+   .SDRAM_nCS(SDRAM_nCS),
+   .SDRAM_nWE(SDRAM_nWE),
+   .SDRAM_nRAS(SDRAM_nRAS),
+   .SDRAM_nCAS(SDRAM_nCAS),
+   .SDRAM_CKE(SDRAM_CKE),
+   .SDRAM_CLK(SDRAM_CLK),
 
    .memory_bus_ch1(memory_bus_sdram_ch1),
 
@@ -746,189 +641,7 @@ sdram sdram
    .ch3_req  (memory_bus_sdram_ch3.ram_cs),
    .ch3_rnw  (memory_bus_sdram_ch3.rnw),
    .ch3_ready(memory_bus_sdram_ch3.sdram_ready),
-   .ch3_done (memory_bus_sdram_ch3.sdram_done),
-   .*
-);
-// VDP video RAM
-spram #(.addr_width(16),.mem_name("VRA2")) vram_lo
-(
-   .clock(clock_bus.clk),
-   .address(vram_bus.addr),
-   .wren(vram_bus.we_lo),
-   .data(vram_bus.data),
-   .q(vram_bus.q_lo)
-);
-spram #(.addr_width(16),.mem_name("VRA3")) vram_hi
-(
-   .clock(clock_bus.clk),
-   .address(vram_bus.addr),
-   .wren(vram_bus.we_hi),
-   .data(vram_bus.data),
-   .q(vram_bus.q_hi)
+   .ch3_done (memory_bus_sdram_ch3.sdram_done)
 );
 
-///////////////// NVRAM BACKUP ////////////////
-wire [26:0]  backup_ram_addr;
-wire [7:0]   backup_ram_din, backup_ram_dout;
-wire         backup_ram_req, backup_ram_rnw, backup_ram_ready;
-nvram_backup nvram_backup
-(
-   .clk(clock_bus.clk),
-   .lookup_SRAM(lookup_SRAM),
-   .load_req(status[39] | load_sram),
-   .save_req(status[38]),
-   .img_mounted(4'b0000 /*img_mounted[3:0]*/), //TODO
-   .img_readonly(img_readonly),
-   .img_size(img_size[31:0]),
-   /*
-   .sd_lba(sd_lba[0:3]),
-   .sd_rd(sd_rd[3:0]),
-   .sd_wr(sd_wr[3:0]),
-   .sd_ack(sd_ack[3:0]),
-   .sd_buff_wr(sd_buff_wr),
-   .sd_buff_addr(sd_buff_addr),
-   .sd_buff_din(sd_buff_din[0:3]),
-   .sd_buff_dout(sd_buff_dout),
-   */
-   .ram_addr(backup_ram_addr),
-   .ram_dout(backup_ram_dout),
-   .ram_din(backup_ram_din),
-   .ram_req(backup_ram_req),
-   .ram_rnw(backup_ram_rnw),
-   .ram_ready(backup_ram_ready)
-);
-
-///////////////// CAS EMULATE /////////////////
-wire ioctl_isCAS, buff_mem_ready, motor, CAS_dout, play, rewind;
-logic cas_load = 0;
-always_ff @(posedge clock_bus.clk) begin
-   logic ioctl_download_last;
-   if (~ioctl_isCAS & ioctl_download_last )  begin
-      cas_load <= 1'b1;
-   end
-   ioctl_download_last <= ioctl_isCAS;
-end
-
-assign play         = ~motor & cas_load;
-assign ioctl_isCAS  = ioctl_download & (ioctl_index[5:0] == 6'd5);
-assign rewind       = status[9] | ioctl_isCAS | reset;
-
-tape cass
-(
-   .clk(clock_bus.clk),
-   .ce_5m3(clock_bus.ce_5m39_p),
-   .cas_out(CAS_dout),
-   .ram_a(ddr3_addr_cas),
-   .ram_di(ddr3_dout),
-   .ram_di64(dout64),
-   .ram_rd(ddr3_rd_cas),
-   .buff_mem_ready(ddr3_ready),
-   .play(play),
-   .rewind(rewind),
-   .enable(cas_load)
-);
-
-blockDevMux #(.VDNUM(VDNUM)) blockDevMux
-(
-   .clk(clock_bus.clk),
-   .reset(reset),
-   .msx_config(msx_config),
-   .block_device_FDD(block_device_FDD),
-   .block_device_SD(block_device_SD),
-   .sd_rd(sd_rd),
-   .sd_wr(sd_wr),
-   .sd_ack(sd_ack),
-   .sd_lba(sd_lba),
-   .sd_blk_cnt(sd_blk_cnt),
-   .sd_buff_din(sd_buff_din),
-   .sd_buff_addr(sd_buff_addr),
-   .sd_buff_dout(sd_buff_dout),
-   .sd_buff_wr(sd_buff_wr),
-   .img_mounted(img_mounted),
-   .img_size(img_size),
-   .img_readonly(img_readonly)
-);
-///////////////// FDD EMULATE /////////////////
-// one FDD unit (2 drives) per WD2793 copy (MSX::N_WD2793)
-generate
-if (MSX::N_WD2793 > 0) begin : g_fdd0
-   fdd #(.sysCLK(sysCLK), .SECTORS(9), .SECTOR_SIZE(512), .TRACKS(80), .ID("FDD0")) fdd0 (
-      .clk(clock_bus.clk),
-      .reset(reset),
-      .FDD_bus(FDD_bus[0]),
-      .block_device(block_device_FDD[0:1]),
-      // CONFIGURATION
-      .speed(2'b00),
-      .mfm(2'b11),
-      .sides(2'b11),
-      .sectors('{9,9}),                // sectors per track
-      .sector_size('{2,2}),            // 0 - 128B / 1 - 256B / 2 - 512B / 3 - 1024B
-      .density('{0,0})                // 0 - 250kbit     / 1 - 500kbit    / 2 - 1000kbit
-   );
-end else begin : g_fdd0_none   // no FDC 0: block devices idle
-   assign block_device_FDD[0].rd = '0;
-   assign block_device_FDD[0].wr = '0;
-   assign block_device_FDD[0].lba = '0;
-   assign block_device_FDD[0].blk_cnt = '0;
-   assign block_device_FDD[0].buff_din = '0;
-   assign block_device_FDD[1].rd = '0;
-   assign block_device_FDD[1].wr = '0;
-   assign block_device_FDD[1].lba = '0;
-   assign block_device_FDD[1].blk_cnt = '0;
-   assign block_device_FDD[1].buff_din = '0;
-end
-if (MSX::N_WD2793 > 1) begin : g_fdd1
-   fdd #(.sysCLK(sysCLK), .SECTORS(9), .SECTOR_SIZE(512), .TRACKS(80), .ID("FDD1")) fdd1 (
-      .clk(clock_bus.clk),
-      .reset(reset),
-      .FDD_bus(FDD_bus[1]),
-      .block_device(block_device_FDD[2:3]),
-      // CONFIGURATION
-      .speed(2'b00),
-      .mfm(2'b11),
-      .sides(2'b11),
-      .sectors('{9,9}),                // sectors per track
-      .sector_size('{2,2}),            // 0 - 128B / 1 - 256B / 2 - 512B / 3 - 1024B
-      .density('{0,0})                // 0 - 250kbit     / 1 - 500kbit    / 2 - 1000kbit
-   );
-end else begin : g_fdd1_none   // no FDC 1: block devices idle
-   assign block_device_FDD[2].rd = '0;
-   assign block_device_FDD[2].wr = '0;
-   assign block_device_FDD[2].lba = '0;
-   assign block_device_FDD[2].blk_cnt = '0;
-   assign block_device_FDD[2].buff_din = '0;
-   assign block_device_FDD[3].rd = '0;
-   assign block_device_FDD[3].wr = '0;
-   assign block_device_FDD[3].lba = '0;
-   assign block_device_FDD[3].blk_cnt = '0;
-   assign block_device_FDD[3].buff_din = '0;
-end
-if (MSX::N_WD2793 > 2) begin : g_fdd2
-   fdd #(.sysCLK(sysCLK), .SECTORS(9), .SECTOR_SIZE(512), .TRACKS(80), .ID("FDD2")) fdd2 (
-      .clk(clock_bus.clk),
-      .reset(reset),
-      .FDD_bus(FDD_bus[2]),
-      .block_device(block_device_FDD[4:5]),
-      // CONFIGURATION
-      .speed(2'b00),
-      .mfm(2'b11),
-      .sides(2'b11),
-      .sectors('{9,9}),                // sectors per track
-      .sector_size('{2,2}),            // 0 - 128B / 1 - 256B / 2 - 512B / 3 - 1024B
-      .density('{0,0})                // 0 - 250kbit     / 1 - 500kbit    / 2 - 1000kbit
-   );
-end else begin : g_fdd2_none   // no FDC 2: block devices idle
-   assign block_device_FDD[4].rd = '0;
-   assign block_device_FDD[4].wr = '0;
-   assign block_device_FDD[4].lba = '0;
-   assign block_device_FDD[4].blk_cnt = '0;
-   assign block_device_FDD[4].buff_din = '0;
-   assign block_device_FDD[5].rd = '0;
-   assign block_device_FDD[5].wr = '0;
-   assign block_device_FDD[5].lba = '0;
-   assign block_device_FDD[5].blk_cnt = '0;
-   assign block_device_FDD[5].buff_din = '0;
-end
-
-endgenerate
 endmodule

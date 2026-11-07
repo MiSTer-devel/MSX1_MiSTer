@@ -8,6 +8,7 @@ set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) m
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) msx.sv                                ]
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) msx_cpu.sv                            ]
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) msx_config.sv                         ]
+set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) msx_system.sv                         ]
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) nvram_backup.sv                       ]
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) package.sv                            ]
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) spi_divmmc.sv                         ]

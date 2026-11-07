@@ -1,4 +1,4 @@
-module clock #(parameter sysCLK=21477270)
+module clock #(parameter sysCLK = MSX::CLK_CORE_HZ)
 (
    clock_bus_if.generator_mp clock_bus
 );

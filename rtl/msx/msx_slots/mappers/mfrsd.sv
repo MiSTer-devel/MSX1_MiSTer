@@ -37,8 +37,8 @@
 
 module mapper_mfrsd0 (
     cpu_bus_if.device_mp    cpu_bus,         // Interface for CPU communication
-    block_info              block_info,      // Struct containing mapper configuration and parameters
-    mapper_out              out,             // Interface for mapper output
+    input  MSX::block_info_t block_info,      // Active block (slot layout entry)
+    output MSX::mapper_out_t out,             // Mapper output, merged in mappers.sv
     input MSX::mfrsd_config_t config_reg
 );
 
@@ -52,14 +52,19 @@ module mapper_mfrsd0 (
     // Calculate the address by adding the offset to the base address (only if chip select is active)
     assign out.addr   = cs ? ram_addr : {27{1'b1}};
 
+    // outputs not used by this mapper: neutral for the merge in mappers.sv
+    assign out.rnw     = 1'b1;
+    assign out.sram_cs = 1'b0;
+    assign out.data    = 8'hFF;
+
 endmodule
 
 module mapper_mfrsd1 (
     cpu_bus_if.device_mp    cpu_bus,         // Interface for CPU communication
     flash_bus_if.device_mp  flash_bus,        // Interface to emulate FLASH
-    block_info              block_info,      // Struct containing mapper configuration and parameters
-    mapper_out              out,             // Interface for mapper output
-    device_bus              device_out,      // Interface for device output
+    input  MSX::block_info_t block_info,      // Active block (slot layout entry)
+    output MSX::mapper_out_t out,             // Mapper output, merged in mappers.sv
+    output MSX::device_bus_t device_out,      // Cartridge device control
     output MSX::mfrsd_config_t config_reg,
     input             [7:0] data_to_mapper
 );
@@ -227,12 +232,18 @@ module mapper_mfrsd1 (
     assign out.data                       = flash_bus.data_valid ? flash_bus.data_from_flash    :
                                                                    8'hFF                        ;
 
+    // outputs not used by this mapper: neutral for the merge in mappers.sv
+    assign out.sram_cs = 1'b0;
+    assign device_out.device_ref = 3'd0;
+    assign device_out.we         = 1'b0;
+    assign device_out.data       = 8'hFF;
+
 endmodule
 
 module mapper_mfrsd2 (
     cpu_bus_if.device_mp    cpu_bus,         // Interface for CPU communication
-    block_info              block_info,      // Struct containing mapper configuration and parameters
-    mapper_out              out,             // Interface for mapper output
+    input  MSX::block_info_t block_info,      // Active block (slot layout entry)
+    output MSX::mapper_out_t out,             // Mapper output, merged in mappers.sv
     input MSX::mfrsd_config_t config_reg,
     input             [7:0] data_to_mapper
 );
@@ -248,15 +259,19 @@ module mapper_mfrsd2 (
     // Generate the Read/Not Write (rnw) signal based on the chip select and write signal
     assign out.rnw = ~(cs & cpu_bus.wr);
 
+    // outputs not used by this mapper: neutral for the merge in mappers.sv
+    assign out.sram_cs = 1'b0;
+    assign out.data    = 8'hFF;
+
 endmodule
 
 module mapper_mfrsd3 (
     cpu_bus_if.device_mp        cpu_bus,          // Interface for CPU communication
     ext_sd_card_if.device_mp    ext_SD_card_bus,  // Interface Ext SD card
     flash_bus_if.device_mp      flash_bus,        // Interface to emulate FLASH
-    mapper_out                  out,              // Interface for mapper output
+    output MSX::mapper_out_t out,              // Mapper output, merged in mappers.sv
     input MSX::mfrsd_config_t   config_reg,
-    block_info                  block_info        // Struct containing mapper configuration and parameters
+    input  MSX::block_info_t block_info        // Active block (slot layout entry)
 );
 
     wire cs, mapped, mapper_en, sd_card_access;
@@ -356,26 +371,29 @@ module mapper_mfrsd3 (
 	}
     */
 
+    // outputs not used by this mapper: neutral for the merge in mappers.sv
+    assign out.sram_cs = 1'b0;
+
 endmodule
 
 
 
 module mapper_mfrsd (
     cpu_bus_if.device_mp        cpu_bus,          // Interface for CPU communication
-    block_info                  block_info,       // Struct containing mapper configuration and parameters
+    input  MSX::block_info_t block_info,       // Active block (slot layout entry)
     ext_sd_card_if.device_mp    ext_SD_card_bus,  // Interface Ext SD card
     flash_bus_if.device_mp      flash_bus,        // Interface to emulate FLASH
-    mapper_out                  out,              // Interface for mapper output
-    device_bus                  device_out,
+    output MSX::mapper_out_t out,              // Mapper output, merged in mappers.sv
+    output MSX::device_bus_t device_out,
     input                 [7:0] data_to_mapper, 
     output                      slot_expander_force_en
 );
 
     MSX::mfrsd_config_t config_reg;
-    mapper_out mfrsd0_out();
-    mapper_out mfrsd1_out();
-    mapper_out mfrsd2_out();
-    mapper_out mfrsd3_out();
+    MSX::mapper_out_t mfrsd0_out;
+    MSX::mapper_out_t mfrsd1_out;
+    MSX::mapper_out_t mfrsd2_out;
+    MSX::mapper_out_t mfrsd3_out;
     flash_bus_if flash_bus_mfrsd1();
     flash_bus_if flash_bus_mfrsd3();
 
@@ -461,5 +479,8 @@ module mapper_mfrsd (
         .config_reg(config_reg)
     );
 
+
+    // outputs not used by this mapper: neutral for the merge in mappers.sv
+    assign out.sram_cs = 1'b0;
 
 endmodule

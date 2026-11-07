@@ -60,8 +60,8 @@
 	*/
 );
 
-device_bus device_bus();
-block_info block_info();
+MSX::device_bus_t device_bus;
+MSX::block_info_t block_info;
 cpu_bus_if cpu_bus(clock_bus.clk, reset);
 memory_bus_if memory_bus_slots();
 memory_bus_if memory_bus_devices();

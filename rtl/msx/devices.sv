@@ -39,12 +39,12 @@ module devices  #(parameter sysCLK)
 (
     clock_bus_if.base_mp    clock_bus,                              // Clock interface
     cpu_bus_if.device_mp    cpu_bus,                                // CPU bus interface
-    device_bus              device_bus,                             // Device control bus interface
+    input  MSX::device_bus_t device_bus,                             // Device control bus interface
     FDD_if.FDC_mp           FDD_bus[3],
     video_bus_if.device_mp  video_bus,
     vram_bus_if.device_mp   vram_bus,
     memory_bus_if.device_mp memory_bus,
-    block_info              block_info,
+    input  MSX::block_info_t block_info,
     input MSX::io_device_t  io_device[32][3],                       // Array of IO devices
     input MSX::io_device_mem_ref_t io_memory[8],                    // Array of memory references
     input MSX::kb_memory_t  kb_upload_memory,

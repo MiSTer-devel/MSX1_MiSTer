@@ -37,7 +37,7 @@
 
 module dev_opm #(parameter COUNT = MSX::N_OPM) (   // synthesized copies, io_device has 3 slots
     cpu_bus_if.device_mp   cpu_bus,
-    device_bus             device_bus,
+    input  MSX::device_bus_t device_bus,
     clock_bus_if.base_mp   clock_bus,
     input MSX::io_device_t io_device[3],
     output signed [15:0]   sound_L,

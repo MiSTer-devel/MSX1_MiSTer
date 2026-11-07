@@ -303,15 +303,6 @@ interface vram_bus_if;
 
 endinterface
 
-interface device_bus;
-    logic [2:0] device_ref;
-    logic       we;
-    logic       en;
-    logic       mode;
-    logic       param;
-    logic [7:0] data;
-endinterface
-
 interface memory_bus_if;
     logic [26:0] addr;
     logic [7:0]  data;
@@ -331,24 +322,6 @@ interface memory_bus_if;
     );
 endinterface
 
-interface mapper_out;
-    logic [26:0] addr;
-    logic        rnw;
-    logic        ram_cs;
-    logic        sram_cs;
-    logic  [7:0] data;
-endinterface
-
-interface block_info;
-    logic [24:0] rom_size;
-    logic [15:0] sram_size;
-    logic  [1:0] offset_ram;
-    logic [26:0] base_ram;
-    logic [2:0]  device_ref;
-    mapper_typ_t typ;
-    logic        id;
-endinterface
-
 interface sd_bus;
    logic          ack;
    logic   [13:0] buff_addr;
@@ -364,6 +337,35 @@ interface sd_bus_control;
 endinterface
 
 package MSX;
+
+    // One-directional bundles (driver -> readers) between slots, mappers and devices.
+    // Inactive values are neutral for the wired-AND / OR merge in mappers.sv.
+    typedef struct packed {
+        logic [26:0] addr;      // '1 when inactive (AND)
+        logic        rnw;       // 1 when inactive (AND)
+        logic        ram_cs;    // OR
+        logic        sram_cs;   // OR
+        logic  [7:0] data;      // FF when inactive (AND)
+    } mapper_out_t;            // mapper -> mappers.sv
+
+    typedef struct packed {
+        logic [24:0] rom_size;
+        logic [15:0] sram_size;
+        logic  [1:0] offset_ram;
+        logic [26:0] base_ram;
+        logic  [2:0] device_ref;
+        mapper_typ_t typ;
+        logic        id;
+    } block_info_t;            // msx_slots -> mappers, devices (active block of the access)
+
+    typedef struct packed {
+        logic  [2:0] device_ref;
+        logic        we;        // OR
+        logic        en;        // OR
+        logic        mode;      // 1 when inactive (AND)
+        logic        param;     // 1 when inactive (AND)
+        logic  [7:0] data;      // FF when inactive
+    } device_bus_t;            // mappers (cartridge devices) -> devices
     
     typedef struct {
         logic           border;

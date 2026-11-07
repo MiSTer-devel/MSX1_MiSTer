@@ -37,8 +37,8 @@
 
 module mapper_mirror (
     cpu_bus_if.device_mp    cpu_bus,
-    block_info              block_info,
-    mapper_out              out
+    input  MSX::block_info_t block_info,
+    output MSX::mapper_out_t out
 );
 
     wire cs = (block_info.typ == MAPPER_MIRROR) && cpu_bus.mreq && (cpu_bus.rd || cpu_bus.wr);
@@ -80,5 +80,9 @@ module mapper_mirror (
     assign out.ram_cs = cs;
     assign out.addr   = cs ? {11'b0, ram_addr} : {27{1'b1}};
     assign out.rnw    = ~(cs && cpu_bus.wr);
+
+    // outputs not used by this mapper: neutral for the merge in mappers.sv
+    assign out.sram_cs = 1'b0;
+    assign out.data    = 8'hFF;
 
 endmodule

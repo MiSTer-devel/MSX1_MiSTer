@@ -4,8 +4,8 @@ module mirror_tb;
 
 logic clk = 0, rst = 0;
 cpu_bus_if cpu_bus(clk, rst);
-block_info block_info();
-mapper_out out();
+MSX::block_info_t block_info;
+MSX::mapper_out_t out;
 
 mapper_mirror dut (.cpu_bus(cpu_bus), .block_info(block_info), .out(out));
 

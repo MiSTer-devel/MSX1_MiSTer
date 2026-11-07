@@ -38,7 +38,7 @@
 module dev_scc (
     cpu_bus_if.device_mp   cpu_bus,
     clock_bus_if.base_mp   clock_bus,
-    device_bus             device_bus,
+    input  MSX::device_bus_t device_bus,
     input MSX::io_device_t io_device[3],
     output   signed [15:0] sound,
     output           [7:0] data

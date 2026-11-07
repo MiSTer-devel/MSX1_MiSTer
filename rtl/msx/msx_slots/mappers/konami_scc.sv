@@ -37,9 +37,9 @@
 
 module mapper_konami_scc (
    cpu_bus_if.device_mp     cpu_bus,        // Interface for CPU communication
-   mapper_out               out,            // Interface for mapper output
-   block_info               block_info,     // Struct containing mapper configuration and parameters 
-   device_bus               device_out      // Interface for device output
+   output MSX::mapper_out_t out,            // Mapper output, merged in mappers.sv
+   input  MSX::block_info_t block_info,     // Active block (slot layout entry) 
+   output MSX::device_bus_t device_out      // Cartridge device control
 );
 
     // Control signals for memory mapping
@@ -133,5 +133,12 @@ module mapper_konami_scc (
     assign device_out.mode  = cs ? soundMode[block_info.id] : 1'b1;
     assign device_out.en    = cs && scc_area;
     assign device_out.param = cs ? sccType : 1'b1;
+
+    // outputs not used by this mapper: neutral for the merge in mappers.sv
+    assign out.sram_cs = 1'b0;
+    assign out.data    = 8'hFF;
+    assign device_out.device_ref = 3'd0;
+    assign device_out.we         = 1'b0;
+    assign device_out.data       = 8'hFF;
 
 endmodule

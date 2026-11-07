@@ -39,8 +39,8 @@
 
 module mapper_eseRam (
     cpu_bus_if.device_mp        cpu_bus,       
-    mapper_out                  out,           
-    block_info                  block_info,
+    output MSX::mapper_out_t out,           
+    input  MSX::block_info_t block_info,
     ext_sd_card_if.device_mp    ext_SD_card_bus,
     input                       megaSD_enable    
 );
@@ -129,5 +129,8 @@ module mapper_eseRam (
             end
         end
     end
+
+    // outputs not used by this mapper: neutral for the merge in mappers.sv
+    assign out.sram_cs = 1'b0;
 
 endmodule

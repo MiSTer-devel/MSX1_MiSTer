@@ -38,7 +38,7 @@
 module dev_FDC #(parameter sysCLK)
 (
    cpu_bus_if.device_mp    cpu_bus,
-   device_bus              device_bus,
+   input  MSX::device_bus_t device_bus,
    input MSX::io_device_t  io_device[32][3],
    FDD_if.FDC_mp           FDD_bus[3],
    output            [7:0] data,

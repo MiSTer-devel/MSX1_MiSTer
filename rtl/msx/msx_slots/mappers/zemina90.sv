@@ -49,8 +49,8 @@
 
 module mapper_zemina90 (
     cpu_bus_if.device_mp    cpu_bus,         // Interface for CPU communication
-    block_info              block_info,      // Struct containing mapper configuration and parameters
-    mapper_out              out,             // Interface for mapper output
+    input  MSX::block_info_t block_info,      // Active block (slot layout entry)
+    output MSX::mapper_out_t out,             // Mapper output, merged in mappers.sv
     input [7:0]             data_to_mapper
 );
 
@@ -102,5 +102,10 @@ module mapper_zemina90 (
 
     // Calculate the address by adding the offset to the base address (only if chip select is active)
     assign out.addr = cs ? {7'b0, addr, cpu_bus.addr[12:0]} : {27{1'b1}};
+
+    // outputs not used by this mapper: neutral for the merge in mappers.sv
+    assign out.rnw     = 1'b1;
+    assign out.sram_cs = 1'b0;
+    assign out.data    = 8'hFF;
 
 endmodule

@@ -37,8 +37,8 @@
 
 module mapper_national (
     cpu_bus_if.device_mp    cpu_bus,                // Interface for CPU communication
-    block_info              block_info,             // Struct containing mapper configuration and parameters
-    mapper_out              out                     // Interface for mapper output
+    input  MSX::block_info_t block_info,             // Active block (slot layout entry)
+    output MSX::mapper_out_t out                     // Mapper output, merged in mappers.sv
 );
 
     

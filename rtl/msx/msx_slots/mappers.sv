@@ -40,8 +40,8 @@ module mappers (
     cpu_bus_if.device_mp        cpu_bus,            // Interface for CPU communication
     ext_sd_card_if.device_mp    ext_SD_card_bus,    // Interface Ext SD card
     flash_bus_if.device_mp      flash_bus,          // Interface to emulate FLASH
-    block_info                  block_info,         // Struct containing block configuration and parameters
-    device_bus                  device_bus,         // Interface for device control
+    input  MSX::block_info_t block_info,         // Active block (slot layout entry)
+    output MSX::device_bus_t device_bus,         // Cartridge device control (to devices)
     memory_bus_if.device_mp     memory_bus,         // Interface for memory control
     output                [7:0] data,               // Data output from the active mapper; defaults to FF if no mapper is active
     input                 [7:0] data_to_mapper,
@@ -51,21 +51,21 @@ module mappers (
     input                 [1:0] ocm_slot2_mode
 );
 
-    mapper_out offset_out();
+    MSX::mapper_out_t offset_out;
     mapper_offset offset (
         .cpu_bus(cpu_bus),
         .block_info(block_info),
         .out(offset_out)
     );
 
-    mapper_out mirror_out();
+    MSX::mapper_out_t mirror_out;
     mapper_mirror mirror (
         .cpu_bus(cpu_bus),
         .block_info(block_info),
         .out(mirror_out)
     );
 
-    mapper_out msx2_ram_out();
+    MSX::mapper_out_t msx2_ram_out;
     mapper_msx2_ram msx2_ram (
         .cpu_bus(cpu_bus),
         .block_info(block_info),
@@ -73,36 +73,36 @@ module mappers (
         .data_to_mapper(data_to_mapper)
     );
 
-    mapper_out ascii8_out();
+    MSX::mapper_out_t ascii8_out;
     mapper_ascii8 ascii8 (
         .cpu_bus(cpu_bus),
         .block_info(block_info),
         .out(ascii8_out)
     );
 
-    mapper_out ascii16_out();
+    MSX::mapper_out_t ascii16_out;
     mapper_ascii16 ascii16 (
         .cpu_bus(cpu_bus),
         .block_info(block_info),
         .out(ascii16_out)
     );
 
-    mapper_out generic8k_out();
+    MSX::mapper_out_t generic8k_out;
     mapper_generic8k mapper_generic8k (
         .cpu_bus(cpu_bus),
         .block_info(block_info),
         .out(generic8k_out)
     );
 
-    mapper_out generic16k_out();
+    MSX::mapper_out_t generic16k_out;
     mapper_generic16k mapper_generic16k (
         .cpu_bus(cpu_bus),
         .block_info(block_info),
         .out(generic16k_out)
     );
 
-    mapper_out fm_pac_out();
-    device_bus fm_pac_device_out();
+    MSX::mapper_out_t fm_pac_out;
+    MSX::device_bus_t fm_pac_device_out;
     mapper_fm_pac fm_pac (
         .cpu_bus(cpu_bus),
         .block_info(block_info),
@@ -110,8 +110,8 @@ module mappers (
         .device_out(fm_pac_device_out)
     );
 
-    mapper_out yamaha_sfg_out();
-    device_bus yamaha_sfg_device_out();
+    MSX::mapper_out_t yamaha_sfg_out;
+    MSX::device_bus_t yamaha_sfg_device_out;
     mapper_yamaha_sfg yamaha_sfg (
         .cpu_bus(cpu_bus),
         .block_info(block_info),
@@ -119,15 +119,15 @@ module mappers (
         .device_out(yamaha_sfg_device_out)
     );
 
-    mapper_out konami_out();
+    MSX::mapper_out_t konami_out;
     mapper_konami konami (
         .cpu_bus(cpu_bus),
         .block_info(block_info),
         .out(konami_out)
     );
 
-    mapper_out konami_SCC_out();
-    device_bus konami_SCC_device_out();
+    MSX::mapper_out_t konami_SCC_out;
+    MSX::device_bus_t konami_SCC_device_out;
     mapper_konami_scc konami_scc (
         .cpu_bus(cpu_bus),
         .block_info(block_info),
@@ -135,42 +135,42 @@ module mappers (
         .device_out(konami_SCC_device_out)
     );
 
-    mapper_out gm2_out();
+    MSX::mapper_out_t gm2_out;
     mapper_gamemaster2 gm2 (
         .cpu_bus(cpu_bus),
         .block_info(block_info),
         .out(gm2_out)
     );
 
-    mapper_out crossBlaim_out();
+    MSX::mapper_out_t crossBlaim_out;
     mapper_crossBlaim mapper_crossBlaim (
         .cpu_bus(cpu_bus),
         .block_info(block_info),
         .out(crossBlaim_out)
     );
 
-    mapper_out national_out();
+    MSX::mapper_out_t national_out;
     mapper_national national (
         .cpu_bus(cpu_bus),
         .block_info(block_info),
         .out(national_out)
     );
 
-    mapper_out harryFox_out();
+    MSX::mapper_out_t harryFox_out;
     mapper_harryFox mapper_harryFox (
         .cpu_bus(cpu_bus),
         .block_info(block_info),
         .out(harryFox_out)
     );
 
-    mapper_out zemina80_out();
+    MSX::mapper_out_t zemina80_out;
     mapper_zemina80 mapper_zemina80 (
         .cpu_bus(cpu_bus),
         .block_info(block_info),
         .out(zemina80_out)
     );
 
-    mapper_out zemina90_out();
+    MSX::mapper_out_t zemina90_out;
     mapper_zemina90 mapper_zemina90 (
         .cpu_bus(cpu_bus),
         .block_info(block_info),
@@ -178,8 +178,8 @@ module mappers (
         .data_to_mapper(data_to_mapper)
     );
     
-    mapper_out mfrsd_out();
-    device_bus mfrsd_device_out();
+    MSX::mapper_out_t mfrsd_out;
+    MSX::device_bus_t mfrsd_device_out;
     ext_sd_card_if ext_SD_card_mfrsd();
     mapper_mfrsd  mapper_mfrsd (
         .cpu_bus(cpu_bus),
@@ -192,7 +192,7 @@ module mappers (
         .slot_expander_force_en(slot_expander_force_en)
     );
 
-    mapper_out ese_ram_out();
+    MSX::mapper_out_t ese_ram_out;
     ext_sd_card_if ext_SD_card_ese();
     mapper_eseRam ese_ram (
         .cpu_bus(cpu_bus),
@@ -202,8 +202,8 @@ module mappers (
         .megaSD_enable(ocm_megaSD_enable)
     );
 
-    mapper_out mega_ram_out();
-    device_bus mega_ram_device_out();
+    MSX::mapper_out_t mega_ram_out;
+    MSX::device_bus_t mega_ram_device_out;
     mapper_megaram mega_ram (
         .cpu_bus(cpu_bus),
         .block_info(block_info),
@@ -297,6 +297,7 @@ module mappers (
                                 & mfrsd_device_out.param;
 
     assign device_bus.device_ref = cpu_bus.mreq ? block_info.device_ref : '0;
+    assign device_bus.data       = 8'hFF;               // no mapper drives device data
 
     // SDCARD
     assign ext_SD_card_bus.rx             = ext_SD_card_ese.rx         |  ext_SD_card_mfrsd.rx;

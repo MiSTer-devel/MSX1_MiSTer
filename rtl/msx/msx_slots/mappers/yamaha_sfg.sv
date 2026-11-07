@@ -37,31 +37,31 @@
 
 module mapper_yamaha_sfg (
     cpu_bus_if.device_mp    cpu_bus,       // Interface for CPU communication
-    block_info              block_info,    // Struct containing mapper configuration and parameters
-    mapper_out              out,           // Interface for mapper output
-    device_bus              device_out     // Interface for device output
+    input  MSX::block_info_t block_info,    // Active block (slot layout entry)
+    output MSX::mapper_out_t out,           // Mapper output, merged in mappers.sv
+    output MSX::device_bus_t device_out     // Cartridge device control
 );
 
     
 
     wire cs = (block_info.typ == MAPPER_YAMAHA_SFG) && cpu_bus.mreq;
 
-    logic rom_cs;
+    logic rom_cs, dev_en, dev_we;
     always_comb begin
-        device_out.en = 1'b0;
-        device_out.we = 1'b0;
+        dev_en = 1'b0;
+        dev_we = 1'b0;
         rom_cs        = 1'b0;
         if (cs) begin
             case(cpu_bus.addr[13:0])
                 14'h3FF0,
                 14'h3FF1:
-                    device_out.en = 1'b1;
+                    dev_en = 1'b1;
                 14'h3FF2,
                 14'h3FF3,
                 14'h3FF4,
                 14'h3FF5,
                 14'h3FF6:                   
-                    device_out.we = 1'b1;
+                    dev_we = 1'b1;
                 14'h3FF7:                   
                     ;
                 default: 
@@ -70,11 +70,20 @@ module mapper_yamaha_sfg (
         end
     end
 
+    assign device_out.en   = dev_en;
+    assign device_out.we   = dev_we;
     assign device_out.data = '1;
 
     // Multiplexing output data
     assign out.ram_cs   = rom_cs && cpu_bus.rd;
     assign out.rnw      = '1;
     assign out.addr     = rom_cs ? {11'd0, (cpu_bus.addr & (block_info.rom_size[15:0] - 16'd1))} : {27{1'b1}};
+
+    // outputs not used by this mapper: neutral for the merge in mappers.sv
+    assign out.sram_cs = 1'b0;
+    assign out.data    = 8'hFF;
+    assign device_out.device_ref = 3'd0;
+    assign device_out.mode       = 1'b1;
+    assign device_out.param      = 1'b1;
 
 endmodule

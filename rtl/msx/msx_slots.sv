@@ -41,7 +41,7 @@ module msx_slots (
     ext_sd_card_if.device_mp    ext_SD_card_bus,
     flash_bus_if.device_mp      flash_bus,
     memory_bus_if.device_mp     memory_bus,
-    block_info                  block_info,   
+    output MSX::block_info_t block_info,   
     input MSX::slot_expander_t  slot_expander[4],
     input MSX::block_t          slot_layout[64],
     input MSX::lookup_RAM_t     lookup_RAM[16],
@@ -49,7 +49,7 @@ module msx_slots (
     input                 [1:0] active_slot,      // Currently active slot
     output                [7:0] data,
     output                      data_oe_rq,       // Priority output
-    device_bus                  device_bus,
+    output MSX::device_bus_t device_bus,
     input                 [7:0] data_to_mapper,
     input                       ocm_megaSD_enable,
     input                       ocm_slot1_mode,

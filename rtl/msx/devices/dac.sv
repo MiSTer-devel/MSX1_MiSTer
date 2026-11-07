@@ -39,7 +39,7 @@
 module dev_dac (
     cpu_bus_if.device_mp   cpu_bus,
     clock_bus_if.base_mp   clock_bus,
-    block_info             block_info,
+    input  MSX::block_info_t block_info,
     input MSX::io_device_t io_device[3],
     output signed [15:0]   sound
 );

@@ -37,9 +37,9 @@
 
 module mapper_fm_pac (
     cpu_bus_if.device_mp    cpu_bus,       // Interface for CPU communication
-    block_info              block_info,    // Struct containing mapper configuration and parameters
-    mapper_out              out,           // Interface for mapper output
-    device_bus              device_out     // Interface for device output
+    input  MSX::block_info_t block_info,    // Active block (slot layout entry)
+    output MSX::mapper_out_t out,           // Mapper output, merged in mappers.sv
+    output MSX::device_bus_t device_out     // Cartridge device control
 );
 
     // Internal logic variables
@@ -117,5 +117,11 @@ module mapper_fm_pac (
                       (cpu_bus.addr[13:0] == 14'h1FFE && sramEnable) ? magicLo[block_info.id] :
                       (cpu_bus.addr[13:0] == 14'h1FFF && sramEnable) ? magicHi[block_info.id] :
                       8'hFF : 8'hFF;
+
+    // outputs not used by this mapper: neutral for the merge in mappers.sv
+    assign device_out.device_ref = 3'd0;
+    assign device_out.mode       = 1'b1;
+    assign device_out.param      = 1'b1;
+    assign device_out.data       = 8'hFF;
 
 endmodule

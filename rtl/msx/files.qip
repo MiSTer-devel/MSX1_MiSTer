@@ -1,6 +1,7 @@
 set_global_assignment -name QIP_FILE           [file join $::quartus(qip_path) devices/files.qip                     ]
 set_global_assignment -name QIP_FILE           [file join $::quartus(qip_path) msx_slots/files.qip                   ]
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) devices.sv                            ]
+set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) sound_mix.sv                          ]
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) msx_slots.sv                          ]
 
 

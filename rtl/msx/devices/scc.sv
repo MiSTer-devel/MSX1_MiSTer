@@ -40,12 +40,20 @@ module dev_scc (
     clock_bus_if.base_mp   clock_bus,
     input  MSX::device_bus_t device_bus,
     input MSX::io_device_t io_device[3],
-    output   signed [15:0] sound,
+    output MSX::sound_t    sound,
     output           [7:0] data
 );
 
-    assign sound = (io_device[0].enable ? {sound_SCC[0][14], sound_SCC[0]} : '0) +
-                   (io_device[1].enable ? {sound_SCC[1][14], sound_SCC[1]} : '0);
+    wire signed [14:0] sound_SCC[0:1];
+    wire [7:0] data_SCC[2];
+    logic [1:0] scc_mode;
+    logic [1:0] scc_plus;
+
+    always_comb begin
+        sound = '0;
+        for (int i = 0; i < 2; i++)
+            if (io_device[i].enable) sound += sound_SCC[i];
+    end
 
     always_ff @(posedge cpu_bus.clk) begin
         if (cpu_bus.reset) begin
@@ -58,11 +66,6 @@ module dev_scc (
             scc_plus[1] <= io_device[1].device_ref == device_bus.device_ref ? device_bus.param : scc_plus[1];
         end
     end
-
-    wire signed [14:0] sound_SCC[0:1];
-    wire [7:0] data_SCC[2];
-    logic [1:0] scc_mode;
-    logic [1:0] scc_plus;
 
     assign data = cpu_bus.rd ? data_SCC[0] & data_SCC[1] : 8'hFF;
 

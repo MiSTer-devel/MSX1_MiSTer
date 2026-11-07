@@ -40,12 +40,17 @@ module dev_opll (
     input  MSX::device_bus_t device_bus,
     clock_bus_if.base_mp   clock_bus,
     input MSX::io_device_t io_device[3],
-    output signed [15:0]   sound
+    output MSX::sound_t    sound
 );
 
-    assign sound = (io_device[0].enable ? sound_OPLL[0] : '0) +
-                   (io_device[1].enable ? sound_OPLL[1] : '0) +
-                   (io_device[2].enable ? sound_OPLL[2] : '0);
+    logic signed [15:0] sound_OPLL[0:2];
+    logic [2:0] opll_enabled;
+
+    always_comb begin
+        sound = '0;
+        for (int i = 0; i < 3; i++)
+            if (io_device[i].enable) sound += sound_OPLL[i];
+    end
 
     always_ff @(posedge cpu_bus.clk) begin
         if (cpu_bus.reset) begin
@@ -59,8 +64,6 @@ module dev_opll (
 
     wire io_en = cpu_bus.iorq && ~cpu_bus.m1;
 
-    logic signed [15:0] sound_OPLL[0:2];
-    logic [2:0] opll_enabled;
     genvar i;
 
     generate

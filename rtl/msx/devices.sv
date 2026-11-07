@@ -53,8 +53,8 @@ module devices  #(parameter sysCLK)
     input            [64:0] rtc_time,
     input             [7:0] uart_rx_data,
     input                   uart_rx,
-    output    signed [15:0] sound_L,                                // Combined audio output
-    output    signed [15:0] sound_R,                                // Combined audio output
+    output    signed [15:0] sound_L,                                // Mixed and clipped audio (sound_mix)
+    output    signed [15:0] sound_R,
     output            [7:0] data,                                   // Combined data output
     output                  data_oe_rq,                             // Priorite data
     output            [7:0] data_to_mapper,                         // Data output to mapper
@@ -79,8 +79,6 @@ module devices  #(parameter sysCLK)
     vram_bus_if             vram_bus_v99();
 
     // Výstupy kombinující jednotlivé zařízení
-    assign sound_L = opll_sound + scc_sound + psg_sound + opm_sound_L + dac_sound;
-    assign sound_R = opll_sound + scc_sound + psg_sound + opm_sound_R + dac_sound;
     assign data = scc_data & fdc_data & msx2_ram_data & tms_data & v99_data & rtc_data & psg_data & ppi_data & ocm_data & reset_status_data & opm_data & ym2148_data;// & TC8566AF_data;
     assign data_oe_rq = fdc_data_oe_rq;// | TC8566AF_data_oe_rq;
     assign data_to_mapper = msx2_ram_data_to_mapper & latch_port_data_to_mapper;
@@ -120,7 +118,7 @@ module devices  #(parameter sysCLK)
     //MSX2 memory limiter
 
     // Definice instancí zařízení s výstupy pro propojení
-    wire signed [15:0] opll_sound;
+    MSX::sound_t opll_sound;
     dev_opll opll (
         .cpu_bus(cpu_bus),
         .device_bus(device_bus),
@@ -129,7 +127,7 @@ module devices  #(parameter sysCLK)
         .sound(opll_sound)
     );
 
-    wire signed [15:0] opm_sound_L, opm_sound_R;
+    MSX::sound_t opm_sound_L, opm_sound_R;
     wire         [7:0] opm_data;
     wire               opm_irq;
     dev_opm opm (
@@ -157,7 +155,7 @@ module devices  #(parameter sysCLK)
     );
 
     wire [7:0] scc_data;
-    wire signed [15:0] scc_sound;
+    MSX::sound_t scc_sound;
     dev_scc scc (
         .cpu_bus(cpu_bus),
         .clock_bus(clock_bus),
@@ -271,7 +269,7 @@ module devices  #(parameter sysCLK)
     );
 
     wire [7:0] psg_data;
-    wire signed [15:0] psg_sound;
+    MSX::sound_t psg_sound;
     dev_psg dev_psg
     (
         .cpu_bus(cpu_bus),
@@ -283,7 +281,7 @@ module devices  #(parameter sysCLK)
         .tape_in(tape_in)
     );
 
-    wire signed [15:0] dac_sound;
+    MSX::sound_t dac_sound;
     dev_dac dev_dac
     (
         .cpu_bus(cpu_bus),
@@ -291,6 +289,21 @@ module devices  #(parameter sysCLK)
         .block_info(block_info),
         .io_device(io_device[DEV_DAC]),
         .sound(dac_sound)
+    );
+
+    // Single clipping point for all sound sources
+    sound_mix sound_mix (
+        .clk(cpu_bus.clk),
+        .opll(opll_sound),
+        .scc(scc_sound),
+        .psg(psg_sound),
+        .dac(dac_sound),
+        .opm_L(opm_sound_L),
+        .opm_R(opm_sound_R),
+        .keybeep(keybeep),
+        .tape(tape_in & ~tape_motor_on),
+        .sound_L(sound_L),
+        .sound_R(sound_R)
     );
 
     wire [7:0] ppi_data;

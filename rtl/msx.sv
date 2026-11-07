@@ -76,17 +76,10 @@ memory_bus_if memory_bus_devices();
    end
 
 //  -----------------------------------------------------------------------------
-//  -- Audio MIX
+//  -- Audio (mixed, key click and tape added, clipped in devices/sound_mix)
 //  -----------------------------------------------------------------------------
-wire [15:0] compr_L[7:0], compr_R[7:0];
-wire  [9:0] sysAudio    = {4'b0, keybeep,5'b00000} + {5'b0, (tape_in & ~tape_motor_on),4'b0000};
-wire [16:0] fm          = {3'b00, sysAudio, 4'b0000};
-wire [16:0] audio_mix_L   = {device_sound_L[15], device_sound_L} + fm;
-wire [16:0] audio_mix_R   = {device_sound_R[15], device_sound_R} + fm;
-assign compr_L            = '{ {1'b1, audio_mix_L[13:0], 1'b0}, 16'h8000, 16'h8000, 16'h8000, 16'h7FFF, 16'h7FFF, 16'h7FFF,  {1'b0, audio_mix_L[13:0], 1'b0}};
-assign compr_R            = '{ {1'b1, audio_mix_R[13:0], 1'b0}, 16'h8000, 16'h8000, 16'h8000, 16'h7FFF, 16'h7FFF, 16'h7FFF,  {1'b0, audio_mix_R[13:0], 1'b0}};
-assign audio_L            = compr_L[audio_mix_L[16:14]];
-assign audio_R            = compr_R[audio_mix_R[16:14]];
+assign audio_L = device_sound_L;
+assign audio_R = device_sound_R;
 
 //  -----------------------------------------------------------------------------
 //  -- T80 CPU

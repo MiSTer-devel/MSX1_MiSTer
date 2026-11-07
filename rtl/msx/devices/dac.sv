@@ -41,7 +41,7 @@ module dev_dac (
     clock_bus_if.base_mp   clock_bus,
     input  MSX::block_info_t block_info,
     input MSX::io_device_t io_device[3],
-    output signed [15:0]   sound
+    output MSX::sound_t    sound
 );
 
 function automatic signed [15:0] scale(input logic [7:0] v);
@@ -51,9 +51,11 @@ endfunction
     logic [7:0] audio_dac[3];
     logic cs;
 
-    assign sound = (io_device[0].enable ? scale(audio_dac[0]) : 16'sd0)
-             + (io_device[1].enable ? scale(audio_dac[1]) : 16'sd0)
-             + (io_device[2].enable ? scale(audio_dac[2]) : 16'sd0);
+    always_comb begin
+        sound = '0;
+        for (int i = 0; i < 3; i++)
+            if (io_device[i].enable) sound += scale(audio_dac[i]);
+    end
 
     assign cs = cpu_bus.addr[15:14] == 2'b01 && ~cpu_bus.addr[4] && cpu_bus.mreq && cpu_bus.wr && cpu_bus.req;
 

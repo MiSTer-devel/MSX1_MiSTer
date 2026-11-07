@@ -40,13 +40,16 @@ module dev_opm #(parameter COUNT = MSX::N_OPM) (   // synthesized copies, io_dev
     input  MSX::device_bus_t device_bus,
     clock_bus_if.base_mp   clock_bus,
     input MSX::io_device_t io_device[3],
-    output signed [15:0]   sound_L,
-    output signed [15:0]   sound_R,
+    output MSX::sound_t    sound_L,
+    output MSX::sound_t    sound_R,
     output         [7:0]   data,
     output                 irq
 );
-    
-    logic signed [15:0] sound_L_accum, sound_R_accum;
+
+    logic signed [15:0] sound_OPM_L[3], sound_OPM_R[3];     // only [0 .. COUNT-1] used
+    logic         [7:0] jt51_data_out[3];
+    logic               irq_n[3];
+    MSX::sound_t sound_L_accum, sound_R_accum;
     logic [7:0] data_comb;
     logic irq_comb;
     always_comb begin
@@ -69,9 +72,6 @@ module dev_opm #(parameter COUNT = MSX::N_OPM) (   // synthesized copies, io_dev
     assign irq     = ~irq_comb;
     assign data    = data_comb;
 
-    logic signed [15:0] sound_OPM_L[3], sound_OPM_R[3];     // only [0 .. COUNT-1] used
-    logic         [7:0] jt51_data_out[3];
-    logic               irq_n[3];
     logic               io_en;
     
     assign io_en = cpu_bus.iorq && ~cpu_bus.m1;

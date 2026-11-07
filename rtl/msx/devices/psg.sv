@@ -40,7 +40,7 @@ module dev_psg (
     cpu_bus_if.device_mp   cpu_bus,
     clock_bus_if.base_mp   clock_bus,
     input MSX::io_device_t io_device[3],
-    output signed [15:0]   sound,
+    output MSX::sound_t    sound,
     input          [5:0]   joy[2],
     input                  tape_in,
     output           [7:0] data
@@ -58,9 +58,11 @@ module dev_psg (
     assign joyA  = joy_a & {ioB[0], ioB[1], 4'b1111};
     assign joyB  = joy_b & {ioB[2], ioB[3], 4'b1111};
     
-    assign sound = (io_device[0].enable ? {2'b00, audio_PSG[0], 4'b0000} : '0) +
-                   (io_device[1].enable ? {2'b00, audio_PSG[1], 4'b0000} : '0) +
-                   (io_device[2].enable ? {2'b00, audio_PSG[2], 4'b0000} : '0);
+    always_comb begin
+        sound = '0;
+        for (int i = 0; i < 3; i++)
+            if (io_device[i].enable) sound += $signed({4'b0000, audio_PSG[i], 4'b0000});
+    end
 
     assign data  = psg_data[0] & psg_data[1] & psg_data[2];
     

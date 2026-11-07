@@ -81,7 +81,7 @@ module latch_port (
     output logic [7:0] data_to_mapper
 );
 
-    always_ff @(posedge clk or posedge reset) begin
+    always_ff @(posedge clk) begin
         if (reset) begin
             data_to_mapper <= 8'd0;
         end else if (wr) begin

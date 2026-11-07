@@ -27,7 +27,7 @@ module track #(DELAYms = 3'd3, MAX_TRACKS = 80, ID = 0)
     logic [6:0] reg_track[2];
     logic last_STEPn;
 
-    always_ff @(posedge clk or posedge reset) begin
+    always_ff @(posedge clk) begin
         if (reset) begin
             reg_track <= '{7'd0, 7'd0};
             track_delay <= '0;

@@ -56,8 +56,8 @@ module mapper_gamemaster2 (
     // Bank registers for memory mapping
     logic [5:0] bank1, bank2, bank3;
 
-    // Bank switching logic based on CPU reset and clock signals
-    always @(posedge cpu_bus.reset or posedge cpu_bus.clk) begin
+    // Bank switching logic
+    always_ff @(posedge cpu_bus.clk) begin
         if (cpu_bus.reset) begin
             // Initialize banks after reset
             bank1 <= 6'h01;  // Default bank 1

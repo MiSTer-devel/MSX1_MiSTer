@@ -96,7 +96,7 @@ module msx2_ram (
 );
     logic [7:0] mem_seg[0:3];
 
-    always_ff @(posedge clk or posedge reset) begin
+    always_ff @(posedge clk) begin
         if (reset) begin
             mem_seg[0] <= 8'd0;
             mem_seg[1] <= 8'd0;

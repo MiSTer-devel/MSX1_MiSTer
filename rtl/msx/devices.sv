@@ -70,7 +70,8 @@ module devices  #(parameter sysCLK)
     //output            [1:0] cpu_clock_sel,
     output                  ocm_megaSD_enable,
     output                  ocm_slot1_mode,
-    output [1:0]            ocm_slot2_mode
+    output [1:0]            ocm_slot2_mode,
+    output                  ocm_ipl_en              // OCM IPL ROM visible (before BIOS load)
 );
 
     MSX::video_t            video_bus_tms, video_bus_v99;
@@ -85,8 +86,8 @@ module devices  #(parameter sysCLK)
     assign reset_request = ocm_reset_request;
     assign reset_lock    = ocm_reset_lock;
 
-    assign memory_bus.addr    = kanji_ram_addr & ocm_ram_addr;
-    assign memory_bus.ram_cs  = kanji_ram_cs | ocm_ram_cs;
+    assign memory_bus.addr    = kanji_ram_addr;
+    assign memory_bus.ram_cs  = kanji_ram_cs;
     assign memory_bus.sram_cs = '0;
     assign memory_bus.data    = '1;
     assign memory_bus.rnw     = '1;
@@ -196,10 +197,7 @@ module devices  #(parameter sysCLK)
         .ram_addr(kanji_ram_addr)
     );
 
-    wire [26:0] ocm_ram_addr;
     wire  [7:0] ocm_data;
-    wire        ocm_ram_cs;
-    wire        ocm_data_oe_rq;
     wire        ocm_mapper_limit;
     wire        ocm_reset_request;
     wire        ocm_reset_lock;
@@ -207,20 +205,15 @@ module devices  #(parameter sysCLK)
         .cpu_bus(cpu_bus),
         .clock_bus(clock_bus),
         .io_device(io_device[DEV_OCM_BOOT]),
-        .io_memory(io_memory),
-        .ram_cs(ocm_ram_cs),
-        .ram_addr(ocm_ram_addr),
-        .data(ocm_data),
-
         .ff_dip_req(msx_user_config.ocm_dip),
+        .data(ocm_data),
+        .ipl_en(ocm_ipl_en),
         .mapper_limit(ocm_mapper_limit),
-        .rst_key_lock(ocm_reset_lock),
-        .swio_reset(ocm_reset_request),
         .megaSD_enable(ocm_megaSD_enable),
-
-
         .Slot1Mode(ocm_slot1_mode),
-        .Slot2Mode(ocm_slot2_mode)
+        .Slot2Mode(ocm_slot2_mode),
+        .rst_key_lock(ocm_reset_lock),
+        .swio_reset(ocm_reset_request)
     );
 
     wire  [7:0] tms_data;

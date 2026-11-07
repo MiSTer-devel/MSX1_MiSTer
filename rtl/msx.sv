@@ -80,6 +80,7 @@ wire                 keybeep;
 wire                 reset_lock, reset_request;
 wire                 ocm_megaSD_enable, ocm_slot1_mode;
 wire           [1:0] ocm_slot2_mode;
+wire                 ocm_ipl_en;
 wire signed   [15:0] device_sound_L, device_sound_R;
 
 MSX::device_bus_t    device_bus;
@@ -212,7 +213,8 @@ devices #(.sysCLK(sysCLK)) devices
    //.cpu_clock_sel(dev_cpu_clock_sel),
    .ocm_megaSD_enable(ocm_megaSD_enable),
    .ocm_slot1_mode(ocm_slot1_mode),
-   .ocm_slot2_mode(ocm_slot2_mode)
+   .ocm_slot2_mode(ocm_slot2_mode),
+   .ocm_ipl_en(ocm_ipl_en)
 );
 
 msx_slots msx_slots
@@ -234,7 +236,8 @@ msx_slots msx_slots
    .data_to_mapper(data_to_mapper),
    .ocm_megaSD_enable(ocm_megaSD_enable),
    .ocm_slot1_mode(ocm_slot1_mode),
-   .ocm_slot2_mode(ocm_slot2_mode)
+   .ocm_slot2_mode(ocm_slot2_mode),
+   .ocm_ipl_en(ocm_ipl_en)
 );
 
 endmodule

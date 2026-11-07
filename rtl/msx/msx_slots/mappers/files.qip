@@ -18,3 +18,4 @@ set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) n
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) eseRam.sv                          ]
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) megaram.sv                         ]
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) mirror.sv                          ]
+set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) ocm_ipl.sv                         ]

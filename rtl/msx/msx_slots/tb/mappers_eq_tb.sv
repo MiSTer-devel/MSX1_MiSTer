@@ -11,7 +11,7 @@ clock_bus_if clock_bus(clk, clk);
 logic [15:0] addr;
 logic  [7:0] cpu_data, data_to_mapper, flash_q, sd_q;
 logic        mreq, iorq, rd, wr, m1, req, flash_valid;
-logic        megaSD_en, slot1_mode;
+logic        megaSD_en, slot1_mode, ipl_en;
 logic  [1:0] slot2_mode;
 MSX::block_info_t block_info;
 
@@ -46,7 +46,8 @@ mappers dut_new (
     .clock_bus(clock_bus), .cpu_bus(cpu_bus), .ext_SD_card_bus(sd_new), .flash_bus(flash_new),
     .block_info(block_info), .device_bus(dev_new), .memory_bus(mem_new), .data(data_new),
     .data_to_mapper(data_to_mapper), .slot_expander_force_en(force_new),
-    .ocm_megaSD_enable(megaSD_en), .ocm_slot1_mode(slot1_mode), .ocm_slot2_mode(slot2_mode)
+    .ocm_megaSD_enable(megaSD_en), .ocm_slot1_mode(slot1_mode), .ocm_slot2_mode(slot2_mode),
+    .ocm_ipl_en(ipl_en)
 );
 
 mappers_old dut_old (
@@ -87,7 +88,7 @@ endfunction
 initial begin
     block_info = '0;
     {addr, cpu_data, data_to_mapper, flash_q, sd_q} = '0;
-    {mreq, iorq, rd, wr, m1, req, flash_valid, megaSD_en, slot1_mode, slot2_mode} = '0;
+    {mreq, iorq, rd, wr, m1, req, flash_valid, megaSD_en, slot1_mode, slot2_mode, ipl_en} = '0;
 
     for (int c = 0; c < CYCLES; c++) begin
         // inputs change after the rising edge
@@ -104,6 +105,7 @@ initial begin
             megaSD_en             = 1'($urandom);
             slot1_mode            = 1'($urandom);
             slot2_mode            = 2'($urandom);
+            ipl_en                = 1'($urandom);
         end
         hold--;
         addr           = 16'($urandom);

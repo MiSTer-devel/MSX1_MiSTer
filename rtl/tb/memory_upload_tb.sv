@@ -1,6 +1,6 @@
 // memory_upload: loads an MSX pack (createComp.py output) from a DDR3 model through
 // ddram, prints the resulting tables and checks the OCM configuration
-// (tools/CreateMSXpack/Computer_rozpracovano/OCM/OCM.xml).
+// (tools/CreateMSXpack/Computer/OCM/OCM.xml).
 // Run: wsl.exe -- bash rtl/tb/run_memory_upload.sh <pack.msx> <ocm_iplrom.rom>
 module memory_upload_tb;
 
@@ -198,8 +198,11 @@ initial begin
     expect_dev("RESET_STATUS", DEV_RESET_STATUS,  8'hF4, 8'hFF, 8'h01);
     expect_dev("MEM_MAPPER",   DEV_MSX2_RAM,      8'hFC, 8'hFC, 8'h00);
     if (!io_device[DEV_OCM_BOOT][0].enable) begin errors++; $display("FAIL OCM_BOOT not enabled"); end
-    else begin
-        int unsigned m = io_memory[io_device[DEV_OCM_BOOT][0].mem_ref].memory;
+    // IPL ROM: slot 3-3 page 0, mapper OCM_IPL, read-only, content in memory
+    if (slot_layout[{2'd3, 2'd3, 2'd0}].mapper !== MAPPER_OCM_IPL || lookup_RAM[slot_layout[{2'd3, 2'd3, 2'd0}].ref_ram].ro !== 1'b1) begin
+        errors++; $display("FAIL IPL block 3-3 page 0: mapper=%0d", slot_layout[{2'd3, 2'd3, 2'd0}].mapper);
+    end else begin
+        int unsigned m = page_addr(3, 3, 0);
         int bad = 0;
         foreach (ipl[i]) if (!ram.exists(m + i) || ram[m + i] !== ipl[i]) bad++;
         if (bad) begin errors++; $display("FAIL IPL in memory at %07h: %0d bytes differ", m, bad); end

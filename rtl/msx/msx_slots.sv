@@ -53,7 +53,8 @@ module msx_slots (
     input                 [7:0] data_to_mapper,
     input                       ocm_megaSD_enable,
     input                       ocm_slot1_mode,
-    input                 [1:0] ocm_slot2_mode
+    input                 [1:0] ocm_slot2_mode,
+    input                       ocm_ipl_en
 );
 
     memory_bus_if memory_bus_mappers();
@@ -128,7 +129,8 @@ module msx_slots (
         .slot_expander_force_en(slot_expander_force_en),
         .ocm_megaSD_enable(ocm_megaSD_enable),
         .ocm_slot1_mode(ocm_slot1_mode),
-        .ocm_slot2_mode(ocm_slot2_mode)
+        .ocm_slot2_mode(ocm_slot2_mode),
+        .ocm_ipl_en(ocm_ipl_en)
     );
 
 endmodule

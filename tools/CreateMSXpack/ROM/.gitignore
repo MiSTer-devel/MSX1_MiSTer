@@ -1,3 +1,6 @@
 *
 !.gitignore
 !kbd_svg8240.bin
+!ocm/
+!ocm/ocm_iplrom.rom
+!ocm/LICENSE.txt

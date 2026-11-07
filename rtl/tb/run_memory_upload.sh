@@ -1,7 +1,7 @@
 #!/bin/bash
 # memory_upload testbench (Verilator --timing): loads an MSX pack and checks the OCM layout.
 # Usage: wsl.exe -- bash rtl/tb/run_memory_upload.sh <pack.msx> <ocm_iplrom.rom>
-#   pack: python createComp.py --xml-dir Computer_rozpracovano --output-dir <dir>  (OCM/OCM.msx)
+#   pack: python createComp.py --xml-dir Computer/OCM --output-dir <dir>  (OCM.msx)
 set -e
 PACK=$(realpath "$1"); IPL=$(realpath "$2")
 cd "$(dirname "$0")"

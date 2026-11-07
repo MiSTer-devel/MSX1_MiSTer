@@ -76,29 +76,36 @@ module dev_psg (
 
     generate
         for (i = 0; i < 3; i++) begin : PSG_INSTANCES
-            wire cs_io_active = (cpu_bus.addr[7:0] & io_device[i].mask) == io_device[i].port;
-            wire cs_enable = io_device[i].enable && cs_io_active && io_en;
-            
-            assign psg_data[i] = cs_enable && io_device[i].param[0] ? data_tmp[i] : '1;
-            
-            jt49_bus psg_i (
-                    .rst_n(~cpu_bus.reset),
-                    .clk(cpu_bus.clk),
-                    .clk_en(clock_bus.ce_3m58_p),
-                    .bdir(cs_enable &&  ~cpu_bus.addr[1]),
-                    .bc1(cs_enable &&  ~cpu_bus.addr[0]),
-                    .din(cpu_bus.data),
-                    .sel(0),
-                    .dout(data_tmp[i]),
-                    .sound(audio_PSG[i]),
-                    .A(),
-                    .B(),
-                    .C(),
-                    .IOA_in(io_device[i].param[0] ? ioA : '1),
-                    .IOA_out(),
-                    .IOB_in('1),
-                    .IOB_out(psg_ioB[i])
-            );
+            if (i < MSX::N_PSG) begin : inst
+                wire cs_io_active = (cpu_bus.addr[7:0] & io_device[i].mask) == io_device[i].port;
+                wire cs_enable = io_device[i].enable && cs_io_active && io_en;
+
+                assign psg_data[i] = cs_enable && io_device[i].param[0] ? data_tmp[i] : '1;
+
+                jt49_bus psg_i (
+                        .rst_n(~cpu_bus.reset),
+                        .clk(cpu_bus.clk),
+                        .clk_en(clock_bus.ce_3m58_p),
+                        .bdir(cs_enable &&  ~cpu_bus.addr[1]),
+                        .bc1(cs_enable &&  ~cpu_bus.addr[0]),
+                        .din(cpu_bus.data),
+                        .sel(0),
+                        .dout(data_tmp[i]),
+                        .sound(audio_PSG[i]),
+                        .A(),
+                        .B(),
+                        .C(),
+                        .IOA_in(io_device[i].param[0] ? ioA : '1),
+                        .IOA_out(),
+                        .IOB_in('1),
+                        .IOB_out(psg_ioB[i])
+                );
+            end else begin : none
+                assign psg_data[i]  = 8'hFF;
+                assign data_tmp[i]  = 8'hFF;
+                assign audio_PSG[i] = '0;
+                assign psg_ioB[i]   = 8'hFF;
+            end
         end
     endgenerate
 

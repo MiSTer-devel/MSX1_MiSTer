@@ -118,6 +118,11 @@ module memory_upload
     pattern_t pattern;
     logic [26:0] ram_addr;
     logic  [7:0] conf[8];
+    // A free io_device slot exists for the device of the current CONF_DEVICE record,
+    // within the number of synthesized copies (MSX::dev_copies)
+    wire dev_slot_free = (~io_device[device_t'(conf[1])][0].enable && MSX::dev_copies(device_t'(conf[1])) > 2'd0) ||
+                         (~io_device[device_t'(conf[1])][1].enable && MSX::dev_copies(device_t'(conf[1])) > 2'd1) ||
+                         (~io_device[device_t'(conf[1])][2].enable && MSX::dev_copies(device_t'(conf[1])) > 2'd2);
     logic  [3:0] ref_ram;
     logic        crc_en;
     logic        ram_ce;
@@ -311,7 +316,7 @@ module memory_upload
                             state                 <= STATE_LOAD_KBD_LAYOUT;
                         end
                         CONF_DEVICE:  begin
-                            if (~io_device[device_t'(conf[1])][0].enable) begin
+                            if (~io_device[device_t'(conf[1])][0].enable && MSX::dev_copies(device_t'(conf[1])) > 2'd0) begin
                                 $display("LOAD IO_DEVICE[%x][%x] port:%x mask %x param %x size %x addr: %x (DDR addr %x)",
                                         device_t'(conf[1]), 4'd0, conf[2], conf[3], conf[4], {3'b0, conf[5], 14'd0}, ram_addr, ddr3_addr);
                                 io_device[device_t'(conf[1])][0].enable    <= 1'b1;
@@ -323,7 +328,7 @@ module memory_upload
                                     io_ref_mem <= io_ref_mem + 3'd1;
                                 end
 
-                            end else if (~io_device[device_t'(conf[1])][1].enable) begin
+                            end else if (~io_device[device_t'(conf[1])][1].enable && MSX::dev_copies(device_t'(conf[1])) > 2'd1) begin
                                 $display("LOAD IO_DEVICE[%x][%x] port:%x mask %x param %x size %x addr: %x (DDR addr %x)",
                                         device_t'(conf[1]), 4'd1, conf[2], conf[3], conf[4], {3'b0, conf[5], 14'd0}, ram_addr, ddr3_addr);
                                 io_device[device_t'(conf[1])][1].enable    <= 1'b1;
@@ -335,7 +340,7 @@ module memory_upload
                                     io_ref_mem <= io_ref_mem + 3'd1;
                                 end
 
-                            end else if (~io_device[device_t'(conf[1])][2].enable) begin
+                            end else if (~io_device[device_t'(conf[1])][2].enable && MSX::dev_copies(device_t'(conf[1])) > 2'd2) begin
                                 $display("LOAD IO_DEVICE[%x][%x] port:%x mask %x param %x size %x addr: %x (DDR addr %x)",
                                         device_t'(conf[1]), 4'd2, conf[2], conf[3], conf[4], {3'b0, conf[5], 14'd0}, ram_addr, ddr3_addr);
                                 io_device[device_t'(conf[1])][2].enable    <= 1'b1;
@@ -354,7 +359,7 @@ module memory_upload
                                 state <= STATE_IDLE;
                             end
 
-                            if (conf[5] != 0 && ~io_device[device_t'(conf[1])][2].enable) begin
+                            if (conf[5] != 0 && dev_slot_free) begin                      // a slot was allocated above
                                 $display("  LOAD IO_DEVICE FILL ROM io_ref_mem :%x memory addr:%x size: %x", io_ref_mem, ram_addr, {3'b0, conf[5], 14'd0});
                                 io_memory[io_ref_mem].memory      <= ram_addr;
                                 io_memory[io_ref_mem].memory_size <= conf[5];

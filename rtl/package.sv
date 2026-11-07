@@ -452,7 +452,28 @@ package MSX;
         cpu_t cpu;
         logic [2:0] wait_count;
         logic [2:0] cpu_clock_sel;
-        logic [5:0] fdd; 
+        logic [5:0] fdd;
     } msx_config_t;
+
+    // Synthesized copies of multi-instance devices (hardware is a superset of all
+    // configurations; io_device keeps 3 slots per type). Lower a count for a smaller
+    // build: a configuration needing more copies fails with ERR_MISSING_SOURCE
+    // ("Exceeded number of IO_DEVICE").
+    localparam int N_OPLL   = 3;
+    localparam int N_OPM    = 3;
+    localparam int N_SCC    = 2;
+    localparam int N_PSG    = 3;
+    localparam int N_WD2793 = 3;    // also the number of emulated FDD units (fdd0..2)
+
+    function automatic logic [1:0] dev_copies(input device_t d);
+        case (d)
+            DEV_OPLL:   return 2'(N_OPLL);
+            DEV_OPM:    return 2'(N_OPM);
+            DEV_SCC:    return 2'(N_SCC);
+            DEV_PSG:    return 2'(N_PSG);
+            DEV_WD2793: return 2'(N_WD2793);
+            default:    return 2'd3;
+        endcase
+    endfunction
 
 endpackage

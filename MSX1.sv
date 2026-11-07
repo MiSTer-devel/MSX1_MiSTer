@@ -858,44 +858,86 @@ blockDevMux #(.VDNUM(VDNUM)) blockDevMux
    .img_readonly(img_readonly)
 );
 ///////////////// FDD EMULATE /////////////////
-fdd #(.sysCLK(sysCLK), .SECTORS(9), .SECTOR_SIZE(512), .TRACKS(80), .ID("FDD0")) fdd0 (
-   .clk(clock_bus.base_mp.clk),
-   .reset(reset),
-   .FDD_bus(FDD_bus[0]),
-   .block_device(block_device_FDD[0:1]),
-   // CONFIGURATION
-   .speed(2'b00),
-   .mfm(2'b11),
-   .sides(2'b11),
-   .sectors('{9,9}),                // sectors per track
-   .sector_size('{2,2}),            // 0 - 128B / 1 - 256B / 2 - 512B / 3 - 1024B
-   .density('{0,0})                // 0 - 250kbit     / 1 - 500kbit    / 2 - 1000kbit
-);
-fdd #(.sysCLK(sysCLK), .SECTORS(9), .SECTOR_SIZE(512), .TRACKS(80), .ID("FDD1")) fdd1 (
-   .clk(clock_bus.base_mp.clk),
-   .reset(reset),
-   .FDD_bus(FDD_bus[1]),
-   .block_device(block_device_FDD[2:3]),
-   // CONFIGURATION
-   .speed(2'b00),
-   .mfm(2'b11),
-   .sides(2'b11),
-   .sectors('{9,9}),                // sectors per track
-   .sector_size('{2,2}),            // 0 - 128B / 1 - 256B / 2 - 512B / 3 - 1024B
-   .density('{0,0})                // 0 - 250kbit     / 1 - 500kbit    / 2 - 1000kbit
-);
-fdd #(.sysCLK(sysCLK), .SECTORS(9), .SECTOR_SIZE(512), .TRACKS(80), .ID("FDD2")) fdd2 (
-   .clk(clock_bus.base_mp.clk),
-   .reset(reset),
-   .FDD_bus(FDD_bus[2]),
-   .block_device(block_device_FDD[4:5]),
-   // CONFIGURATION
-   .speed(2'b00),
-   .mfm(2'b11),
-   .sides(2'b11),
-   .sectors('{9,9}),                // sectors per track
-   .sector_size('{2,2}),            // 0 - 128B / 1 - 256B / 2 - 512B / 3 - 1024B
-   .density('{0,0})                // 0 - 250kbit     / 1 - 500kbit    / 2 - 1000kbit
-);
+// one FDD unit (2 drives) per WD2793 copy (MSX::N_WD2793)
+generate
+if (MSX::N_WD2793 > 0) begin : g_fdd0
+   fdd #(.sysCLK(sysCLK), .SECTORS(9), .SECTOR_SIZE(512), .TRACKS(80), .ID("FDD0")) fdd0 (
+      .clk(clock_bus.base_mp.clk),
+      .reset(reset),
+      .FDD_bus(FDD_bus[0]),
+      .block_device(block_device_FDD[0:1]),
+      // CONFIGURATION
+      .speed(2'b00),
+      .mfm(2'b11),
+      .sides(2'b11),
+      .sectors('{9,9}),                // sectors per track
+      .sector_size('{2,2}),            // 0 - 128B / 1 - 256B / 2 - 512B / 3 - 1024B
+      .density('{0,0})                // 0 - 250kbit     / 1 - 500kbit    / 2 - 1000kbit
+   );
+end else begin : g_fdd0_none   // no FDC 0: block devices idle
+   assign block_device_FDD[0].rd = '0;
+   assign block_device_FDD[0].wr = '0;
+   assign block_device_FDD[0].lba = '0;
+   assign block_device_FDD[0].blk_cnt = '0;
+   assign block_device_FDD[0].buff_din = '0;
+   assign block_device_FDD[1].rd = '0;
+   assign block_device_FDD[1].wr = '0;
+   assign block_device_FDD[1].lba = '0;
+   assign block_device_FDD[1].blk_cnt = '0;
+   assign block_device_FDD[1].buff_din = '0;
+end
+if (MSX::N_WD2793 > 1) begin : g_fdd1
+   fdd #(.sysCLK(sysCLK), .SECTORS(9), .SECTOR_SIZE(512), .TRACKS(80), .ID("FDD1")) fdd1 (
+      .clk(clock_bus.base_mp.clk),
+      .reset(reset),
+      .FDD_bus(FDD_bus[1]),
+      .block_device(block_device_FDD[2:3]),
+      // CONFIGURATION
+      .speed(2'b00),
+      .mfm(2'b11),
+      .sides(2'b11),
+      .sectors('{9,9}),                // sectors per track
+      .sector_size('{2,2}),            // 0 - 128B / 1 - 256B / 2 - 512B / 3 - 1024B
+      .density('{0,0})                // 0 - 250kbit     / 1 - 500kbit    / 2 - 1000kbit
+   );
+end else begin : g_fdd1_none   // no FDC 1: block devices idle
+   assign block_device_FDD[2].rd = '0;
+   assign block_device_FDD[2].wr = '0;
+   assign block_device_FDD[2].lba = '0;
+   assign block_device_FDD[2].blk_cnt = '0;
+   assign block_device_FDD[2].buff_din = '0;
+   assign block_device_FDD[3].rd = '0;
+   assign block_device_FDD[3].wr = '0;
+   assign block_device_FDD[3].lba = '0;
+   assign block_device_FDD[3].blk_cnt = '0;
+   assign block_device_FDD[3].buff_din = '0;
+end
+if (MSX::N_WD2793 > 2) begin : g_fdd2
+   fdd #(.sysCLK(sysCLK), .SECTORS(9), .SECTOR_SIZE(512), .TRACKS(80), .ID("FDD2")) fdd2 (
+      .clk(clock_bus.base_mp.clk),
+      .reset(reset),
+      .FDD_bus(FDD_bus[2]),
+      .block_device(block_device_FDD[4:5]),
+      // CONFIGURATION
+      .speed(2'b00),
+      .mfm(2'b11),
+      .sides(2'b11),
+      .sectors('{9,9}),                // sectors per track
+      .sector_size('{2,2}),            // 0 - 128B / 1 - 256B / 2 - 512B / 3 - 1024B
+      .density('{0,0})                // 0 - 250kbit     / 1 - 500kbit    / 2 - 1000kbit
+   );
+end else begin : g_fdd2_none   // no FDC 2: block devices idle
+   assign block_device_FDD[4].rd = '0;
+   assign block_device_FDD[4].wr = '0;
+   assign block_device_FDD[4].lba = '0;
+   assign block_device_FDD[4].blk_cnt = '0;
+   assign block_device_FDD[4].buff_din = '0;
+   assign block_device_FDD[5].rd = '0;
+   assign block_device_FDD[5].wr = '0;
+   assign block_device_FDD[5].lba = '0;
+   assign block_device_FDD[5].blk_cnt = '0;
+   assign block_device_FDD[5].buff_din = '0;
+end
 
+endgenerate
 endmodule

@@ -65,23 +65,27 @@ module dev_opll (
 
     generate
         for (i = 0; i < 3; i++) begin : OPLL_INSTANCES
-            wire cs_io_active = (cpu_bus.addr[7:0] & io_device[i].mask) == io_device[i].port;
-            wire cs_enable    = (io_device[i].enable && cs_io_active && io_en && opll_enabled[i]);
-            wire cs_dev_bus   = (io_device[i].enable && io_device[i].device_ref == device_bus.device_ref && device_bus.we);
-            
-            IKAOPLL #(.FULLY_SYNCHRONOUS(1), .FAST_RESET(1), .ALTPATCH_CONFIG_MODE(0), .USE_PIPELINED_MULTIPLIER(1)) ika_opll_opll_int (
-                .i_XIN_EMUCLK       (cpu_bus.clk),
-                .i_phiM_PCEN_n      (~clock_bus.ce_3m58_n),
-                .i_IC_n             (~cpu_bus.reset),
-                .i_ALTPATCH_EN      (1'b0),
-                .i_CS_n             (~(cs_enable || cs_dev_bus)),
-                .i_WR_n             (~(cpu_bus.wr || device_bus.we)),
-                .i_A0               (cpu_bus.addr[0]),
-                .i_D                (cpu_bus.data),
-                .i_ACC_SIGNED_MOVOL (5'sd9),
-                .i_ACC_SIGNED_ROVOL (5'sd15),
-                .o_ACC_SIGNED       (sound_OPLL[i])
-            );
+            if (i < MSX::N_OPLL) begin : inst
+                wire cs_io_active = (cpu_bus.addr[7:0] & io_device[i].mask) == io_device[i].port;
+                wire cs_enable    = (io_device[i].enable && cs_io_active && io_en && opll_enabled[i]);
+                wire cs_dev_bus   = (io_device[i].enable && io_device[i].device_ref == device_bus.device_ref && device_bus.we);
+
+                IKAOPLL #(.FULLY_SYNCHRONOUS(1), .FAST_RESET(1), .ALTPATCH_CONFIG_MODE(0), .USE_PIPELINED_MULTIPLIER(1)) ika_opll_opll_int (
+                    .i_XIN_EMUCLK       (cpu_bus.clk),
+                    .i_phiM_PCEN_n      (~clock_bus.ce_3m58_n),
+                    .i_IC_n             (~cpu_bus.reset),
+                    .i_ALTPATCH_EN      (1'b0),
+                    .i_CS_n             (~(cs_enable || cs_dev_bus)),
+                    .i_WR_n             (~(cpu_bus.wr || device_bus.we)),
+                    .i_A0               (cpu_bus.addr[0]),
+                    .i_D                (cpu_bus.data),
+                    .i_ACC_SIGNED_MOVOL (5'sd9),
+                    .i_ACC_SIGNED_ROVOL (5'sd15),
+                    .o_ACC_SIGNED       (sound_OPLL[i])
+                );
+            end else begin : none
+                assign sound_OPLL[i] = '0;
+            end
         end
     endgenerate
 

@@ -69,21 +69,26 @@ module dev_scc (
     genvar i;
     generate
         for (i = 0; i < 2; i++) begin : SCC_INSTANCES
-            wire cs_dev_bus   = (io_device[i].enable && io_device[i].device_ref == device_bus.device_ref && device_bus.en);
-            scc_wave SCC_i (
-                .clk(cpu_bus.clk),
-                .clkena(clock_bus.ce_3m58_n),
-                .reset(cpu_bus.reset),
-                .req(cs_dev_bus && (cpu_bus.rd || cpu_bus.wr)),
-                .ack(),
-                .wrt(cpu_bus.wr && cpu_bus.req),
-                .adr(cpu_bus.addr[7:0]),
-                .dbo(cpu_bus.data),
-                .dbi(data_SCC[i]),
-                .wave(sound_SCC[i]),
-                .sccPlusChip(scc_plus[i]),
-                .sccPlusMode(scc_mode[i])
-            );
+            if (i < MSX::N_SCC) begin : inst
+                wire cs_dev_bus   = (io_device[i].enable && io_device[i].device_ref == device_bus.device_ref && device_bus.en);
+                scc_wave SCC_i (
+                    .clk(cpu_bus.clk),
+                    .clkena(clock_bus.ce_3m58_n),
+                    .reset(cpu_bus.reset),
+                    .req(cs_dev_bus && (cpu_bus.rd || cpu_bus.wr)),
+                    .ack(),
+                    .wrt(cpu_bus.wr && cpu_bus.req),
+                    .adr(cpu_bus.addr[7:0]),
+                    .dbo(cpu_bus.data),
+                    .dbi(data_SCC[i]),
+                    .wave(sound_SCC[i]),
+                    .sccPlusChip(scc_plus[i]),
+                    .sccPlusMode(scc_mode[i])
+                );
+            end else begin : none
+                assign data_SCC[i]  = 8'hFF;
+                assign sound_SCC[i] = '0;
+            end
         end
     endgenerate
 

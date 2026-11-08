@@ -14,6 +14,7 @@ assign    ready                        = counter[4];
 assign    spi_clk                      = counter[0];
 assign    spi_do                       = io_byte[7]; // data is shifted up during transfer
 assign    ext_SD_card_bus.data_from_SD = data;
+assign    ext_SD_card_bus.busy         = ~counter[4];
 
 reg [4:0] counter = 5'b10000;  // tx/rx counter is idle
 reg [7:0] io_byte, data;

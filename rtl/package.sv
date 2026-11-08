@@ -220,9 +220,11 @@ interface ext_sd_card_if;
     logic        tx;
     logic  [7:0] data_to_SD;
     logic  [7:0] data_from_SD;
+    logic        busy;              // SPI transfer running (16 clk per byte)
     
     modport SD_mp (
         output  data_from_SD,
+        output  busy,
         input   data_to_SD,
         input   rx,
         input   tx
@@ -230,6 +232,7 @@ interface ext_sd_card_if;
 
     modport device_mp (
         input    data_from_SD,
+        input    busy,
         output   data_to_SD,
         output   rx,
         output   tx

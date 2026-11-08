@@ -201,6 +201,23 @@ always @(posedge clk_core) begin
     end
 end
 
+// Port F4 (reset status): every access, with the stored value (bit 7 = 1: BIOS shows the logo)
+wire [7:0] f4_reg = sys.MSX.devices.dev_reset_status.RESET_STATUS_DEV_INSTANCES[0].latch_port_i.r_status;
+int        boot = 1, f4_ipl_wr = 0, f4_bios_wr = 0;
+logic [7:0] f4_first_read[int];
+always @(posedge clk_core) begin
+    if (sys.MSX.cpu_bus.req && !req_q && !reset && sys.MSX.cpu_bus.iorq && !sys.MSX.cpu_bus.m1 &&
+        sys.MSX.cpu_bus.addr[7:0] == 8'hF4) begin
+        if (sys.MSX.cpu_bus.wr) begin
+            $display("%0t boot %0d: OUT (F4h),%02h (%s)", $time, boot, sys.MSX.cpu_bus.data, ipl_en ? "IPL" : "BIOS");
+            if (ipl_en) f4_ipl_wr++; else f4_bios_wr++;
+        end else begin
+            $display("%0t boot %0d: IN (F4h) = %02h (%s)", $time, boot, f4_reg, ipl_en ? "IPL" : "BIOS");
+            if (!ipl_en && !f4_first_read.exists(boot)) f4_first_read[boot] = f4_reg;
+        end
+    end
+end
+
 // ------------------------------------------------------------------ optional trace (+trace)
 // histogram of M1 addresses of the IPL copy (FC00-FFFF), ESE bank / MegaSD register writes
 bit trace = 0;
@@ -271,6 +288,24 @@ initial begin
     end
 
     if (trace) print_trace();
+
+    // +warm: wait until the BIOS marks the boot in F4 (after the logo), then a warm reset
+    // (OSD Reset, status[21]); the BIOS must then see bit 7 = 0 and skip the logo
+    if ($test$plusargs("warm")) begin
+        for (int i = 0; i < 600 && f4_bios_wr == 0; i++) repeat (250_000) @(posedge clk_core);
+        if (f4_bios_wr == 0) begin errors++; $display("FAIL BIOS did not write F4"); end
+        repeat (200_000) @(posedge clk_core);
+        $display("%0t warm reset (OSD)", $time);
+        boot = 2; t_ipl_end = 0;
+        status[21] = 1; repeat (4) @(posedge clk_core); status[21] = 0;
+        for (int i = 0; i < 200 && !f4_first_read.exists(2); i++) repeat (250_000) @(posedge clk_core);
+        if (!f4_first_read.exists(2)) begin errors++; $display("FAIL warm boot: BIOS did not read F4"); end
+        else if (f4_first_read[2][7] !== 1'b0) begin errors++; $display("FAIL warm boot: F4 bit 7 = 1 (logo again)"); end
+        else $display("warm boot: BIOS reads F4 = %02h, bit 7 = 0 (no logo)", f4_first_read[2]);
+    end
+    if (f4_first_read.exists(1) && f4_first_read[1][7] !== 1'b1) begin
+        errors++; $display("FAIL cold boot: F4 bit 7 = 0 (no logo)");
+    end
 
     // BIOS in ESE-RAM (SDRAM address = system address - 2^18)
     ese    = sys.lookup_RAM[sys.slot_layout[{2'd3, 2'd2, 2'd1}].ref_ram].addr;

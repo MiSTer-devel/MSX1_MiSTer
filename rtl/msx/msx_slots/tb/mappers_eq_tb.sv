@@ -70,11 +70,13 @@ wire [159:0] obs_old = {mem_old.addr, mem_old.rnw, mem_old.ram_cs, mem_old.sram_
 int errors = 0, compared = 0, hold = 0;
 int active[64];          // cycles with ram_cs/sram_cs/device en, per mapper type
 
+int err_typ[int];                   // mismatches per mapper type (summary at the end)
 task automatic check(string phase);
     compared++;
     if (obs_new !== obs_old) begin
         errors++;
-        if (errors <= 10)
+        err_typ[int'(block_info.typ)]++;
+        if (errors <= 10 || err_typ[int'(block_info.typ)] == 1)
             $display("FAIL %s cyc=%0d typ=%0d addr=%04h rd=%b wr=%b\n  new=%040h\n  old=%040h",
                      phase, compared, block_info.typ, addr, rd, wr, obs_new, obs_old);
     end
@@ -132,7 +134,10 @@ initial begin
     for (int t = 0; t <= int'(MAPPER_UNUSED); t++) $write(" %0d:%0d", t, active[t]);
     $display("");
     if (errors == 0) $display("PASS mappers_eq_tb (%0d comparisons)", compared);
-    else             $display("FAILED mappers_eq_tb: %0d mismatches of %0d", errors, compared);
+    else begin
+        $display("FAILED mappers_eq_tb: %0d mismatches of %0d", errors, compared);
+        foreach (err_typ[t]) $display("  mapper type %0d: %0d mismatches", t, err_typ[t]);
+    end
     $finish;
 end
 

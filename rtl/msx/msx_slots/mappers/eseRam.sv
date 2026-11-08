@@ -43,7 +43,8 @@ module mapper_eseRam (
     input  MSX::block_info_t block_info,
     ext_sd_card_if.device_mp    ext_SD_card_bus,
     input                       megaSD_enable,
-    output                      mmc_on          // MegaSD window mapped (OCM mmcena)
+    output                      mmc_on,         // MegaSD window mapped (OCM mmcena)
+    output                      mmc_wait        // CPU wait: SPI still busy with the previous byte
 );
   
     wire cs;
@@ -98,37 +99,36 @@ module mapper_eseRam (
     assign out.rnw    = cs ? ~ram_wr : 1'b1;
     assign out.data   = cs && mmc_enable ? ext_SD_card_bus.data_from_SD : '1;
 
-    // SD card function
-    logic mmc_cs;
+    // SD card: one SPI transfer per CPU access of 4000-57FFh (5800-5FFFh = mode register).
+    // An access arriving while the previous byte is still shifted waits (OCM MmcAct).
+    logic mmc_cs, mmc_mod, mmc_pend;
+    wire  mmc_data  = cs && mmc_enable && cpu_bus.addr[12:11] != 2'b11 && ~mmc_mod;
+    wire  mmc_want  = (mmc_data && cpu_bus.req) || mmc_pend;
+    wire  mmc_start = mmc_want && ~ext_SD_card_bus.busy && ~ext_SD_card_bus.rx;   // rx: busy not visible yet
+    assign mmc_wait = mmc_want && ~mmc_start;
 
     always_ff @(posedge cpu_bus.clk) begin
-        logic mmc_en;
-        logic mmc_mod;
-
         ext_SD_card_bus.rx         <= '0;
         ext_SD_card_bus.tx         <= '0;
-        ext_SD_card_bus.data_to_SD <= '1;       
-        
+        ext_SD_card_bus.data_to_SD <= '1;
+
         if (cpu_bus.reset) begin
-            mmc_mod <= '0;
-            mmc_cs  <= '1;
+            mmc_mod  <= '0;
+            mmc_cs   <= '1;
+            mmc_pend <= '0;
         end else begin
-            if (cs && mmc_enable) begin // 4000 - 5FFF SD/MMC data registers
-                if (cpu_bus.addr[12:11] == 2'b11) begin // 5800-5FFFh
-                    if (cpu_bus.wr && cpu_bus.req) begin
-                            mmc_mod <= cpu_bus.data[0];
-                    end
-                end else begin // 4000-57FFh
-                    if (~mmc_mod) begin
-                        ext_SD_card_bus.rx <= 1'b1;
-                        mmc_cs             <= cpu_bus.addr[12];
-                        if (cpu_bus.wr && cpu_bus.req) begin
-                            ext_SD_card_bus.tx         <= 1'b1;
-                            ext_SD_card_bus.data_to_SD <= cpu_bus.data;
-                        end
-                    end                    
+            if (cs && mmc_enable && cpu_bus.addr[12:11] == 2'b11 && cpu_bus.wr && cpu_bus.req)
+                mmc_mod <= cpu_bus.data[0];
+            if (mmc_start) begin
+                mmc_pend           <= 1'b0;
+                ext_SD_card_bus.rx <= 1'b1;
+                mmc_cs             <= cpu_bus.addr[12];
+                if (cpu_bus.wr) begin
+                    ext_SD_card_bus.tx         <= 1'b1;
+                    ext_SD_card_bus.data_to_SD <= cpu_bus.data;
                 end
-            end
+            end else if (mmc_want)
+                mmc_pend <= 1'b1;
         end
     end
 

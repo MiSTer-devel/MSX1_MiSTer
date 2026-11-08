@@ -35,6 +35,7 @@ msx_cpu dut (
     .m1_wait   (3'(waits)),
     .mem_wait  (4'(mwait)),
     .io_wait   (4'(iowait)),
+    .ext_wait  (1'b0),
     .int_rq    (int_rq),
     .di        (di),
     .m1_n, .mreq_n, .iorq_n, .rd_n, .wr_n, .rfsh_n,

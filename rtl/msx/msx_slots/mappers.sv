@@ -50,7 +50,8 @@ module mappers (
     input                       ocm_slot1_mode,
     input                 [1:0] ocm_slot2_mode,
     input                       ocm_ipl_en,         // OCM IPL ROM visible (before BIOS load)
-    output                      ocm_mmc_on          // MegaSD window of the ESE-RAM mapped
+    output                      ocm_mmc_on,         // MegaSD window of the ESE-RAM mapped
+    output                      ocm_mmc_wait        // CPU wait: MegaSD SPI busy
 );
 
     // One entry per mapper instance. New mapper: add its name before M_COUNT
@@ -196,7 +197,8 @@ module mappers (
         .out(mapper_out[M_ESE_RAM]),
         .ext_SD_card_bus(ext_SD_card_ese),
         .megaSD_enable(ocm_megaSD_enable),
-        .mmc_on(ocm_mmc_on)
+        .mmc_on(ocm_mmc_on),
+        .mmc_wait(ocm_mmc_wait)
     );
 
     mapper_megaram mega_ram (
@@ -249,5 +251,7 @@ module mappers (
     assign ext_SD_card_bus.data_to_SD     = ext_SD_card_ese.data_to_SD &  ext_SD_card_mfrsd.data_to_SD;
     assign ext_SD_card_mfrsd.data_from_SD = ext_SD_card_bus.data_from_SD;
     assign ext_SD_card_ese.data_from_SD   = ext_SD_card_bus.data_from_SD;
+    assign ext_SD_card_mfrsd.busy         = ext_SD_card_bus.busy;
+    assign ext_SD_card_ese.busy           = ext_SD_card_bus.busy;
 
 endmodule

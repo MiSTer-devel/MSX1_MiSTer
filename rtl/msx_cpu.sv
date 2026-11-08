@@ -16,6 +16,7 @@ module msx_cpu (
     input          [2:0] m1_wait,       // wait states inserted after M1
     input          [3:0] mem_wait,      // wait states on each memory access (incl. M1)
     input          [3:0] io_wait,       // extra wait states on each I/O access
+    input                ext_wait,      // level wait request from the bus (MegaSD SPI busy)
     input                int_rq,
     input          [7:0] di,
     output               m1_n,
@@ -81,7 +82,7 @@ module msx_cpu (
         .CLK       (clock_bus.clk),
         .CE_p      (ce_p),
         .CE_n      (ce_n),
-        .WAIT_n    (wait_count == 3'd0 && acc_wait == 4'd0),
+        .WAIT_n    (wait_count == 3'd0 && acc_wait == 4'd0 && ~ext_wait),
         .INT_n     (~int_rq),
         .NMI_n     ('1),
         .BUSRQ_n   ('1),

@@ -80,7 +80,7 @@ module devices  #(parameter sysCLK)
     vram_bus_if             vram_bus_v99();
 
     // Výstupy kombinující jednotlivé zařízení
-    assign data = scc_data & fdc_data & msx2_ram_data & tms_data & v99_data & rtc_data & psg_data & ppi_data & ocm_data & reset_status_data & opm_data & ym2148_data;// & TC8566AF_data;
+    assign data = scc_data & fdc_data & msx2_ram_data & tms_data & v99_data & rtc_data & psg_data & ppi_data & ocm_data & reset_status_data & opm_data & ym2148_data & systimer_data;// & TC8566AF_data;
     assign data_oe_rq = fdc_data_oe_rq;// | TC8566AF_data_oe_rq;
     assign data_to_mapper = msx2_ram_data_to_mapper & latch_port_data_to_mapper;
 
@@ -316,6 +316,13 @@ module devices  #(parameter sysCLK)
         .io_device(io_device[DEV_RESET_STATUS]),
         .hard_reset(hard_reset),
         .data(reset_status_data)
+    );
+
+    wire [7:0] systimer_data;
+    dev_systimer dev_systimer (
+        .cpu_bus(cpu_bus),
+        .io_device(io_device[DEV_SYSTIMER]),
+        .data(systimer_data)
     );
 
 endmodule

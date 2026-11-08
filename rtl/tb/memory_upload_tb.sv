@@ -196,6 +196,7 @@ initial begin
     expect_dev("RTC",          DEV_RTC,           8'hB4, 8'hFE, 8'h00);
     expect_dev("OPLL",         DEV_OPLL,          8'h7C, 8'hFE, 8'h00);
     expect_dev("RESET_STATUS", DEV_RESET_STATUS,  8'hF4, 8'hFF, 8'h01);
+    expect_dev("SYSTIMER",     DEV_SYSTIMER,      8'hE6, 8'hFE, 8'h00);
     expect_dev("MEM_MAPPER",   DEV_MSX2_RAM,      8'hFC, 8'hFC, 8'h00);
     if (!io_device[DEV_OCM_BOOT][0].enable) begin errors++; $display("FAIL OCM_BOOT not enabled"); end
     // Kanji font JIS1+JIS2: 256 kB window into ESE-RAM at 40000h

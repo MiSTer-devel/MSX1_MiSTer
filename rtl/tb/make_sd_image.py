@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 """Builds a FAT16 SD card image with one file stored first and contiguous
-(as OCM needs OCM-BIOS.DAT). Used by the OCM boot simulation.
+(as OCM needs OCM-BIOS.DAT), optionally followed by more files in the root
+directory (each contiguous). Used by the OCM boot simulation.
 
 usage: make_sd_image.py <file> <image> [--name OCM-BIOS.DAT] [--mbr] [--size-mb 32]
+                        [--add NAME.EXT=path ...]
 """
 import argparse
 import struct
 
 SECTOR = 512
 SEC_PER_CLUS = 4            # 2 kB clusters
+CLUSTER = SEC_PER_CLUS * SECTOR
 RESERVED = 1
 NUM_FATS = 2
 ROOT_ENTRIES = 512
@@ -30,7 +33,17 @@ def boot_sector(total_sectors, fat_sectors, hidden):
     return bs
 
 
-def fat16_volume(payload, name, total_sectors, hidden):
+def dir_entry(name, cluster, size):
+    base, _, ext = name.upper().partition('.')
+    e = bytearray(32)
+    e[0:11] = base.ljust(8)[:8].encode() + ext.ljust(3)[:3].encode()
+    e[11] = 0x20
+    struct.pack_into('<HI', e, 26, cluster if size else 0, size)
+    return e
+
+
+def fat16_volume(files, total_sectors, hidden):
+    """files: list of (name, payload); the first one starts at cluster 2."""
     clusters_est = total_sectors // SEC_PER_CLUS
     fat_sectors = (clusters_est * 2 + SECTOR - 1) // SECTOR
     root_sectors = ROOT_ENTRIES * 32 // SECTOR
@@ -40,27 +53,26 @@ def fat16_volume(payload, name, total_sectors, hidden):
 
     vol = bytearray(total_sectors * SECTOR)
     vol[0:SECTOR] = boot_sector(total_sectors, fat_sectors, hidden)
-
-    n = (len(payload) + SEC_PER_CLUS * SECTOR - 1) // (SEC_PER_CLUS * SECTOR)
     fat = bytearray(fat_sectors * SECTOR)
     struct.pack_into('<HH', fat, 0, 0xFFF8, 0xFFFF)
-    for i in range(n):
-        struct.pack_into('<H', fat, (2 + i) * 2, 0xFFFF if i == n - 1 else 3 + i)
+    root = (RESERVED + NUM_FATS * fat_sectors) * SECTOR
+
+    cl = 2
+    first_lba = None
+    for k, (name, payload) in enumerate(files):
+        n = (len(payload) + CLUSTER - 1) // CLUSTER
+        for i in range(n):
+            struct.pack_into('<H', fat, (cl + i) * 2, 0xFFFF if i == n - 1 else cl + i + 1)
+        vol[root + 32 * k:root + 32 * k + 32] = dir_entry(name, cl, len(payload))
+        o = (data_start + (cl - 2) * SEC_PER_CLUS) * SECTOR
+        vol[o:o + len(payload)] = payload
+        if first_lba is None:
+            first_lba = data_start
+        cl += n
     for f in range(NUM_FATS):
         o = (RESERVED + f * fat_sectors) * SECTOR
         vol[o:o + len(fat)] = fat
-
-    base, ext = name.upper().split('.')
-    entry = bytearray(32)
-    entry[0:11] = base.ljust(8).encode() + ext.ljust(3).encode()
-    entry[11] = 0x20
-    struct.pack_into('<HI', entry, 26, 2, len(payload))
-    o = (RESERVED + NUM_FATS * fat_sectors) * SECTOR
-    vol[o:o + 32] = entry
-
-    o = data_start * SECTOR
-    vol[o:o + len(payload)] = payload
-    return vol, data_start
+    return vol, first_lba
 
 
 def main():
@@ -70,12 +82,17 @@ def main():
     ap.add_argument('--name', default='OCM-BIOS.DAT')
     ap.add_argument('--mbr', action='store_true', help='partition table, volume at LBA 2048')
     ap.add_argument('--size-mb', type=int, default=32)
+    ap.add_argument('--add', action='append', default=[], metavar='NAME=PATH',
+                    help='more root directory files (8.3 name)')
     a = ap.parse_args()
 
-    payload = open(a.file, 'rb').read()
+    files = [(a.name, open(a.file, 'rb').read())]
+    for spec in a.add:
+        name, _, path = spec.partition('=')
+        files.append((name, open(path, 'rb').read()))
     sectors = a.size_mb * 1024 * 1024 // SECTOR
     if a.mbr:
-        vol, data = fat16_volume(payload, a.name, sectors - PART_START, PART_START)
+        vol, data = fat16_volume(files, sectors - PART_START, PART_START)
         img = bytearray(PART_START * SECTOR) + vol
         mbr = bytearray(SECTOR)
         struct.pack_into('<BBBBBBBBII', mbr, 446, 0x00, 1, 1, 0, 0x06, 254, 63, 255,
@@ -84,9 +101,9 @@ def main():
         img[0:SECTOR] = mbr
         data += PART_START
     else:
-        img, data = fat16_volume(payload, a.name, sectors, 0)
+        img, data = fat16_volume(files, sectors, 0)
     open(a.image, 'wb').write(img)
-    print(f'{a.image}: {len(img)} B, {a.name} {len(payload)} B at LBA {data}')
+    print(f'{a.image}: {len(img)} B, {len(files)} files, {a.name} {len(files[0][1])} B at LBA {data}')
 
 
 if __name__ == '__main__':

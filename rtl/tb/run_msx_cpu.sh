@@ -47,5 +47,8 @@ EOF
     "$OUT/Vmsx_cpu_tb" +sel=1 +wait=1 +mwait=2 +iowait=3 +n=20000 | grep LEN \
         | grep -q "LEN M1 4..4 MRD 4..4 MWR 3..3 IORD 5..5 IOWR 5..5" \
         && echo "mwait=2 iowait=3: PASS lengths" || echo "mwait=2 iowait=3: FAILED lengths"
+    # R800 multiplier (OCM CPU type): MULUB / MULUW only with r800, NOPs on the Z80
+    "$OUT/Vmsx_cpu_tb" +mul +r800 | grep -E 'PASS|FAIL'
+    "$OUT/Vmsx_cpu_tb" +mul       | grep -E 'PASS|FAIL'
 fi
 rm -rf "$OUT"

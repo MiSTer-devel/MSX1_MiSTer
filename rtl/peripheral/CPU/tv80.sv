@@ -143,6 +143,7 @@ module TV80#( parameter Mode      = 0,
     logic        [31:0] MULU_Prod32;
     logic        [31:0] MULU_tmp;
     logic        [15:0] MULU_Fakt1;
+    logic               MULU_W;                                                                    // 1: MULUW, 0: MULUB
 
     logic signed [15:0] ID16;
     logic         [7:0] Save_Mux;
@@ -583,6 +584,13 @@ module TV80#( parameter Mode      = 0,
                     F[Flag_P] <= ~(^DI_Reg);
                 end
 
+                if (T_Res && I_MULU) begin                                      // R800 MULUB / MULUW flags (openMSX)
+                    F[Flag_S] <= '0;
+                    F[Flag_P] <= '0;
+                    F[Flag_Z] <= MULU_W ? MULU_Prod32 == '0 : MULU_Prod32[31:16] == '0;
+                    F[Flag_C] <= MULU_W ? MULU_Prod32[31:16] != '0 : MULU_Prod32[31:24] != '0;
+                end
+
                 if (TState == 3'd1 && ~Auto_Wait_t1) begin
                     DO <= BusB;
                     if (I_RLD)
@@ -633,6 +641,7 @@ module TV80#( parameter Mode      = 0,
     always_ff @(posedge CLK_n) begin
         if (ClkEn) begin
             if (T_Res) begin
+                MULU_W <= ~I_MULUB;
                 if (I_MULUB) begin
                     MULU_Prod32[7:0]  <= ACC;
                     MULU_Prod32[15:8] <= 8'b0;
@@ -752,14 +761,13 @@ module TV80#( parameter Mode      = 0,
         RegDIH = Save_Mux;
         RegDIL = Save_Mux;
 
+        // MULUB: HL = product; MULUW: DE = high word (TState 4), HL = low word (as openMSX;
+        // the T80 of MSX_MiSTer / OCM-PLD writes them swapped)
         if (I_MULU) begin
-            if (T_Res) begin
-                RegDIH = MULU_Prod32[31:24];
-                RegDIL = MULU_Prod32[23:16];
-            end else begin
-                RegDIH = MULU_tmp[15:8];   // TState = 4 DE write
-                RegDIL = MULU_tmp[7:0];
-            end
+            if (T_Res)
+                {RegDIH, RegDIL} = MULU_W ? MULU_Prod32[15:0] : MULU_Prod32[31:16];
+            else
+                {RegDIH, RegDIL} = MULU_tmp[31:16];
         end
 
         if (ExchangeDH) begin

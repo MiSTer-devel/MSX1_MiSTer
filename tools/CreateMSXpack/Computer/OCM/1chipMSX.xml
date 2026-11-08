@@ -1,6 +1,6 @@
 <?xml version="1.0" ?>
 <!--
-  OCM (1chipMSX / OCM-PLD by KdL), behaves like MSX_MiSTer (MiSTer-devel).
+  1chipMSX (OCM / OCM-PLD by KdL), behaves like MSX_MiSTer (MiSTer-devel).
   Boot: IPL ROM (slot 3-3 page 0, mapper OCM_IPL, visible until the first write to A8h)
   loads OCM-BIOS.DAT (512 kB) from the SD card (VHD) into ESE-RAM (slot 3-2).
   MAIN/XBASIC/OPLL/EXT/FREE ROMs are windows into ESE-RAM.
@@ -75,18 +75,23 @@
     </secondary>
   </primary>
 
-  <!-- Location of external slots at the end of the XML definition -->
+  <!-- Internal ESE-SCC / MegaRAM (emsx_top U31_1 / U31_2), always present. Active while
+       Slot1Mode / Slot2Mode (OSD, port 42h, ocm.sv) is not 00, otherwise the slot is empty. -->
   <primary slot="1">
-    <secondary slot="0">
-      <block start="0">
-        <cart>A</cart>
+    <secondary slot="0"> <!-- ESE-SCC1 1 MB (Scc1Adr 19:0) -->
+      <block start="1" count="2">
+        <memory size="1048576">RAM</memory>
+        <mapper>MEGARAM</mapper>
+        <device>SCC</device>
       </block>
     </secondary>
   </primary>
   <primary slot="2">
-    <secondary slot="0">
-      <block start="0">
-        <cart>B</cart>
+    <secondary slot="0"> <!-- ESE-SCC2 / MegaRAM 2 MB -->
+      <block start="1" count="2">
+        <memory size="2097152">RAM</memory>
+        <mapper>MEGARAM</mapper>
+        <device>SCC</device>
       </block>
     </secondary>
   </primary>

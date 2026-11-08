@@ -191,13 +191,18 @@ module mapper_megaram (
         end
     end
 
+    // Stay inside the RAM block (1 or 2 MB); the OCM slot 1 ESE-SCC has 1 MB (emsx_top Scc1Adr)
+    wire [26:0] size_mask = {2'b00, block_info.rom_size} - 27'd1;
+    wire        ocm_slot1 = block_info.typ == MAPPER_MEGARAM && !block_info.id;
+    wire [26:0] blk_addr  = ram_addr & size_mask & (ocm_slot1 ? 27'h00FFFFF : {27{1'b1}});
+
     assign device_out.en    = cs && SccSel[1];
 
     wire oe;
 
     assign oe         = cs && SccSel == 2'b01 && (cpu_bus.rd || cpu_bus.wr);
 
-    assign out.addr   = oe ? ram_addr : {27{1'b1}};
+    assign out.addr   = oe ? blk_addr : {27{1'b1}};
     assign out.ram_cs = oe;
     assign out.rnw    = ~(cpu_bus.wr && oe);
 
@@ -206,7 +211,7 @@ module mapper_megaram (
     assign out.data    = 8'hFF;
     assign device_out.device_ref = 3'd0;
     assign device_out.we         = 1'b0;
-    assign device_out.mode       = 1'b1;
-    assign device_out.param      = 1'b1;
+    assign device_out.mode       = cs ? SccModeB[block_info.id][5] : 1'b1;  // SCC+ mode (BFFE bit 5)
+    assign device_out.param      = 1'b1;                                     // SCC-I chip
 
 endmodule

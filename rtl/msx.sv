@@ -81,7 +81,7 @@ wire                 keybeep;
 wire                 reset_lock, reset_request;
 wire                 ocm_megaSD_enable, ocm_slot1_mode;
 wire           [1:0] ocm_slot2_mode;
-wire                 ocm_ipl_en, ocm_mmc_on, ocm_mmc_wait;
+wire                 ocm_ipl_en, ocm_mmc_on, ocm_mmc_wait, opll_wait;
 MSX::cpu_speed_t     cpu_speed;
 wire signed   [15:0] device_sound_L, device_sound_R;
 
@@ -136,7 +136,8 @@ msx_cpu cpu (
    .m1_wait   (msx_config.wait_count),
    .mem_wait  (cpu_speed.mem_wait),
    .io_wait   (cpu_speed.io_wait),
-   .ext_wait  (ocm_mmc_wait),
+   .ext_wait  (ocm_mmc_wait || opll_wait),
+   .r800      (msx_config.cpu == R800 || msx_user_config.ocm_r800),
    .int_rq    (cpu_interrupt),
    .di        (d_to_cpu),
    .m1_n      (m1_n),
@@ -215,6 +216,7 @@ devices #(.sysCLK(sysCLK)) devices
    .reset_lock(reset_lock),
    .reset_request(reset_request),
    .cpu_speed(cpu_speed),
+   .opll_wait(opll_wait),
    .ocm_mmc_on(ocm_mmc_on),
    .ocm_megaSD_enable(ocm_megaSD_enable),
    .ocm_slot1_mode(ocm_slot1_mode),

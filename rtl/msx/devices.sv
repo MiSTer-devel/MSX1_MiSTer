@@ -69,6 +69,7 @@ module devices  #(parameter sysCLK)
     output                  reset_lock,
     output                  reset_request,
     output MSX::cpu_speed_t cpu_speed,              // OCM turbo, '0 without OCM
+    output                  opll_wait,              // CPU wait: OPLL busy (turbo)
     input                   ocm_mmc_on,
     output                  ocm_megaSD_enable,
     output                  ocm_slot1_mode,
@@ -118,6 +119,8 @@ module devices  #(parameter sysCLK)
         .device_bus(device_bus),
         .clock_bus(clock_bus),
         .io_device(io_device[DEV_OPLL]),
+        .enawait(cpu_speed.en && cpu_speed.clock_sel != 2'b00),
+        .wait_rq(opll_wait),
         .sound(opll_sound)
     );
 

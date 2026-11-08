@@ -52,13 +52,15 @@ module dev_opll (
             if (io_device[i].enable) sound += sound_OPLL[i];
     end
 
+    // I/O of an OPLL in a block (FM-PAC, device_ref != 0) follows the block's enable (7FF6h bit 0).
+    // An OPLL of the machine (device_ref 0, e.g. OCM) stays enabled: device_ref 0 is also the idle bus.
     always_ff @(posedge cpu_bus.clk) begin
         if (cpu_bus.reset) begin
             opll_enabled <= 3'b111;
         end else begin
-            opll_enabled[0] <= io_device[0].device_ref == device_bus.device_ref ? device_bus.en : opll_enabled[0];
-            opll_enabled[1] <= io_device[1].device_ref == device_bus.device_ref ? device_bus.en : opll_enabled[1];
-            opll_enabled[2] <= io_device[2].device_ref == device_bus.device_ref ? device_bus.en : opll_enabled[2];
+            for (int k = 0; k < 3; k++)
+                if (io_device[k].device_ref != 3'd0 && io_device[k].device_ref == device_bus.device_ref)
+                    opll_enabled[k] <= device_bus.en;
         end
     end
 

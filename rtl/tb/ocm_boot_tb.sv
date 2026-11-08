@@ -57,10 +57,12 @@ generate for (gi = 0; gi < 6; gi++) begin : fdd_idle
     assign block_device_FDD[gi].img_readonly = 1'b0;
 end endgenerate
 
+logic [10:0] ps2_key = '0;                              // +dos: Space presses (+keys)
+
 msx_system sys (
     .clock_bus(clock_bus), .rst_core_async(rst_core_async), .reset(reset),
     .status(status), .status_menumask(status_menumask), .info_req(info_req), .info(info),
-    .ps2_key(11'd0), .ps2_mouse(25'd0), .joy(joy), .ioctl_download(ioctl_download), .ioctl_index(ioctl_index),
+    .ps2_key(ps2_key), .ps2_mouse(25'd0), .joy(joy), .ioctl_download(ioctl_download), .ioctl_index(ioctl_index),
     .ioctl_addr(ioctl_addr), .rtc(65'd0), .sdram_sz(16'h8002), .uart_speed(32'd115200),
     .img_readonly(1'b0), .img_size(64'd0), .sd_img_mounted(1'b0),
     .block_device_FDD(block_device_FDD), .msx_config(msx_config),
@@ -240,6 +242,19 @@ end
 
 // ------------------------------------------------------------------ +dos monitors
 bit dos = 0;
+// Keyboard (keyboard.sv takes a new ps2_key value as an event): +keys=<ms> presses Space for
+// 100 ms every <ms> once code runs from slot 2 (e.g. "HIT ANY KEY")
+task automatic key_space(input bit down);
+    ps2_key = {~ps2_key[10], down, 9'h029};
+endtask
+// Sound chip writes: PSG data (A1h), OPLL data (7Dh)
+int psg_wr = 0, opll_wr = 0;
+always @(posedge clk_core) begin
+    if (sys.MSX.cpu_bus.req && !req_q && !reset && sys.MSX.cpu_bus.iorq && !sys.MSX.cpu_bus.m1 && sys.MSX.cpu_bus.wr) begin
+        if (sys.MSX.cpu_bus.addr[7:0] == 8'hA1) psg_wr++;
+        if (sys.MSX.cpu_bus.addr[7:0] == 8'h7D) opll_wr++;
+    end
+end
 // Switched I/O ports 40h-4Fh (OCM): writes and reads of 42h, slot modes
 logic [1:0] slot2_mode_q = '0;
 logic       slot1_mode_q = 1'b0;
@@ -326,6 +341,34 @@ function automatic string screen_text();
     end
     return txt;
 endfunction
+
+// +vram_dump=<prefix>: VRAM as hex text (physical: 64 kB vram_lo, 64 kB vram_hi; GRAPHIC 6/7
+// interleave even / odd bytes) and the VDP state, for an offline render of the screen
+task automatic dump_vram(input string prefix, input int ms);
+    int fd;
+    fd = $fopen($sformatf("%s_%0d.hex", prefix, ms), "w");
+    for (int i = 0; i < 65536; i++) $fwrite(fd, "%02x", sys.vram_lo.mem[i]);
+    for (int i = 0; i < 65536; i++) $fwrite(fd, "%02x", sys.vram_hi.mem[i]);
+    $fclose(fd);
+    fd = $fopen($sformatf("%s_%0d.txt", prefix, ms), "w");
+    $fdisplay(fd, "T1 %0d T2 %0d G1 %0d G2 %0d G3 %0d G4 %0d G5 %0d G6 %0d G7 %0d",
+              sys.MSX.devices.v99.VDP_i.VDPMODETEXT1, sys.MSX.devices.v99.VDP_i.VDPMODETEXT2,
+              sys.MSX.devices.v99.VDP_i.VDPMODEGRAPHIC1, sys.MSX.devices.v99.VDP_i.VDPMODEGRAPHIC2,
+              sys.MSX.devices.v99.VDP_i.VDPMODEGRAPHIC3, sys.MSX.devices.v99.VDP_i.VDPMODEGRAPHIC4,
+              sys.MSX.devices.v99.VDP_i.VDPMODEGRAPHIC5, sys.MSX.devices.v99.VDP_i.VDPMODEGRAPHIC6,
+              sys.MSX.devices.v99.VDP_i.VDPMODEGRAPHIC7);
+    $fdisplay(fd, "R2 %02h R4 %02h R10R3 %03h R7 %02h DISP %0d YDOTS %0d R23 %02h YJK %0d YAE %0d",
+              sys.MSX.devices.v99.VDP_i.U_VDP_REGISTER.REG_R2_PT_NAM_ADDR,
+              sys.MSX.devices.v99.VDP_i.U_VDP_REGISTER.REG_R4_PT_GEN_ADDR,
+              sys.MSX.devices.v99.VDP_i.U_VDP_REGISTER.REG_R10R3_COL_ADDR,
+              sys.MSX.devices.v99.VDP_i.U_VDP_REGISTER.REG_R7_FRAME_COL,
+              sys.MSX.devices.v99.VDP_i.U_VDP_REGISTER.REG_R1_DISP_ON,
+              sys.MSX.devices.v99.VDP_i.U_VDP_REGISTER.REG_R9_Y_DOTS,
+              sys.MSX.devices.v99.VDP_i.U_VDP_REGISTER.REG_R23_VSTART_LINE,
+              sys.MSX.devices.v99.VDP_i.U_VDP_REGISTER.REG_R25_YJK,
+              sys.MSX.devices.v99.VDP_i.U_VDP_REGISTER.REG_R25_YAE);
+    $fclose(fd);
+endtask
 
 function automatic bit contains(input string s, input string k);
     for (int i = 0; i + k.len() <= s.len(); i++) if (s.substr(i, i + k.len() - 1) == k) return 1;
@@ -452,15 +495,19 @@ initial begin
     $display("sectors read %0d, IPL end %0t, VDP writes %0d, MAIN M1 %0d", sectors_read, t_ipl_end, vdp_writes, main_m1);
 
     // +dos: run on; every 100 ms of MSX time a status line (if anything changed) and the text
-    // screen (if changed). Ends on "No suitable" or 1 s after code started to run from slot 2.
+    // screen (if changed). Ends on "No suitable" or +after_ms (default 1000) after code started
+    // to run from slot 2.
     if (dos) begin
-        string last = "", now, st_last = "", st;
-        int    game_ms = -1;
+        string last = "", now, st_last = "", st, dump = "";
+        int    game_ms = -1, after_ms = 1000, keys = 0;
+        void'($value$plusargs("after_ms=%d", after_ms));
+        void'($value$plusargs("keys=%d", keys));
+        void'($value$plusargs("vram_dump=%s", dump));
         for (int ms = 0; ms < run_ms; ms += 100) begin
             repeat (MSX::CLK_CORE_HZ / 10) @(posedge clk_core);
-            st = $sformatf("SD rd %0d wr %0d | slot 1 rd %0d wr %0d m1 %0d reg %0d | slot 2 rd %0d wr %0d m1 %0d reg %0d snd %0d | mode %b %b | VDP R0 %02h R1 %02h R2 %02h",
+            st = $sformatf("SD rd %0d wr %0d | slot 1 rd %0d wr %0d m1 %0d reg %0d | slot 2 rd %0d wr %0d m1 %0d reg %0d snd %0d | PSG %0d OPLL %0d | mode %b %b | VDP R0 %02h R1 %02h R2 %02h",
                            sectors_read, sectors_written, ese_rd[0], ese_wr[0], ese_m1[0], ese_reg[0],
-                           ese_rd[1], ese_wr[1], ese_m1[1], ese_reg[1], ese_snd[1],
+                           ese_rd[1], ese_wr[1], ese_m1[1], ese_reg[1], ese_snd[1], psg_wr, opll_wr,
                            sys.MSX.devices.ocm.Slot1Mode, sys.MSX.devices.ocm.Slot2Mode, vreg[0], vreg[1], vreg[2]);
             if (st != st_last) begin $display("%0t %0d ms: %s", $time, ms, st); st_last = st; end
             now = screen_text();
@@ -472,7 +519,12 @@ initial begin
                 game_ms = ms;
                 $display("%0t code runs from slot 2 (ESE-SCC): %0d M1 fetches", $time, ese_m1[1]);
             end
-            if (contains(now, "No suitable") || (game_ms >= 0 && ms >= game_ms + 1000)) break;
+            if (dump != "" && game_ms >= 0 && (ms - game_ms) % 1000 == 0) dump_vram(dump, ms);
+            if (keys > 0 && game_ms >= 0 && ms > game_ms) begin
+                if ((ms - game_ms) % keys == 0)   begin key_space(1); $display("%0t %0d ms: Space down", $time, ms); end
+                if ((ms - game_ms) % keys == 100) key_space(0);
+            end
+            if (contains(now, "No suitable") || (game_ms >= 0 && ms >= game_ms + after_ms)) break;
         end
         $display("%0t final screen:\n%s", $time, screen_text());
         $display("ESE-SCC traffic: slot 1 rd %0d wr %0d m1 %0d, slot 2 rd %0d wr %0d m1 %0d, slot 2 SCC sound writes %0d",

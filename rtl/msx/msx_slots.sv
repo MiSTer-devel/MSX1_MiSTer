@@ -113,7 +113,8 @@ module msx_slots (
 
     assign block_info.rom_size   = 25'(ram_blocks) << 13;
     assign block_info.sram_size  = sram_size;
-    assign block_info.id         = cart_num;
+    // OCM internal ESE-SCC (machine block): slot 2 follows Slot2Mode, slot 1 Slot1Mode
+    assign block_info.id         = active_block.mapper == MAPPER_MEGARAM ? active_slot == 2'd2 : cart_num;
     assign block_info.offset_ram = offset_ram;
 
     wire [7:0] mapper_data;

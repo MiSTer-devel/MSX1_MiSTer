@@ -2,7 +2,10 @@
 // HPS model serving a FAT16 image with OCM-BIOS.DAT. Checks that the IPL loads the BIOS
 // from the SD card into ESE-RAM, leaves the IPL phase (write to A8h) and the BIOS runs
 // (M1 fetches from MAIN ROM, VDP writes).
-// Run: wsl.exe -- bash rtl/tb/run_ocm_boot.sh <OCM.msx> <sd.img> <OCM-BIOS.rom>
+// +dos: then runs on (+run_ms MSX time) and logs the switched I/O ports, the internal
+// ESE-SCC / MegaRAM accesses in slots 1/2 and the text screen (shadow VRAM from ports 98h/99h).
+// +fw=<CART_FW_EN.msx>: FW pack (needed for cartridge types other than ROM), +status=<hex>: OSD.
+// Run: wsl.exe -- bash rtl/tb/run_ocm_boot.sh <OCM.msx> <OCM-BIOS.rom>
 module ocm_boot_tb;
 
 // clk_sdram = 4x clk_core, phase aligned (as the PLL)
@@ -15,6 +18,7 @@ clock #(.sysCLK(MSX::CLK_CORE_HZ)) clock_i (.clock_bus(clock_bus));
 
 // ------------------------------------------------------------------ files
 byte unsigned pack[$];
+byte unsigned fw[$];
 byte unsigned bios[$];
 byte unsigned img[];
 int unsigned  img_bytes;
@@ -90,7 +94,8 @@ always_ff @(posedge clk_core) begin
     else if (ddr_wait == 0) begin
         for (int b = 0; b < 8; b++) begin
             int unsigned a = {ddr_rd_addr[24:0], 3'(b)};
-            DDRAM_DOUT[8*b +: 8] <= (a < pack.size()) ? pack[a] : 8'hFF;
+            DDRAM_DOUT[8*b +: 8] <= (a < pack.size()) ? pack[a] :
+                                    (a >= 32'h300000 && a - 32'h300000 < fw.size()) ? fw[a - 32'h300000] : 8'hFF;
         end
         DDRAM_DOUT_READY <= 1'b1;
         ddr_wait <= -1;
@@ -134,6 +139,7 @@ wire        sd_rd, sd_wr;
 logic       sd_ack = 0, sd_buff_wr = 0, img_mounted = 0;
 logic [8:0] sd_buff_addr = '0;
 logic [7:0] sd_buff_dout = '0;
+wire  [7:0] sd_buff_din;
 
 spi_divmmc spi (
     .clk_sys(clk_core), .ext_SD_card_bus(ext_SD_card_bus), .ready(),
@@ -143,17 +149,19 @@ spi_divmmc spi (
 sd_card sd_card (
     .reset(reset), .clk_sys(clk_core), .img_mounted(img_mounted), .img_size(64'(img_bytes)),
     .sd_lba(sd_lba), .sd_rd(sd_rd), .sd_wr(sd_wr), .sd_ack(sd_ack),
-    .sd_buff_addr(sd_buff_addr), .sd_buff_dout(sd_buff_dout), .sd_buff_din(), .sd_buff_wr(sd_buff_wr),
+    .sd_buff_addr(sd_buff_addr), .sd_buff_dout(sd_buff_dout), .sd_buff_din(sd_buff_din), .sd_buff_wr(sd_buff_wr),
     .clk_spi(clk_sdram), .sdhc(1'b1), .sck(sdclk), .ss(1'b0), .mosi(sdmosi), .miso(sdmiso)
 );
 
-// HPS: a requested sector is streamed into sd_card after a short delay
-int sectors_read = 0;
+// HPS: a requested sector is streamed into sd_card after a short delay; a written sector is
+// read from sd_card into the image
+int sectors_read = 0, sectors_written = 0;
 int hps_state = 0, hps_wait = 0, hps_idx = 0;
 int unsigned hps_lba = 0;
 always @(posedge clk_core) begin
     case (hps_state)
         0: if (sd_rd) begin hps_lba <= sd_lba; hps_wait <= 20; hps_state <= 1; end
+           else if (sd_wr) begin hps_lba <= sd_lba; hps_wait <= 20; hps_state <= 10; end
         1: if (hps_wait == 0) begin sd_ack <= 1; hps_idx <= 0; hps_state <= 2; end
            else hps_wait <= hps_wait - 1;
         2: begin
@@ -173,6 +181,18 @@ always @(posedge clk_core) begin
                    $display("%0t SD read LBA %0d (sector %0d)", $time, hps_lba, sectors_read);
            end
         5: if (hps_wait == 0) hps_state <= 0; else hps_wait <= hps_wait - 1;
+        10: if (hps_wait == 0) begin sd_ack <= 1; hps_idx <= 0; hps_state <= 11; end
+            else hps_wait <= hps_wait - 1;
+        11: begin sd_buff_addr <= 9'(hps_idx); hps_state <= 12; end
+        12: hps_state <= 13;
+        13: begin
+                if (hps_lba * 512 + hps_idx < img_bytes) img[hps_lba * 512 + hps_idx] = sd_buff_din;
+                if (hps_idx == 511) begin
+                    sd_ack <= 0; sectors_written <= sectors_written + 1; hps_wait <= 4; hps_state <= 5;
+                    if (sectors_written < 8 || sectors_written % 64 == 0)
+                        $display("%0t SD write LBA %0d (written %0d)", $time, hps_lba, sectors_written);
+                end else begin hps_idx <= hps_idx + 1; hps_state <= 11; end
+            end
         default: hps_state <= 0;
     endcase
 end
@@ -218,6 +238,92 @@ always @(posedge clk_core) begin
     end
 end
 
+// ------------------------------------------------------------------ +dos monitors
+bit dos = 0;
+// Switched I/O ports 40h-4Fh (OCM): writes and reads of 42h, slot modes
+logic [1:0] slot2_mode_q = '0;
+logic       slot1_mode_q = 1'b0;
+int         swio_log = 0;
+always @(posedge clk_core) begin
+    if (dos && sys.MSX.cpu_bus.req && !req_q && !reset && sys.MSX.cpu_bus.iorq && !sys.MSX.cpu_bus.m1 &&
+        sys.MSX.cpu_bus.addr[7:4] == 4'h4 && swio_log < 200) begin
+        swio_log++;
+        if (sys.MSX.cpu_bus.wr)
+            $display("%0t SWIO OUT (%02Xh),%02h", $time, sys.MSX.cpu_bus.addr[7:0], sys.MSX.cpu_bus.data);
+        else
+            $display("%0t SWIO IN  (%02Xh)", $time, sys.MSX.cpu_bus.addr[7:0]);
+    end
+    slot1_mode_q <= sys.MSX.devices.ocm.Slot1Mode;
+    slot2_mode_q <= sys.MSX.devices.ocm.Slot2Mode;
+    if (dos && (slot1_mode_q != sys.MSX.devices.ocm.Slot1Mode || slot2_mode_q != sys.MSX.devices.ocm.Slot2Mode))
+        $display("%0t Slot1Mode %b Slot2Mode %b", $time, sys.MSX.devices.ocm.Slot1Mode, sys.MSX.devices.ocm.Slot2Mode);
+end
+
+// Internal ESE-SCC / MegaRAM (mapper MEGARAM): register writes and RAM traffic per slot
+int ese_reg_log = 0;
+int ese_rd[2] = '{0, 0}, ese_wr[2] = '{0, 0};
+always @(posedge clk_core) begin
+    if (dos && sys.MSX.cpu_bus.req && !req_q && !reset && sys.MSX.cpu_bus.mreq &&
+        sys.MSX.block_info.typ == MAPPER_MEGARAM) begin
+        if (sys.MSX.memory_bus_slots.ram_cs) begin
+            if (sys.MSX.cpu_bus.wr) ese_wr[sys.MSX.block_info.id]++;
+            else                    ese_rd[sys.MSX.block_info.id]++;
+        end else if (sys.MSX.cpu_bus.wr && ese_reg_log < 120) begin
+            ese_reg_log++;
+            $display("%0t ESE-SCC slot %0d reg %04h <= %02h", $time, sys.MSX.block_info.id + 1,
+                     sys.MSX.cpu_bus.addr, sys.MSX.cpu_bus.data);
+        end
+    end
+end
+
+// Shadow VRAM / VDP registers from the I/O ports, text screen dump
+logic [7:0]  vram_sh [0:131071];
+logic [7:0]  vreg [0:63];
+logic [16:0] vaddr = '0;
+logic [7:0]  v99_lat = '0;
+bit          v99_second = 0;
+always @(posedge clk_core) begin
+    if (sys.MSX.cpu_bus.req && !req_q && !reset && sys.MSX.cpu_bus.iorq && !sys.MSX.cpu_bus.m1) begin
+        if (sys.MSX.cpu_bus.addr[7:0] == 8'h98) begin
+            if (sys.MSX.cpu_bus.wr) vram_sh[vaddr] = sys.MSX.cpu_bus.data;
+            vaddr = vaddr + 1'b1;
+        end
+        if (sys.MSX.cpu_bus.addr[7:0] == 8'h99) begin
+            if (sys.MSX.cpu_bus.wr) begin
+                if (!v99_second) begin v99_lat = sys.MSX.cpu_bus.data; v99_second = 1; end
+                else begin
+                    v99_second = 0;
+                    if (sys.MSX.cpu_bus.data[7]) vreg[sys.MSX.cpu_bus.data[5:0]] = v99_lat;
+                    else vaddr = {vreg[14][2:0], sys.MSX.cpu_bus.data[5:0], v99_lat};
+                end
+            end else v99_second = 0;
+        end
+    end
+end
+
+function automatic string screen_text();
+    bit         t2   = vreg[0][2];
+    int         cols = t2 ? 80 : 40;
+    int unsigned base = t2 ? {vreg[2][6:2], 12'h000} : {vreg[2][6:0], 10'h000};
+    string      txt  = "";
+    for (int r = 0; r < 24; r++) begin
+        string line = "";
+        int    last = -1;
+        for (int c = 0; c < cols; c++) begin
+            logic [7:0] ch = vram_sh[17'(base + r * cols + c)];
+            line = {line, string'((ch >= 8'h20 && ch < 8'h7F) ? ch : 8'h20)};
+            if (ch > 8'h20 && ch < 8'h7F) last = c;
+        end
+        if (last >= 0) txt = {txt, $sformatf("  |%s\n", line.substr(0, last))};
+    end
+    return txt;
+endfunction
+
+function automatic bit contains(input string s, input string k);
+    for (int i = 0; i + k.len() <= s.len(); i++) if (s.substr(i, i + k.len() - 1) == k) return 1;
+    return 0;
+endfunction
+
 // ------------------------------------------------------------------ optional trace (+trace)
 // histogram of M1 addresses of the IPL copy (FC00-FFFF), ESE bank / MegaSD register writes
 bit trace = 0;
@@ -245,8 +351,9 @@ endtask
 
 // ------------------------------------------------------------------ run
 initial begin
-    string pack_name, img_name, bios_name;
-    int fd, c, errors = 0;
+    string pack_name, img_name, bios_name, fw_name;
+    int fd, c, errors = 0, run_ms = 20000;
+    logic [127:0] st;
     int unsigned ese, ese_sd;
 
     if (!$value$plusargs("pack=%s", pack_name) || !$value$plusargs("img=%s", img_name) ||
@@ -264,12 +371,27 @@ initial begin
     $display("pack %0d B, BIOS %0d B, SD image %0d B loaded", pack.size(), bios.size(), img_bytes);
 
     trace = $test$plusargs("trace");
+    dos   = $test$plusargs("dos");
+    void'($value$plusargs("run_ms=%d", run_ms));
     status[11] = 1'b1;                                  // OCM internal mapper 4096 kB
+    if ($value$plusargs("status=%h", st)) status = st;
+    if ($value$plusargs("fw=%s", fw_name)) begin
+        fd = $fopen(fw_name, "rb"); while ((c = $fgetc(fd)) != -1) fw.push_back(8'(c)); $fclose(fd);
+    end
+    $display("status %h, FW pack %0d B", status, fw.size());
     repeat (8) @(posedge clk_core);
     rst_core_async = 0;
     @(posedge clk_core); img_mounted = 1; @(posedge clk_core); img_mounted = 0;
 
-    // HPS download of the MSX pack
+    // HPS download of the FW pack (core start), then the MSX pack
+    if (fw.size() > 0) begin
+        ioctl_index = 16'd2; ioctl_download = 1;
+        @(posedge clk_core); ioctl_addr = 27'(fw.size());
+        @(posedge clk_core); ioctl_download = 0;
+        wait (sys.upload);
+        wait (!sys.upload);
+        repeat (10) @(posedge clk_core);
+    end
     ioctl_index = 16'd1; ioctl_download = 1;
     @(posedge clk_core); ioctl_addr = 27'(pack.size());
     @(posedge clk_core); ioctl_download = 0;
@@ -320,6 +442,26 @@ initial begin
     if (main_m1 < 1000)  begin errors++; $display("FAIL BIOS does not run from MAIN ROM (%0d M1)", main_m1); end
     if (vdp_writes < 16) begin errors++; $display("FAIL BIOS did not set up the VDP (%0d writes)", vdp_writes); end
     $display("sectors read %0d, IPL end %0t, VDP writes %0d, MAIN M1 %0d", sectors_read, t_ipl_end, vdp_writes, main_m1);
+
+    // +dos: run on, print the text screen whenever it changes (every 100 ms of MSX time)
+    if (dos) begin
+        string last = "", now;
+        for (int ms = 0; ms < run_ms; ms += 100) begin
+            repeat (MSX::CLK_CORE_HZ / 10) @(posedge clk_core);
+            now = screen_text();
+            if (now != last) begin
+                $display("%0t screen (%0d ms, SD read %0d / written %0d, ESE-SCC slot 1 rd %0d wr %0d, slot 2 rd %0d wr %0d):\n%s",
+                         $time, ms, sectors_read, sectors_written, ese_rd[0], ese_wr[0], ese_rd[1], ese_wr[1], now);
+                last = now;
+            end
+            if (contains(now, "No suitable") || contains(now, "Loading ROM: ooooo")) begin
+                repeat (MSX::CLK_CORE_HZ / 2) @(posedge clk_core);
+                $display("%0t final screen:\n%s", $time, screen_text());
+                break;
+            end
+        end
+        $display("ESE-SCC traffic: slot 1 rd %0d wr %0d, slot 2 rd %0d wr %0d", ese_rd[0], ese_wr[0], ese_rd[1], ese_wr[1]);
+    end
 
     if (errors == 0) $display("PASS ocm_boot_tb");
     else             $display("FAILED ocm_boot_tb: %0d errors", errors);

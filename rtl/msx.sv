@@ -137,6 +137,7 @@ msx_cpu cpu (
    .mem_wait  (cpu_speed.mem_wait),
    .io_wait   (cpu_speed.io_wait),
    .ext_wait  (ocm_mmc_wait),
+   .r800      (msx_config.cpu == R800 || msx_user_config.ocm_r800),
    .int_rq    (cpu_interrupt),
    .di        (d_to_cpu),
    .m1_n      (m1_n),

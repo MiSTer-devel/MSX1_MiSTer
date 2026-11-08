@@ -86,6 +86,20 @@ initial begin
     expect_ram("RAM mode write 4000", 16'h4001, 1'b1, 27'h05 * 27'h2000 + 27'h0001);
     write(16'hBFFE, 8'h00);
 
+    // ---- capacity probe of SofaROM (SROM.COM 36E4): per bank N: 7FFE <- 0, 5000 <- N,
+    //      7FFE <- 10h (ESCC-RAM: 4000-7FFD R/W), then write / read 4100h
+    for (int n = 0; n < 256; n += 51) begin
+        write(16'h7FFE, 8'h00);
+        write(16'h5000, 8'(n));
+        write(16'h7FFE, 8'h10);
+        expect_ram($sformatf("SofaROM probe bank %0d write", n), 16'h4100, 1'b1, 27'(n) * 27'h2000 + 27'h0100);
+        expect_ram($sformatf("SofaROM probe bank %0d read", n), 16'h4100, 1'b0, 27'(n) * 27'h2000 + 27'h0100);
+    end
+    write(16'h5000, 8'h11);                              // ignored while 7FFE bit 4 is set
+    expect_ram("bank register locked in ESCC-RAM mode", 16'h4100, 1'b0, 27'd255 * 27'h2000 + 27'h0100);
+    write(16'h7FFE, 8'h00);
+    write(16'h5000, 8'h05);
+
     // ---- SCC sound: SCC mode (9800, BFFE bit 5 = 0) and SCC+ mode (B800)
     write(16'h9000, 8'h3F);
     expect_scc("SCC mode 9800", 16'h9800, 1'b0);

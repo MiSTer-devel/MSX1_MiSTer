@@ -10,6 +10,8 @@
 //           +switch=<n> change the speed at random every 1..n clk (run-time turbo switching),
 //           +mwait=<n> / +iowait=<n> memory / I/O wait states; LEN prints the strobe length
 //           of each access type in CPU clocks (min..max)
+//           +mul [+r800]: R800 MULUB / MULUW program instead of the hash test; without +r800
+//           the opcodes must act as Z80 NOPs
 // Run: wsl.exe -- bash rtl/tb/run_msx_cpu.sh
 module msx_cpu_tb;
 
@@ -27,6 +29,7 @@ logic        m1_n, mreq_n, iorq_n, rd_n, wr_n, rfsh_n;
 logic [15:0] addr;
 logic  [7:0] dout, di;
 logic        int_rq = 0;
+logic        r800 = 0;
 
 msx_cpu dut (
     .clock_bus (clock_bus.base_mp),
@@ -36,6 +39,7 @@ msx_cpu dut (
     .mem_wait  (4'(mwait)),
     .io_wait   (4'(iowait)),
     .ext_wait  (1'b0),
+    .r800      (r800),
     .int_rq    (int_rq),
     .di        (di),
     .m1_n, .mreq_n, .iorq_n, .rd_n, .wr_n, .rfsh_n,
@@ -48,6 +52,16 @@ logic [7:0] mem [0:65535];
 initial begin
     foreach (mem[i]) mem[i] = 8'h00;
     `include "msx_cpu_prog.svh"
+    if ($test$plusargs("mul")) begin
+        // LD HL,0; LD DE,0; LD A,7; LD B,6; MULUB A,B; LD (3000h),HL; LD HL,1234h; LD BC,0100h;
+        // MULUW HL,BC; LD (3002h),HL; LD (3004h),DE; JR $
+        byte unsigned p[] = '{8'h21, 8'h00, 8'h00, 8'h11, 8'h00, 8'h00, 8'h3E, 8'h07, 8'h06, 8'h06,
+                              8'hED, 8'hC1, 8'h22, 8'h00, 8'h30, 8'h21, 8'h34, 8'h12, 8'h01, 8'h00,
+                              8'h01, 8'hED, 8'hC3, 8'h22, 8'h02, 8'h30, 8'hED, 8'h53, 8'h04, 8'h30,
+                              8'h18, 8'hFE};
+        foreach (mem[i]) mem[i] = 8'h00;
+        foreach (p[i]) mem[i] = p[i];
+    end
 end
 
 wire mem_rd = ~mreq_n & ~rd_n;
@@ -145,8 +159,21 @@ initial begin
     void'($value$plusargs("mwait=%d", mwait));
     void'($value$plusargs("iowait=%d", iowait));
     clock_sel = 2'(sel);
+    r800      = $test$plusargs("r800");
     repeat (20) @(posedge clk);
     reset = 0;
+    if ($test$plusargs("mul")) begin
+        // R800: 7*6 = 002Ah, 1234h*0100h = 0012 3400h (DE high, HL low as openMSX muluw_hl_SS;
+        // the T80 of MSX_MiSTer / OCM-PLD swaps DE and HL); Z80: HL / DE unchanged
+        byte unsigned exp[6];
+        bit ok = 1;
+        exp = r800 ? '{8'h2A, 8'h00, 8'h00, 8'h34, 8'h12, 8'h00} : '{8'h00, 8'h00, 8'h34, 8'h12, 8'h00, 8'h00};
+        wait (count >= 200);
+        for (int i = 0; i < 6; i++) if (mem[16'h3000 + i] != exp[i]) ok = 0;
+        $display("%s msx_cpu_tb mul r800=%0d: 3000h = %02h %02h %02h %02h %02h %02h", ok ? "PASS" : "FAILED", r800,
+                 mem[16'h3000], mem[16'h3001], mem[16'h3002], mem[16'h3003], mem[16'h3004], mem[16'h3005]);
+        $finish;
+    end
     wait (count >= ntrans);
     $display("RESULT sel=%0d switch=%0d wait=%0d lat=%0d n=%0d hash=%08h cycles=%0d ints=%0d iowr_req_on_ce10=%0d/%0d",
              sel, sw, waits, lat, count, hash, cycles, ints, iowr_ce10, iowr_ce10 + iowr_noce10);

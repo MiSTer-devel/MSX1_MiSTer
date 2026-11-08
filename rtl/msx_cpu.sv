@@ -17,6 +17,7 @@ module msx_cpu (
     input          [3:0] mem_wait,      // wait states on each memory access (incl. M1)
     input          [3:0] io_wait,       // extra wait states on each I/O access
     input                ext_wait,      // level wait request from the bus (MegaSD SPI busy)
+    input                r800,          // R800 instructions MULUB / MULUW (OCM CPU type)
     input                int_rq,
     input          [7:0] di,
     output               m1_n,
@@ -78,7 +79,7 @@ module msx_cpu (
 
     TV80a #(.Mode(0), .R800_MULU(1), .IOWait(1)) Z80 (
         .RESET_n   (~reset),
-        .R800_mode ('0),
+        .R800_mode (r800),
         .CLK       (clock_bus.clk),
         .CE_p      (ce_p),
         .CE_n      (ce_n),

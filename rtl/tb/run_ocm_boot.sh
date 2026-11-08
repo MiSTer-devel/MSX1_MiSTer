@@ -1,6 +1,8 @@
 #!/bin/bash
 # OCM boot simulation (Verilator): msx_system + SD path + HPS/DDR3/SDRAM models.
 # Usage: wsl.exe -- bash rtl/tb/run_ocm_boot.sh <OCM.msx> <OCM-BIOS.rom>   (SIMARGS=+trace for a trace)
+#   SDADD="--add NAME.EXT=<path> ..."  more files on the card (e.g. MSXDOS2.SYS, COMMAND2.COM,
+#   AUTOEXEC.BAT for a DOS run with SIMARGS="+dos +fw=<CART_FW_EN.msx> +status=<hex>")
 #   OCM.msx: cd tools/CreateMSXpack; python createComp.py --xml-dir Computer/OCM --output-dir <dir>
 #   The SD image (MBR + FAT16, OCM-BIOS.DAT first) is built by make_sd_image.py; the IPL
 #   needs a partition table (as made by sdcreate), a FAT16 volume without MBR is not booted.
@@ -10,7 +12,7 @@ cd "$(dirname "$0")"
 ROOT=$(cd ../.. && pwd)
 OUT=$(mktemp -d)
 
-python3 make_sd_image.py "$BIOS" "$OUT/sd.img" --mbr
+python3 make_sd_image.py "$BIOS" "$OUT/sd.img" --mbr $SDADD
 
 # Synthesis file list from the qip tree (SystemVerilog/Verilog, no PLL); packages first
 python3 - "$ROOT" "$OUT" > "$OUT/files.txt" <<'EOF'
@@ -51,5 +53,6 @@ verilator --binary --timing -O3 -j 4 -Wno-fatal -Wno-lint -Wno-style -Wno-MULTID
     $(cat "$OUT/files.txt") dpram_stub.sv spram_stub.sv altsyncram_stub.sv \
     "$ROOT/sys/sd_card.sv" ocm_boot_tb.sv > "$OUT/build.log" 2>&1 || { grep -E "%Error" "$OUT/build.log" | head -30; exit 1; }
 grep -E '%Error' "$OUT/build.log" || true
-"$OUT/Vocm_boot_tb" +pack="$PACK" +img="$OUT/sd.img" +bios="$BIOS" $SIMARGS | grep -v "^BLOCK\|^  BLOCK\|^DEVICE\|^LOAD\|^  LOAD\|^CONFIG\|^DO STATE\|^SWIO\|SWIO WRITE"
+stdbuf -oL "$OUT/Vocm_boot_tb" +pack="$PACK" +img="$OUT/sd.img" +bios="$BIOS" $SIMARGS |
+    grep --line-buffered -v "^BLOCK\|^  BLOCK\|^DEVICE\|^LOAD\|^  LOAD\|^CONFIG\|^DO STATE\|^SWIO\|SWIO WRITE\|^Command I"
 rm -rf "$OUT"

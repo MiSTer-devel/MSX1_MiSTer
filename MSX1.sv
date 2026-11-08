@@ -231,15 +231,17 @@ reset_sync rst_sync_sdram (.clk(clk_sdram), .arst(~locked_sdram),          .rst(
 //  [13]     OCM joysticks swap
 //  [14]     OCM mouse port
 //  [15]     OCM CPU speed
-//  [16]     OCM CPU type (menu only, not used yet)
-//  [20:17]  slot A cartridge type
+//  [16]     OCM CPU type (R800: MULUB / MULUW)
+//  [20:17]  slot A cartridge type (not OCM)
 //  [21]     reset / reset and close OSD
-//  [32:29]  slot B cartridge type
+//  [22]     OCM slot 1 (internal ESE-SCC)
+//  [24:23]  OCM slot 2 (internal ESE-SCC / MegaRAM)
+//  [32:29]  slot B cartridge type (not OCM)
 //  [38]     SRAM save
 //  [39]     SRAM load
 //  [40]     tape input (file / ADC)
 //  [41]     border
-// Free: [28:22], [37:33], [127:42]
+// Free: [28:25], [37:33], [127:42]
 `include "build_id.v"
 localparam CONF_STR = {
    "MSX1;UART115200,MIDI;",
@@ -250,12 +252,12 @@ localparam CONF_STR = {
    "-;",
    "h8S5,DSK,Mount int. Drive 1;",
    "h9S6,DSK,Mount int. Drive 2;",
-   "-;",
+   "H3-;",
    CONF_STR_SLOT_A,
    "H1FS3,ROM,Load,30C00000;",
    "h4S1,DSK,Mount Drive 1;",
    "h5S2,DSK,Mount Drive 2;",
-   "-;",
+   "H3-;",
    CONF_STR_SLOT_B,
    "H2F4,ROM,Load,31100000;",
    "h6S3,DSK,Mount Drive 1;",
@@ -266,15 +268,19 @@ localparam CONF_STR = {
    "HA-;",
    "HAR[38],SRAM Save;",
    "HAR[39],SRAM Load;",
-   "-;",
-   "h3O[11],Internal Mapper,2048KB RAM,4096KB RAM;",
-
+   // OCM (h3): same options and order as MSX_MiSTer
+   "h3-;",
    "h3O[15],CPU speed,Normal,Turbo(+F11);",
-	"h3O[16],CPU type,Z80,R800;",
+   "h3O[16],CPU type,Z80,R800;",
+   "h3-;",
+   CONF_STR_OCM_SLOTS,
+   "h3-;",
+   "h3O[11],Internal Mapper,2048KB RAM,4096KB RAM;",
+   "h3-;",
    "h3O[13],Joysticks Swap,No,Yes;",
    "h3O[14],Mouse,Port 1,Port 2;",
-
-   "O[40],Tape Input,File,ADC;",
+   "H3-;",
+   "H3O[40],Tape Input,File,ADC;",
    "HBF5,CAS,Cas File,31700000;",
    "HBT9,Tape Rewind;",
    "-;",
@@ -285,7 +291,7 @@ localparam CONF_STR = {
    "P1O[41],Border,No,Yes;",
    "-;",
    "T[21],Reset;",
-   "R[10],Reset & Detach ROM Cartridge;",
+   "H3R[10],Reset & Detach ROM Cartridge;",
    "R[21],Reset and close OSD;",
    "I,BAD MSX CONF,NOT SUPPORTED CONF,NOT SUPPORTED BLOCK,BAD MSX FW CONF,NOT FW CONF,DEVICE MISSING,Exceeded number of IO_DEVICE,No CRC32 DB,Not find CRC32 in DB,SMALL MEMORY;",
    "V,v",`BUILD_DATE

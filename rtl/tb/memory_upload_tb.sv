@@ -2,7 +2,9 @@
 // ddram, prints the resulting tables and checks the OCM configuration
 // (tools/CreateMSXpack/Computer/OCM/OCM.xml).
 // Optional FW pack (createDev.py output, DDR 300000h) and cartridge type of slot 2:
-// +fw=<CART_FW_EN.msx> +cartb=<cart_typ_t> (10 = MEGARAM: OCM MegaSCC+ / MegaRAM).
+// +fw=<CART_FW_EN.msx> +cartb=<cart_typ_t>.
+// OCM has no cartridge slots: slots 1 and 2 hold the internal ESE-SCC / MegaRAM (machine
+// blocks, pages 1-2, 1 MB / 2 MB RAM, mapper MEGARAM, own SCC), independent of FW and cartb.
 // Run: wsl.exe -- bash rtl/tb/run_memory_upload.sh <pack.msx> <ocm_iplrom.rom> [fw.msx cartb]
 module memory_upload_tb;
 
@@ -205,27 +207,29 @@ initial begin
     if (!(ese + 32'h80000 <= page_addr(3, 0, 0) || page_addr(3, 0, 0) + 32'h400000 <= ese)) begin
         errors++; $display("FAIL ESE-RAM %07h overlaps RAM mapper %07h", ese, page_addr(3, 0, 0));
     end
-    // Cartridge slots without an image stay empty
-    for (int p = 0; p < 4; p++)
-        if (slot_layout[{2'd1, 2'd0, 2'(p)}].mapper !== MAPPER_NONE ||
-            (cartb == int'(CART_TYP_ROM) && slot_layout[{2'd2, 2'd0, 2'(p)}].mapper !== MAPPER_NONE)) begin
-            errors++; $display("FAIL cartridge slot page %0d not empty", p);
-        end
-    // OCM MegaSCC+ / MegaRAM in slot 2 (FW pack MEGARAM): 2 MB RAM, mapper MEGARAM, SCC
-    if (cartb == int'(MEGARAM)) begin
-        MSX::block_t b = slot_layout[{2'd2, 2'd0, 2'd1}];
+    // Internal ESE-SCC / MegaRAM in slots 1 and 2
+    for (int sl = 1; sl <= 2; sl++) begin
+        MSX::block_t b = slot_layout[{2'(sl), 2'd0, 2'd1}];
         bit scc = 0;
         for (int p = 0; p < 4; p++)
-            if (slot_layout[{2'd2, 2'd0, 2'(p)}].mapper !== MAPPER_MEGARAM) begin
-                errors++; $display("FAIL MEGARAM slot 2 page %0d: mapper=%0d", p, slot_layout[{2'd2, 2'd0, 2'(p)}].mapper);
+            if (slot_layout[{2'(sl), 2'd0, 2'(p)}].mapper !== ((p == 1 || p == 2) ? MAPPER_MEGARAM : MAPPER_NONE)) begin
+                errors++; $display("FAIL slot %0d page %0d: mapper=%0d", sl, p, slot_layout[{2'(sl), 2'd0, 2'(p)}].mapper);
             end
-        if (lookup_RAM[b.ref_ram].size !== 17'd256 || lookup_RAM[b.ref_ram].ro !== 1'b0) begin
-            errors++; $display("FAIL MEGARAM RAM size=%0d x 8 kB ro=%b (expected 256, 0)", lookup_RAM[b.ref_ram].size, lookup_RAM[b.ref_ram].ro);
+        if (slot_layout[{2'(sl), 2'd0, 2'd2}].ref_ram !== b.ref_ram || slot_layout[{2'(sl), 2'd0, 2'd2}].device_ref !== b.device_ref) begin
+            errors++; $display("FAIL slot %0d: pages 1 and 2 are different blocks", sl);
+        end
+        if (lookup_RAM[b.ref_ram].size !== (sl == 1 ? 17'd128 : 17'd256) || lookup_RAM[b.ref_ram].ro !== 1'b0) begin
+            errors++; $display("FAIL slot %0d RAM size=%0d x 8 kB ro=%b (expected %0d, 0)", sl, lookup_RAM[b.ref_ram].size,
+                               lookup_RAM[b.ref_ram].ro, sl == 1 ? 128 : 256);
         end
         for (int k = 0; k < 3; k++)
             if (io_device[DEV_SCC][k].enable && io_device[DEV_SCC][k].device_ref == b.device_ref) scc = 1;
-        if (!scc) begin errors++; $display("FAIL MEGARAM: no SCC device for the slot 2 block (dev_ref %0d)", b.device_ref); end
-        if (!errors) $display("MEGARAM slot 2: mapper %0d, RAM %07h 2 MB, SCC dev_ref %0d", b.mapper, page_addr(2, 0, 0), b.device_ref);
+        if (!scc) begin errors++; $display("FAIL slot %0d: no SCC device for the block (dev_ref %0d)", sl, b.device_ref); end
+        $display("slot %0d: mapper %0d, RAM %07h, size %0d x 8 kB, SCC dev_ref %0d", sl, b.mapper, page_addr(sl, 0, 1),
+                 lookup_RAM[b.ref_ram].size, b.device_ref);
+    end
+    if (slot_layout[{2'd1, 2'd0, 2'd1}].device_ref == slot_layout[{2'd2, 2'd0, 2'd1}].device_ref) begin
+        errors++; $display("FAIL slots 1 and 2 share one SCC (dev_ref %0d)", slot_layout[{2'd1, 2'd0, 2'd1}].device_ref);
     end
 
     expect_dev("V9958",        DEV_VDP_V99xx,     8'h98, 8'hFC, 8'h02);

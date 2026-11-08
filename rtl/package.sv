@@ -394,6 +394,7 @@ package MSX;
         logic     [7:0] ocm_dip;
         logic           joy_swap;       // OCM: swap joystick ports
         logic           mouse_port;     // OCM: PS/2 mouse on port 1 (0) / 2 (1)
+        logic           ocm_r800;       // OCM: CPU type R800 (MULUB / MULUW)
     } user_config_t;    
     
     typedef struct {

@@ -16,6 +16,7 @@ module msx #(parameter sysCLK)
    output            [15:0] audio_L,
    output            [15:0] audio_R,
    input             [10:0] ps2_key,
+   input             [24:0] ps2_mouse,
    input              [5:0] joy[2],
    //UART
    input              [7:0] uart_rx_data,
@@ -80,6 +81,8 @@ wire                 keybeep;
 wire                 reset_lock, reset_request;
 wire                 ocm_megaSD_enable, ocm_slot1_mode;
 wire           [1:0] ocm_slot2_mode;
+wire                 ocm_ipl_en, ocm_mmc_on, ocm_mmc_wait;
+MSX::cpu_speed_t     cpu_speed;
 wire signed   [15:0] device_sound_L, device_sound_R;
 
 MSX::device_bus_t    device_bus;
@@ -129,8 +132,11 @@ end
 msx_cpu cpu (
    .clock_bus (clock_bus),
    .reset     (reset),
-   .clock_sel (msx_config.cpu_clock_sel[1:0]),
-   .m1_wait   (msx_config.wait_count),          // TODO OCM: dev_cpu_wait
+   .clock_sel (cpu_speed.en ? cpu_speed.clock_sel : msx_config.cpu_clock_sel[1:0]),
+   .m1_wait   (msx_config.wait_count),
+   .mem_wait  (cpu_speed.mem_wait),
+   .io_wait   (cpu_speed.io_wait),
+   .ext_wait  (ocm_mmc_wait),
    .int_rq    (cpu_interrupt),
    .di        (d_to_cpu),
    .m1_n      (m1_n),
@@ -175,11 +181,10 @@ assign memory_bus.data    = memory_bus_slots.data    & memory_bus_devices.data;
 assign memory_bus_slots.q   = memory_bus.q;
 assign memory_bus_devices.q = memory_bus.q;
 
-//wire [1:0]  dev_cpu_clock_sel;
-//wire        dev_cpu_wait;
 devices #(.sysCLK(sysCLK)) devices
 (
    .clock_bus(clock_bus),
+   .hard_reset(core_hard_reset),
    .cpu_bus(cpu_bus),
    .device_bus(device_bus),
    .FDD_bus(FDD_bus),
@@ -197,6 +202,7 @@ devices #(.sysCLK(sysCLK)) devices
    .cpu_interrupt(cpu_interrupt),
    .kb_upload_memory(kb_upload_memory),
    .ps2_key(ps2_key),
+   .ps2_mouse(ps2_mouse),
    .rtc_time(rtc_time),
    .uart_rx(uart_rx),
    .uart_rx_data(uart_rx_data),
@@ -208,11 +214,12 @@ devices #(.sysCLK(sysCLK)) devices
    .msx_user_config(msx_user_config),
    .reset_lock(reset_lock),
    .reset_request(reset_request),
-   //.cpu_wait(dev_cpu_wait),
-   //.cpu_clock_sel(dev_cpu_clock_sel),
+   .cpu_speed(cpu_speed),
+   .ocm_mmc_on(ocm_mmc_on),
    .ocm_megaSD_enable(ocm_megaSD_enable),
    .ocm_slot1_mode(ocm_slot1_mode),
-   .ocm_slot2_mode(ocm_slot2_mode)
+   .ocm_slot2_mode(ocm_slot2_mode),
+   .ocm_ipl_en(ocm_ipl_en)
 );
 
 msx_slots msx_slots
@@ -234,7 +241,10 @@ msx_slots msx_slots
    .data_to_mapper(data_to_mapper),
    .ocm_megaSD_enable(ocm_megaSD_enable),
    .ocm_slot1_mode(ocm_slot1_mode),
-   .ocm_slot2_mode(ocm_slot2_mode)
+   .ocm_slot2_mode(ocm_slot2_mode),
+   .ocm_ipl_en(ocm_ipl_en),
+   .ocm_mmc_on(ocm_mmc_on),
+   .ocm_mmc_wait(ocm_mmc_wait)
 );
 
 endmodule

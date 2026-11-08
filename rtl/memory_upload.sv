@@ -359,7 +359,13 @@ module memory_upload
                                 state <= STATE_IDLE;
                             end
 
-                            if (conf[5] != 0 && dev_slot_free) begin                      // a slot was allocated above
+                            if (conf[6][7] && dev_slot_free) begin                        // memory = window into an existing block
+                                $display("  LOAD IO_DEVICE SHARED io_ref_mem :%x block %x offset %x size %x", io_ref_mem, conf[6][5:0], conf[7], conf[5]);
+                                io_memory[io_ref_mem].memory      <= lookup_RAM[slot_layout[conf[6][5:0]].ref_ram].addr + {5'b0, conf[7], 14'd0};
+                                io_memory[io_ref_mem].memory_size <= conf[5];
+                                state                             <= STATE_READ_CONF;
+                                next_state                        <= STATE_LOAD_CONF;
+                            end else if (conf[5] != 0 && dev_slot_free) begin             // a slot was allocated above
                                 $display("  LOAD IO_DEVICE FILL ROM io_ref_mem :%x memory addr:%x size: %x", io_ref_mem, ram_addr, {3'b0, conf[5], 14'd0});
                                 io_memory[io_ref_mem].memory      <= ram_addr;
                                 io_memory[io_ref_mem].memory_size <= conf[5];

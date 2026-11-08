@@ -48,7 +48,10 @@ module mappers (
     output                      slot_expander_force_en,
     input                       ocm_megaSD_enable,
     input                       ocm_slot1_mode,
-    input                 [1:0] ocm_slot2_mode
+    input                 [1:0] ocm_slot2_mode,
+    input                       ocm_ipl_en,         // OCM IPL ROM visible (before BIOS load)
+    output                      ocm_mmc_on,         // MegaSD window of the ESE-RAM mapped
+    output                      ocm_mmc_wait        // CPU wait: MegaSD SPI busy
 );
 
     // One entry per mapper instance. New mapper: add its name before M_COUNT
@@ -56,7 +59,7 @@ module mappers (
     typedef enum {
         M_OFFSET, M_MIRROR, M_MSX2_RAM, M_ASCII8, M_ASCII16, M_GENERIC8K, M_GENERIC16K,
         M_FM_PAC, M_YAMAHA_SFG, M_KONAMI, M_KONAMI_SCC, M_GM2, M_CROSS_BLAIM, M_NATIONAL,
-        M_HARRY_FOX, M_ZEMINA80, M_ZEMINA90, M_MFRSD, M_ESE_RAM, M_MEGA_RAM,
+        M_HARRY_FOX, M_ZEMINA80, M_ZEMINA90, M_MFRSD, M_ESE_RAM, M_MEGA_RAM, M_OCM_IPL,
         M_COUNT
     } mapper_idx_t;
 
@@ -193,7 +196,9 @@ module mappers (
         .block_info(block_info),
         .out(mapper_out[M_ESE_RAM]),
         .ext_SD_card_bus(ext_SD_card_ese),
-        .megaSD_enable(ocm_megaSD_enable)
+        .megaSD_enable(ocm_megaSD_enable),
+        .mmc_on(ocm_mmc_on),
+        .mmc_wait(ocm_mmc_wait)
     );
 
     mapper_megaram mega_ram (
@@ -203,6 +208,13 @@ module mappers (
         .device_out(device_out[D_MEGA_RAM]),
         .ocm_slot1_mode(ocm_slot1_mode),
         .ocm_slot2_mode(ocm_slot2_mode)
+    );
+
+    mapper_ocm_ipl ocm_ipl (
+        .cpu_bus(cpu_bus),
+        .block_info(block_info),
+        .ipl_en(ocm_ipl_en),
+        .out(mapper_out[M_OCM_IPL])
     );
 
     // Merge: inactive mappers output MSX::*_IDLE, so AND / OR over all entries
@@ -239,5 +251,7 @@ module mappers (
     assign ext_SD_card_bus.data_to_SD     = ext_SD_card_ese.data_to_SD &  ext_SD_card_mfrsd.data_to_SD;
     assign ext_SD_card_mfrsd.data_from_SD = ext_SD_card_bus.data_from_SD;
     assign ext_SD_card_ese.data_from_SD   = ext_SD_card_bus.data_from_SD;
+    assign ext_SD_card_mfrsd.busy         = ext_SD_card_bus.busy;
+    assign ext_SD_card_ese.busy           = ext_SD_card_bus.busy;
 
 endmodule

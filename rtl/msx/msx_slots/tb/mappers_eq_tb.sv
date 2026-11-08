@@ -11,7 +11,7 @@ clock_bus_if clock_bus(clk, clk);
 logic [15:0] addr;
 logic  [7:0] cpu_data, data_to_mapper, flash_q, sd_q;
 logic        mreq, iorq, rd, wr, m1, req, flash_valid;
-logic        megaSD_en, slot1_mode;
+logic        megaSD_en, slot1_mode, ipl_en;
 logic  [1:0] slot2_mode;
 MSX::block_info_t block_info;
 
@@ -46,14 +46,16 @@ mappers dut_new (
     .clock_bus(clock_bus), .cpu_bus(cpu_bus), .ext_SD_card_bus(sd_new), .flash_bus(flash_new),
     .block_info(block_info), .device_bus(dev_new), .memory_bus(mem_new), .data(data_new),
     .data_to_mapper(data_to_mapper), .slot_expander_force_en(force_new),
-    .ocm_megaSD_enable(megaSD_en), .ocm_slot1_mode(slot1_mode), .ocm_slot2_mode(slot2_mode)
+    .ocm_megaSD_enable(megaSD_en), .ocm_slot1_mode(slot1_mode), .ocm_slot2_mode(slot2_mode),
+    .ocm_ipl_en(ipl_en)
 );
 
 mappers_old dut_old (
     .clock_bus(clock_bus), .cpu_bus(cpu_bus), .ext_SD_card_bus(sd_old), .flash_bus(flash_old),
     .block_info(block_info), .device_bus(dev_old), .memory_bus(mem_old), .data(data_old),
     .data_to_mapper(data_to_mapper), .slot_expander_force_en(force_old),
-    .ocm_megaSD_enable(megaSD_en), .ocm_slot1_mode(slot1_mode), .ocm_slot2_mode(slot2_mode)
+    .ocm_megaSD_enable(megaSD_en), .ocm_slot1_mode(slot1_mode), .ocm_slot2_mode(slot2_mode),
+    .ocm_ipl_en(ipl_en)
 );
 
 wire [159:0] obs_new = {mem_new.addr, mem_new.rnw, mem_new.ram_cs, mem_new.sram_cs, mem_new.data,
@@ -68,11 +70,13 @@ wire [159:0] obs_old = {mem_old.addr, mem_old.rnw, mem_old.ram_cs, mem_old.sram_
 int errors = 0, compared = 0, hold = 0;
 int active[64];          // cycles with ram_cs/sram_cs/device en, per mapper type
 
+int err_typ[int];                   // mismatches per mapper type (summary at the end)
 task automatic check(string phase);
     compared++;
     if (obs_new !== obs_old) begin
         errors++;
-        if (errors <= 10)
+        err_typ[int'(block_info.typ)]++;
+        if (errors <= 10 || err_typ[int'(block_info.typ)] == 1)
             $display("FAIL %s cyc=%0d typ=%0d addr=%04h rd=%b wr=%b\n  new=%040h\n  old=%040h",
                      phase, compared, block_info.typ, addr, rd, wr, obs_new, obs_old);
     end
@@ -87,7 +91,7 @@ endfunction
 initial begin
     block_info = '0;
     {addr, cpu_data, data_to_mapper, flash_q, sd_q} = '0;
-    {mreq, iorq, rd, wr, m1, req, flash_valid, megaSD_en, slot1_mode, slot2_mode} = '0;
+    {mreq, iorq, rd, wr, m1, req, flash_valid, megaSD_en, slot1_mode, slot2_mode, ipl_en} = '0;
 
     for (int c = 0; c < CYCLES; c++) begin
         // inputs change after the rising edge
@@ -104,6 +108,7 @@ initial begin
             megaSD_en             = 1'($urandom);
             slot1_mode            = 1'($urandom);
             slot2_mode            = 2'($urandom);
+            ipl_en                = 1'($urandom);
         end
         hold--;
         addr           = 16'($urandom);
@@ -129,7 +134,10 @@ initial begin
     for (int t = 0; t <= int'(MAPPER_UNUSED); t++) $write(" %0d:%0d", t, active[t]);
     $display("");
     if (errors == 0) $display("PASS mappers_eq_tb (%0d comparisons)", compared);
-    else             $display("FAILED mappers_eq_tb: %0d mismatches of %0d", errors, compared);
+    else begin
+        $display("FAILED mappers_eq_tb: %0d mismatches of %0d", errors, compared);
+        foreach (err_typ[t]) $display("  mapper type %0d: %0d mismatches", t, err_typ[t]);
+    end
     $finish;
 end
 

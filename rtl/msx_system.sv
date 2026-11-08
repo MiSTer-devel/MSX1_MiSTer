@@ -12,6 +12,7 @@ module msx_system (
     output                      info_req,
     output              [7:0]   info,
     input              [10:0]   ps2_key,
+    input              [24:0]   ps2_mouse,
     input               [5:0]   joy[2],
     input                       ioctl_download,
     input              [15:0]   ioctl_index,
@@ -112,7 +113,7 @@ initial reset = 1'b1;
 always_ff @(posedge clock_bus.clk) begin
    hard_reset <= rst_core_async || status[0] || upload_reset;
    reset      <= rst_core_async || status[0] || upload_reset || status[10] || status[21]
-              || (status[12] && sd_img_mounted && io_device[DEV_WD2793][0].enable);
+              || (status[12] && sd_img_mounted && io_device[DEV_OCM_BOOT][0].enable);   // OCM: reset after VHD mount
 end
 
 /////////////////   COMPUTER   /////////////////
@@ -129,6 +130,7 @@ msx #(.sysCLK(sysCLK)) MSX
    .audio_L(audio_L),
    .audio_R(audio_R),
    .ps2_key(ps2_key),
+   .ps2_mouse(ps2_mouse),
    .joy(joy),
    .uart_rx_data(uart_rx_data),
    .uart_rx(uart_rx),

@@ -3,7 +3,7 @@ typedef enum logic {CAS_AUDIO_FILE,CAS_AUDIO_ADC} cas_audio_src_t;
 typedef enum logic [1:0] {Z80, R800, UNKN1, UNKN2} cpu_t;
 
 typedef enum logic [3:0] {CART_TYP_SCC, CART_TYP_SCC2, CART_TYP_FM_PAC, CART_TYP_MFRSD, CART_TYP_GM2, CART_TYP_FDC, CART_MEGASCC1, CART_MEGASCC2, CART_MEGA_ASCII_8, CART_MEGA_ASCII_16, MEGARAM, CART_TYP_ROM, CART_TYP_EMPTY } cart_typ_t;
-typedef enum logic [4:0] {DEV_NONE, DEV_OPLL, DEV_SCC, DEV_WD2793, DEV_MSX2_RAM, DEV_LATCH_PORT, DEV_KANJI, DEV_OCM_BOOT, DEV_VDP_TMS, DEV_VDP_V99xx, DEV_RTC, DEV_PSG, DEV_PPI, DEV_RESET_STATUS, DEV_TC8566AF, DEV_OPM, DEV_YM2148, DEV_DAC } device_t;
+typedef enum logic [4:0] {DEV_NONE, DEV_OPLL, DEV_SCC, DEV_WD2793, DEV_MSX2_RAM, DEV_LATCH_PORT, DEV_KANJI, DEV_OCM_BOOT, DEV_VDP_TMS, DEV_VDP_V99xx, DEV_RTC, DEV_PSG, DEV_PPI, DEV_RESET_STATUS, DEV_TC8566AF, DEV_OPM, DEV_YM2148, DEV_DAC, DEV_SYSTIMER } device_t;
 typedef enum logic [5:0] {MAPPER_NONE, MAPPER_OFFSET, MAPPER_ASCII16, MAPPER_RTYPE, MAPPER_ASCII8, MAPPER_KOEI, MAPPER_WIZARDY, MAPPER_KONAMI, 
                           MAPPER_FMPAC, MAPPER_GM2, VY0010, MAPPER_KONAMI_SCC, MAPPER_MSX2, MAPPER_GENERIC16KB, MAPPER_CROSS_BLAIM, MAPPER_GENERIC8KB, 
                           MAPPER_HARRY_FOX, MAPPER_ZEMINA_80, MAPPER_ZEMINA_90, MAPPER_KONAMI_SCC_PLUS, 
@@ -14,6 +14,7 @@ typedef enum logic [5:0] {MAPPER_NONE, MAPPER_OFFSET, MAPPER_ASCII16, MAPPER_RTY
                           MAPPER_YAMAHA_SFG,MAPPER_MIRROR,
                           MAPPER_SUPERSWANGI,
                           MAPPER_MSXWRITE,
+                          MAPPER_OCM_IPL,
                           MAPPER_UNUSED} mapper_typ_t;
 typedef enum logic [3:0] {BLOCK_RAM, BLOCK_ROM, BLOCK_SRAM, BLOCK_DEVICE, BLOCK_MAPPER, BLOCK_CART, BLOCK_REF_MEM, BLOCK_REF_DEV, BLOCK_IO_DEVICE, BLOCK_EXPANDER, BLOCK_REF_SHARED_MEM} block_t;
 typedef enum logic [2:0] {CONF_BLOCK, CONF_DEVICE, CONF_LAYOUT, CONF_CARTRIGE, CONF_BLOCK_FW, CONF_UNUSED5, CONF_UNUSED6, CONF_END} conf_t;
@@ -219,9 +220,11 @@ interface ext_sd_card_if;
     logic        tx;
     logic  [7:0] data_to_SD;
     logic  [7:0] data_from_SD;
+    logic        busy;              // SPI transfer running (16 clk per byte)
     
     modport SD_mp (
         output  data_from_SD,
+        output  busy,
         input   data_to_SD,
         input   rx,
         input   tx
@@ -229,6 +232,7 @@ interface ext_sd_card_if;
 
     modport device_mp (
         input    data_from_SD,
+        input    busy,
         output   data_to_SD,
         output   rx,
         output   tx
@@ -353,6 +357,13 @@ package MSX;
         logic        DE, HS, VS, hblank, vblank, ce_pix;
     } video_t;                 // VDP -> video output; inactive VDP drives 0 (OR merge)
 
+    typedef struct packed {
+        logic        en;        // 1 = overrides the static speed from msx_config
+        logic  [1:0] clock_sel; // msx_cpu encoding: 00 3.58, 01 10.7, 10 5.39 MHz
+        logic  [3:0] mem_wait;  // wait states on each memory access
+        logic  [3:0] io_wait;   // extra wait states on each I/O access
+    } cpu_speed_t;             // devices (OCM turbo) -> msx_cpu; '0 = no override
+
     // Inactive (neutral) values and pairwise merge of the bundles above.
     localparam mapper_out_t MAPPER_OUT_IDLE = {27'h7FFFFFF, 1'b1, 1'b0, 1'b0, 8'hFF};
     localparam device_bus_t DEVICE_BUS_IDLE = {3'd0, 1'b0, 1'b0, 1'b1, 1'b1};
@@ -381,6 +392,8 @@ package MSX;
         logic           border;
         cas_audio_src_t cas_audio_src;
         logic     [7:0] ocm_dip;
+        logic           joy_swap;       // OCM: swap joystick ports
+        logic           mouse_port;     // OCM: PS/2 mouse on port 1 (0) / 2 (1)
     } user_config_t;    
     
     typedef struct {
@@ -476,6 +489,7 @@ package MSX;
             DEV_SCC:    return 2'(N_SCC);
             DEV_PSG:    return 2'(N_PSG);
             DEV_WD2793: return 2'(N_WD2793);
+            DEV_SYSTIMER: return 2'd1;
             default:    return 2'd3;
         endcase
     endfunction

@@ -38,6 +38,7 @@
 module devices  #(parameter sysCLK)
 (
     clock_bus_if.base_mp    clock_bus,                              // Clock interface
+    input                   hard_reset,                             // cold reset (cpu_bus.reset is any reset)
     cpu_bus_if.device_mp    cpu_bus,                                // CPU bus interface
     input  MSX::device_bus_t device_bus,                             // Device control bus interface
     FDD_if.FDC_mp           FDD_bus[3],
@@ -50,6 +51,7 @@ module devices  #(parameter sysCLK)
     input MSX::kb_memory_t  kb_upload_memory,
     input MSX::user_config_t msx_user_config,
     input            [10:0] ps2_key,
+    input            [24:0] ps2_mouse,
     input            [64:0] rtc_time,
     input             [7:0] uart_rx_data,
     input                   uart_rx,
@@ -66,11 +68,12 @@ module devices  #(parameter sysCLK)
     output                  keybeep,
     output                  reset_lock,
     output                  reset_request,
-    //output                  cpu_wait,
-    //output            [1:0] cpu_clock_sel,
+    output MSX::cpu_speed_t cpu_speed,              // OCM turbo, '0 without OCM
+    input                   ocm_mmc_on,
     output                  ocm_megaSD_enable,
     output                  ocm_slot1_mode,
-    output [1:0]            ocm_slot2_mode
+    output [1:0]            ocm_slot2_mode,
+    output                  ocm_ipl_en              // OCM IPL ROM visible (before BIOS load)
 );
 
     MSX::video_t            video_bus_tms, video_bus_v99;
@@ -78,15 +81,15 @@ module devices  #(parameter sysCLK)
     vram_bus_if             vram_bus_v99();
 
     // Výstupy kombinující jednotlivé zařízení
-    assign data = scc_data & fdc_data & msx2_ram_data & tms_data & v99_data & rtc_data & psg_data & ppi_data & ocm_data & reset_status_data & opm_data & ym2148_data;// & TC8566AF_data;
+    assign data = scc_data & fdc_data & msx2_ram_data & tms_data & v99_data & rtc_data & psg_data & ppi_data & ocm_data & reset_status_data & opm_data & ym2148_data & systimer_data;// & TC8566AF_data;
     assign data_oe_rq = fdc_data_oe_rq;// | TC8566AF_data_oe_rq;
     assign data_to_mapper = msx2_ram_data_to_mapper & latch_port_data_to_mapper;
 
     assign reset_request = ocm_reset_request;
     assign reset_lock    = ocm_reset_lock;
 
-    assign memory_bus.addr    = kanji_ram_addr & ocm_ram_addr;
-    assign memory_bus.ram_cs  = kanji_ram_cs | ocm_ram_cs;
+    assign memory_bus.addr    = kanji_ram_addr;
+    assign memory_bus.ram_cs  = kanji_ram_cs;
     assign memory_bus.sram_cs = '0;
     assign memory_bus.data    = '1;
     assign memory_bus.rnw     = '1;
@@ -188,18 +191,17 @@ module devices  #(parameter sysCLK)
 
     wire [26:0] kanji_ram_addr;
     wire        kanji_ram_cs;
+    wire        ocm_jis2_en;
     dev_kanji kanji (
         .cpu_bus(cpu_bus),
         .io_device(io_device[DEV_KANJI]),
         .io_memory(io_memory),
+        .jis2_en(ocm_jis2_en),
         .ram_cs(kanji_ram_cs),
         .ram_addr(kanji_ram_addr)
     );
 
-    wire [26:0] ocm_ram_addr;
     wire  [7:0] ocm_data;
-    wire        ocm_ram_cs;
-    wire        ocm_data_oe_rq;
     wire        ocm_mapper_limit;
     wire        ocm_reset_request;
     wire        ocm_reset_lock;
@@ -207,20 +209,19 @@ module devices  #(parameter sysCLK)
         .cpu_bus(cpu_bus),
         .clock_bus(clock_bus),
         .io_device(io_device[DEV_OCM_BOOT]),
-        .io_memory(io_memory),
-        .ram_cs(ocm_ram_cs),
-        .ram_addr(ocm_ram_addr),
-        .data(ocm_data),
-
         .ff_dip_req(msx_user_config.ocm_dip),
+        .ps2_key(ps2_key),
+        .mmc_on(ocm_mmc_on),
+        .cpu_speed(cpu_speed),
+        .data(ocm_data),
+        .ipl_en(ocm_ipl_en),
+        .jis2_en(ocm_jis2_en),
         .mapper_limit(ocm_mapper_limit),
-        .rst_key_lock(ocm_reset_lock),
-        .swio_reset(ocm_reset_request),
         .megaSD_enable(ocm_megaSD_enable),
-
-
         .Slot1Mode(ocm_slot1_mode),
-        .Slot2Mode(ocm_slot2_mode)
+        .Slot2Mode(ocm_slot2_mode),
+        .rst_key_lock(ocm_reset_lock),
+        .swio_reset(ocm_reset_request)
     );
 
     wire  [7:0] tms_data;
@@ -268,9 +269,19 @@ module devices  #(parameter sysCLK)
         .io_device(io_device[DEV_PSG]),
         .sound(psg_sound),
         .data(psg_data),
-        .joy(joy),
+        .joy(joy_sw),
+        .ps2_mouse(ps2_mouse),
+        .mouse_en(ocm_present),
+        .mouse_port(msx_user_config.mouse_port),
         .tape_in(tape_in)
     );
+
+    // OCM: joystick swap and PS/2 mouse (OSD options shown only for OCM)
+    wire       ocm_present = io_device[DEV_OCM_BOOT][0].enable;
+    wire       joy_swap    = ocm_present && msx_user_config.joy_swap;
+    wire [5:0] joy_sw[2];
+    assign joy_sw[0] = joy_swap ? joy[1] : joy[0];
+    assign joy_sw[1] = joy_swap ? joy[0] : joy[1];
 
     MSX::sound_t dac_sound;
     dev_dac dev_dac
@@ -314,7 +325,15 @@ module devices  #(parameter sysCLK)
     dev_reset_status dev_reset_status (
         .cpu_bus(cpu_bus),
         .io_device(io_device[DEV_RESET_STATUS]),
+        .hard_reset(hard_reset),
         .data(reset_status_data)
+    );
+
+    wire [7:0] systimer_data;
+    dev_systimer dev_systimer (
+        .cpu_bus(cpu_bus),
+        .io_device(io_device[DEV_SYSTIMER]),
+        .data(systimer_data)
     );
 
 endmodule

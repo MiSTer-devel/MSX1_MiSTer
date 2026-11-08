@@ -18,7 +18,7 @@ verilator --binary --timing -Wno-fatal -Wno-lint -Wno-style -O2 \
 grep -E '%Error' "$OUT/build.log" || true
 
 if [ $# -gt 0 ]; then
-    "$OUT/Vmsx_cpu_tb" "$@" | grep -E 'RESULT|PASS|FAIL'
+    "$OUT/Vmsx_cpu_tb" "$@" | grep -E "RESULT|LEN|PASS|FAIL"
 else
     # Golden hash (n=200000) from the derived-clock implementation before CE, identical for
     # every speed/wait. lat = memory read latency margin of the CE version: lat+1 fails.
@@ -37,5 +37,15 @@ else
 1 0 2
 1 1 3
 EOF
+    # Run-time speed switching (OCM turbo) at the 10.7 MHz latency margin, with and
+    # without memory / I/O wait states.
+    for a in "+switch=40" "+switch=3" "+switch=200 +wait=1" "+switch=8 +wait=1 +mwait=2 +iowait=3"; do
+        "$OUT/Vmsx_cpu_tb" $a +lat=2 +golden=b6e812a5 | grep -E 'PASS|FAIL' | sed "s/^/$a lat=2: /"
+    done
+    # Wait states: strobe length in CPU clocks at 10.7 MHz, M1 wait 1 (base M1 3, MRD 2,
+    # MWR 1, IORD/IOWR 2): memory +2 (M1 max(1,2)), I/O +3
+    "$OUT/Vmsx_cpu_tb" +sel=1 +wait=1 +mwait=2 +iowait=3 +n=20000 | grep LEN \
+        | grep -q "LEN M1 4..4 MRD 4..4 MWR 3..3 IORD 5..5 IOWR 5..5" \
+        && echo "mwait=2 iowait=3: PASS lengths" || echo "mwait=2 iowait=3: FAILED lengths"
 fi
 rm -rf "$OUT"

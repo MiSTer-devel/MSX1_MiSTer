@@ -6,6 +6,7 @@ set_global_assignment -name QIP_FILE           [file join $::quartus(qip_path) C
 set_global_assignment -name QIP_FILE           [file join $::quartus(qip_path) UART/files.qip   ]
 set_global_assignment -name VERILOG_FILE       [file join $::quartus(qip_path) jt8255.v         ]
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) keyboard.sv      ]
+set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) ps2mouse.sv      ]
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) rtc.sv           ]
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) ddram.sv         ]
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) sdram.sv         ]

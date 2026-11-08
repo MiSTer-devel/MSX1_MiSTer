@@ -228,6 +228,8 @@ reset_sync rst_sync_sdram (.clk(clk_sdram), .arst(~locked_sdram),          .rst(
 //  [10]     reset & detach ROM cartridge
 //  [11]     OCM internal mapper size
 //  [12]     OCM reset after SD mount
+//  [13]     OCM joysticks swap
+//  [14]     OCM mouse port
 //  [15]     OCM CPU speed
 //  [16]     OCM CPU type (menu only, not used yet)
 //  [20:17]  slot A cartridge type
@@ -237,7 +239,7 @@ reset_sync rst_sync_sdram (.clk(clk_sdram), .arst(~locked_sdram),          .rst(
 //  [39]     SRAM load
 //  [40]     tape input (file / ADC)
 //  [41]     border
-// Free: [14:13], [28:22], [37:33], [127:42]
+// Free: [28:22], [37:33], [127:42]
 `include "build_id.v"
 localparam CONF_STR = {
    "MSX1;UART115200,MIDI;",
@@ -269,6 +271,8 @@ localparam CONF_STR = {
 
    "h3O[15],CPU speed,Normal,Turbo(+F11);",
 	"h3O[16],CPU type,Z80,R800;",
+   "h3O[13],Joysticks Swap,No,Yes;",
+   "h3O[14],Mouse,Port 1,Port 2;",
 
    "O[40],Tape Input,File,ADC;",
    "HBF5,CAS,Cas File,31700000;",
@@ -408,6 +412,7 @@ msx_system msx_system
    .info_req(info_req),
    .info(info),
    .ps2_key(ps2_key),
+   .ps2_mouse(ps2_mouse),
    .joy(joy),
    .ioctl_download(ioctl_download),
    .ioctl_index(ioctl_index),

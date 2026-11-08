@@ -33,5 +33,6 @@
   "YAMAHA_SFG" : 31,
   "MIRROR" : 32,
   "SUPERSWANGI" : 33,
-  "MSXWRITE" : 34
+  "MSXWRITE" : 34,
+  "OCM_IPL" : 35
 }

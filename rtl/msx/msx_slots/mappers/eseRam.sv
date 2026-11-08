@@ -42,7 +42,8 @@ module mapper_eseRam (
     output MSX::mapper_out_t out,           
     input  MSX::block_info_t block_info,
     ext_sd_card_if.device_mp    ext_SD_card_bus,
-    input                       megaSD_enable    
+    input                       megaSD_enable,
+    output                      mmc_on          // MegaSD window mapped (OCM mmcena)
 );
   
     wire cs;
@@ -86,6 +87,7 @@ module mapper_eseRam (
     end
     
     wire mmc_enable, mmc_read;
+    assign mmc_on = bank[0][7:6] == 2'b01;
     wire [26:0] ram_addr;   
     
     assign mmc_enable = bank[0][7:6] == 2'b01 && cpu_bus.addr[15:13] == 3'b010 && megaSD_enable;

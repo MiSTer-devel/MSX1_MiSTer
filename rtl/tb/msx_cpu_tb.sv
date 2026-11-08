@@ -6,7 +6,10 @@
 //
 // Plusargs: +sel=<0..3> CPU speed (0 3.58, 2 5.39, 1 10.7 MHz), +wait=<0..7> M1 waits,
 //           +lat=<n> memory read latency, +n=<transactions>, +golden=<hex> expected hash,
-//           +trace=<file> optional transaction dump
+//           +trace=<file> optional transaction dump,
+//           +switch=<n> change the speed at random every 1..n clk (run-time turbo switching),
+//           +mwait=<n> / +iowait=<n> memory / I/O wait states; LEN prints the strobe length
+//           of each access type in CPU clocks (min..max)
 // Run: wsl.exe -- bash rtl/tb/run_msx_cpu.sh
 module msx_cpu_tb;
 
@@ -16,7 +19,8 @@ always #1 clk = ~clk;
 clock_bus_if clock_bus(clk, clk);
 clock #(.sysCLK(21477270)) u_clock (.clock_bus(clock_bus));
 
-int unsigned sel = 0, waits = 0, lat = 0, ntrans = 200000, golden = 0;
+int unsigned sel = 0, waits = 0, lat = 0, ntrans = 200000, golden = 0, sw = 0, mwait = 0, iowait = 0;
+logic  [1:0] clock_sel = '0;
 logic        reset = 1;
 
 logic        m1_n, mreq_n, iorq_n, rd_n, wr_n, rfsh_n;
@@ -27,8 +31,10 @@ logic        int_rq = 0;
 msx_cpu dut (
     .clock_bus (clock_bus.base_mp),
     .reset     (reset),
-    .clock_sel (2'(sel)),
+    .clock_sel (clock_sel),
     .m1_wait   (3'(waits)),
+    .mem_wait  (4'(mwait)),
+    .io_wait   (4'(iowait)),
     .int_rq    (int_rq),
     .di        (di),
     .m1_n, .mreq_n, .iorq_n, .rd_n, .wr_n, .rfsh_n,
@@ -99,6 +105,33 @@ always @(posedge clk) begin
     end
 end
 
+// Strobe length per access type, in CPU clocks (ce_p)
+int unsigned len_cur = 0, len_min[6], len_max[6];
+ttype_t      len_t;
+initial foreach (len_min[i]) begin len_min[i] = '1; len_max[i] = 0; end
+always @(posedge clk) begin
+    if (act && !act_q)
+        len_t <= int_ack ? T_INTA : ~iorq_n ? (~rd_n ? T_IORD : T_IOWR) :
+                 ~m1_n ? T_M1 : (~rd_n ? T_MRD : T_MWR);
+    if (act) len_cur <= len_cur + (dut.ce_p ? 1 : 0);
+    else if (act_q) begin
+        if (len_cur < len_min[len_t]) len_min[len_t] <= len_cur;
+        if (len_cur > len_max[len_t]) len_max[len_t] <= len_cur;
+        len_cur <= 0;
+    end
+end
+
+// Run-time speed switching at random points (any phase of the CPU cycle)
+initial begin
+    #1;
+    wait (!reset);
+    if (sw != 0)
+        forever begin
+            repeat (1 + $urandom_range(sw - 1)) @(posedge clk);
+            clock_sel <= 2'($urandom_range(2));
+        end
+end
+
 initial begin
     string tf;
     void'($value$plusargs("sel=%d", sel));
@@ -107,11 +140,18 @@ initial begin
     void'($value$plusargs("n=%d", ntrans));
     void'($value$plusargs("golden=%h", golden));
     if ($value$plusargs("trace=%s", tf)) fd = $fopen(tf, "w");
+    void'($value$plusargs("switch=%d", sw));
+    void'($value$plusargs("mwait=%d", mwait));
+    void'($value$plusargs("iowait=%d", iowait));
+    clock_sel = 2'(sel);
     repeat (20) @(posedge clk);
     reset = 0;
     wait (count >= ntrans);
-    $display("RESULT sel=%0d wait=%0d lat=%0d n=%0d hash=%08h cycles=%0d ints=%0d iowr_req_on_ce10=%0d/%0d",
-             sel, waits, lat, count, hash, cycles, ints, iowr_ce10, iowr_ce10 + iowr_noce10);
+    $display("RESULT sel=%0d switch=%0d wait=%0d lat=%0d n=%0d hash=%08h cycles=%0d ints=%0d iowr_req_on_ce10=%0d/%0d",
+             sel, sw, waits, lat, count, hash, cycles, ints, iowr_ce10, iowr_ce10 + iowr_noce10);
+    $display("LEN M1 %0d..%0d MRD %0d..%0d MWR %0d..%0d IORD %0d..%0d IOWR %0d..%0d INTA %0d..%0d",
+             len_min[T_M1], len_max[T_M1], len_min[T_MRD], len_max[T_MRD], len_min[T_MWR], len_max[T_MWR],
+             len_min[T_IORD], len_max[T_IORD], len_min[T_IOWR], len_max[T_IOWR], len_min[T_INTA], len_max[T_INTA]);
     if (golden != 0)
         $display("%s msx_cpu_tb (golden %08h)", hash == golden ? "PASS" : "FAILED", golden);
     if (fd) $fclose(fd);

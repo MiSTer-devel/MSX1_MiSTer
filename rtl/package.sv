@@ -354,6 +354,13 @@ package MSX;
         logic        DE, HS, VS, hblank, vblank, ce_pix;
     } video_t;                 // VDP -> video output; inactive VDP drives 0 (OR merge)
 
+    typedef struct packed {
+        logic        en;        // 1 = overrides the static speed from msx_config
+        logic  [1:0] clock_sel; // msx_cpu encoding: 00 3.58, 01 10.7, 10 5.39 MHz
+        logic  [3:0] mem_wait;  // wait states on each memory access
+        logic  [3:0] io_wait;   // extra wait states on each I/O access
+    } cpu_speed_t;             // devices (OCM turbo) -> msx_cpu; '0 = no override
+
     // Inactive (neutral) values and pairwise merge of the bundles above.
     localparam mapper_out_t MAPPER_OUT_IDLE = {27'h7FFFFFF, 1'b1, 1'b0, 1'b0, 8'hFF};
     localparam device_bus_t DEVICE_BUS_IDLE = {3'd0, 1'b0, 1'b0, 1'b1, 1'b1};

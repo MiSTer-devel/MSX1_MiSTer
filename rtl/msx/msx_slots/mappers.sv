@@ -49,7 +49,8 @@ module mappers (
     input                       ocm_megaSD_enable,
     input                       ocm_slot1_mode,
     input                 [1:0] ocm_slot2_mode,
-    input                       ocm_ipl_en          // OCM IPL ROM visible (before BIOS load)
+    input                       ocm_ipl_en,         // OCM IPL ROM visible (before BIOS load)
+    output                      ocm_mmc_on          // MegaSD window of the ESE-RAM mapped
 );
 
     // One entry per mapper instance. New mapper: add its name before M_COUNT
@@ -194,7 +195,8 @@ module mappers (
         .block_info(block_info),
         .out(mapper_out[M_ESE_RAM]),
         .ext_SD_card_bus(ext_SD_card_ese),
-        .megaSD_enable(ocm_megaSD_enable)
+        .megaSD_enable(ocm_megaSD_enable),
+        .mmc_on(ocm_mmc_on)
     );
 
     mapper_megaram mega_ram (

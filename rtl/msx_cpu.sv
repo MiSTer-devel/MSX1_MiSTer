@@ -16,7 +16,7 @@ module msx_cpu (
     input          [2:0] m1_wait,       // wait states inserted after M1
     input          [3:0] mem_wait,      // wait states on each memory access (incl. M1)
     input          [3:0] io_wait,       // extra wait states on each I/O access
-    input                ext_wait,      // level wait request from the bus (MegaSD SPI busy)
+    input                ext_wait,      // level wait request from the bus (MegaSD SPI, OPLL busy)
     input                r800,          // R800 instructions MULUB / MULUW (OCM CPU type)
     input                int_rq,
     input          [7:0] di,

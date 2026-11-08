@@ -1,7 +1,9 @@
 // dev_opll: an OPLL of the machine (OCM.xml, device_ref 0) must take I/O writes on 7Ch/7Dh
 // while the device bus is idle; an OPLL of an FM-PAC block (device_ref != 0) only after the
-// block enabled it (device_bus.en, FM-PAC 7FF6h bit 0).
+// block enabled it (device_bus.en, FM-PAC 7FF6h bit 0). In turbo (enawait) back-to-back writes
+// must wait while the OPLL is busy (as OCM eseopll, with YM2413 timing) and all reach the OPLL.
 // Run: wsl.exe -- bash rtl/msx/devices/tb/run_opll.sh [alt_opll.sv]
+//      (NO_WAIT=1 for an opll.sv without enawait / wait_rq: the turbo test then fails)
 module opll_tb;
 
 logic clk = 0, rst = 1;
@@ -15,8 +17,15 @@ MSX::io_device_t   io_device[3];
 MSX::device_bus_t  device_bus;
 MSX::sound_t       sound;
 
+logic enawait = 0, wait_rq;
+`ifdef NO_WAIT
 dev_opll dut (.cpu_bus(cpu_bus), .device_bus(device_bus), .clock_bus(clock_bus.base_mp),
               .io_device(io_device), .sound(sound));
+assign wait_rq = 1'b0;
+`else
+dev_opll dut (.cpu_bus(cpu_bus), .device_bus(device_bus), .clock_bus(clock_bus.base_mp),
+              .io_device(io_device), .enawait(enawait), .wait_rq(wait_rq), .sound(sound));
+`endif
 
 logic [15:0] addr = '0;
 logic  [7:0] data = '0;
@@ -29,12 +38,16 @@ localparam MSX::device_bus_t IDLE = '{device_ref: 3'd0, we: 1'b0, en: 1'b0, mode
 
 int errors = 0;
 
+// CPU I/O write: strobe of 10 clk (10.7 MHz with the OCM I/O waits), stretched while wait_rq,
+// then gap clk (600: OPLL write recovery at 3.58 MHz; small: turbo code)
+int gap = 600, waited = 0;
 task automatic io_write(input logic [7:0] port, input logic [7:0] d);
     @(negedge clk); addr = {8'h00, port}; data = d; iorq = 1; wr = 1; req = 1;
     @(negedge clk); req = 0;
+    while (wait_rq) begin waited++; @(negedge clk); end
     repeat (8) @(negedge clk);
     iorq = 0; wr = 0;
-    repeat (600) @(negedge clk);                // OPLL write recovery (84 cycles at 3.58 MHz)
+    repeat (gap) @(negedge clk);
 endtask
 
 task automatic opll_reg(input logic [7:0] r, input logic [7:0] v);
@@ -98,6 +111,19 @@ initial begin
     peak(200000, p);
     $display("FM-PAC OPLL: I/O enabled %0d", p);
     if (p < idle + 200) begin errors++; $display("FAIL FM-PAC OPLL: no tone with I/O enabled"); end
+
+    // ---- turbo: back-to-back writes (gap 4 clk) with enawait; the CPU must wait for the OPLL
+    restart(3'd0);
+    enawait = 1; gap = 4;
+    peak(200000, idle);
+    waited = 0;
+    play();
+    peak(200000, p);
+    $display("turbo OPLL: idle %0d, after key on %0d, CPU waited %0d clk", idle, p, waited);
+    if (p < idle + 200) begin errors++; $display("FAIL turbo OPLL: writes lost (no tone)"); end
+    // play(): twice an address write right after a data write (516 clk busy), four times a data
+    // write after an address write (84 clk), minus ~13 clk of strobe and gap each: ~1290 clk
+    if (waited < 1200) begin errors++; $display("FAIL turbo OPLL: CPU waited only %0d clk", waited); end
 
     if (errors == 0) $display("PASS opll_tb");
     else             $display("FAILED opll_tb: %0d errors", errors);

@@ -247,9 +247,12 @@ bit dos = 0;
 task automatic key_space(input bit down);
     ps2_key = {~ps2_key[10], down, 9'h029};
 endtask
-// Sound chip writes: PSG data (A1h), OPLL data (7Dh)
+// Sound chip writes: PSG data (A1h), OPLL data (7Dh); OPLL output swing (min / max per status line)
 int psg_wr = 0, opll_wr = 0;
+int opll_lo = 1 << 30, opll_hi = -(1 << 30);
 always @(posedge clk_core) begin
+    if (int'(sys.MSX.devices.opll_sound) < opll_lo) opll_lo = int'(sys.MSX.devices.opll_sound);
+    if (int'(sys.MSX.devices.opll_sound) > opll_hi) opll_hi = int'(sys.MSX.devices.opll_sound);
     if (sys.MSX.cpu_bus.req && !req_q && !reset && sys.MSX.cpu_bus.iorq && !sys.MSX.cpu_bus.m1 && sys.MSX.cpu_bus.wr) begin
         if (sys.MSX.cpu_bus.addr[7:0] == 8'hA1) psg_wr++;
         if (sys.MSX.cpu_bus.addr[7:0] == 8'h7D) opll_wr++;
@@ -496,7 +499,7 @@ initial begin
 
     // +dos: run on; every 100 ms of MSX time a status line (if anything changed) and the text
     // screen (if changed). Ends on "No suitable" or +after_ms (default 1000) after code started
-    // to run from slot 2.
+    // to run from slot 2 (more than 1000 M1 fetches there).
     if (dos) begin
         string last = "", now, st_last = "", st, dump = "";
         int    game_ms = -1, after_ms = 1000, keys = 0;
@@ -505,17 +508,18 @@ initial begin
         void'($value$plusargs("vram_dump=%s", dump));
         for (int ms = 0; ms < run_ms; ms += 100) begin
             repeat (MSX::CLK_CORE_HZ / 10) @(posedge clk_core);
-            st = $sformatf("SD rd %0d wr %0d | slot 1 rd %0d wr %0d m1 %0d reg %0d | slot 2 rd %0d wr %0d m1 %0d reg %0d snd %0d | PSG %0d OPLL %0d | mode %b %b | VDP R0 %02h R1 %02h R2 %02h",
+            st = $sformatf("SD rd %0d wr %0d | slot 1 rd %0d wr %0d m1 %0d reg %0d | slot 2 rd %0d wr %0d m1 %0d reg %0d snd %0d | PSG %0d OPLL %0d out %0d | mode %b %b | VDP R0 %02h R1 %02h R2 %02h",
                            sectors_read, sectors_written, ese_rd[0], ese_wr[0], ese_m1[0], ese_reg[0],
-                           ese_rd[1], ese_wr[1], ese_m1[1], ese_reg[1], ese_snd[1], psg_wr, opll_wr,
+                           ese_rd[1], ese_wr[1], ese_m1[1], ese_reg[1], ese_snd[1], psg_wr, opll_wr, opll_hi - opll_lo,
                            sys.MSX.devices.ocm.Slot1Mode, sys.MSX.devices.ocm.Slot2Mode, vreg[0], vreg[1], vreg[2]);
             if (st != st_last) begin $display("%0t %0d ms: %s", $time, ms, st); st_last = st; end
+            opll_lo = 1 << 30; opll_hi = -(1 << 30);
             now = screen_text();
             if (now != last) begin
                 $display("%0t screen (%0d ms):\n%s", $time, ms, now);
                 last = now;
             end
-            if (game_ms < 0 && ese_m1[1] > 100000) begin
+            if (game_ms < 0 && ese_m1[1] > 1000) begin
                 game_ms = ms;
                 $display("%0t code runs from slot 2 (ESE-SCC): %0d M1 fetches", $time, ese_m1[1]);
             end

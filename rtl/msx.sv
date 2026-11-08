@@ -16,6 +16,7 @@ module msx #(parameter sysCLK)
    output            [15:0] audio_L,
    output            [15:0] audio_R,
    input             [10:0] ps2_key,
+   input             [24:0] ps2_mouse,
    input              [5:0] joy[2],
    //UART
    input              [7:0] uart_rx_data,
@@ -200,6 +201,7 @@ devices #(.sysCLK(sysCLK)) devices
    .cpu_interrupt(cpu_interrupt),
    .kb_upload_memory(kb_upload_memory),
    .ps2_key(ps2_key),
+   .ps2_mouse(ps2_mouse),
    .rtc_time(rtc_time),
    .uart_rx(uart_rx),
    .uart_rx_data(uart_rx_data),

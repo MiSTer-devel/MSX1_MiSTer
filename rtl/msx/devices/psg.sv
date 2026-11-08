@@ -42,6 +42,9 @@ module dev_psg (
     input MSX::io_device_t io_device[3],
     output MSX::sound_t    sound,
     input          [5:0]   joy[2],
+    input         [24:0]   ps2_mouse,
+    input                  mouse_en,        // mouse allowed (OCM)
+    input                  mouse_port,      // 0 = port 1, 1 = port 2
     input                  tape_in,
     output           [7:0] data
 );
@@ -53,8 +56,29 @@ module dev_psg (
     wire [7:0] psg_ioB[3];
     wire       io_en;
 
-    assign joy_a = ioB[4] ? 6'b111111 : {~joy[0][5], ~joy[0][4], ~joy[0][0], ~joy[0][1], ~joy[0][2], ~joy[0][3]};
-    assign joy_b = ioB[5] ? 6'b111111 : {~joy[1][5], ~joy[1][4], ~joy[1][0], ~joy[1][1], ~joy[1][2], ~joy[1][3]};
+    // PS/2 mouse (MSX_MiSTer): takes over its port when it moves, a joystick on that port
+    // gives it back. Pin 8 is the mouse strobe, not the joystick common.
+    wire [5:0] mouse_data;
+    logic      use_mouse = 1'b0, mouse_stb = 1'b0;
+    ps2mouse mouse (
+        .clk(cpu_bus.clk),
+        .reset(cpu_bus.reset),
+        .strobe(mouse_port ? ioB[5] : ioB[4]),
+        .data(mouse_data),
+        .ps2_mouse(ps2_mouse)
+    );
+    always_ff @(posedge cpu_bus.clk) begin
+        mouse_stb <= ps2_mouse[24];
+        if (cpu_bus.reset || ~mouse_en || |joy[mouse_port])
+            use_mouse <= 1'b0;
+        else if (mouse_stb ^ ps2_mouse[24])
+            use_mouse <= 1'b1;
+    end
+
+    assign joy_a = use_mouse && ~mouse_port ? mouse_data :
+                   ioB[4] ? 6'b111111 : {~joy[0][5], ~joy[0][4], ~joy[0][0], ~joy[0][1], ~joy[0][2], ~joy[0][3]};
+    assign joy_b = use_mouse &&  mouse_port ? mouse_data :
+                   ioB[5] ? 6'b111111 : {~joy[1][5], ~joy[1][4], ~joy[1][0], ~joy[1][1], ~joy[1][2], ~joy[1][3]};
     assign joyA  = joy_a & {ioB[0], ioB[1], 4'b1111};
     assign joyB  = joy_b & {ioB[2], ioB[3], 4'b1111};
     

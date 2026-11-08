@@ -51,6 +51,7 @@ module devices  #(parameter sysCLK)
     input MSX::kb_memory_t  kb_upload_memory,
     input MSX::user_config_t msx_user_config,
     input            [10:0] ps2_key,
+    input            [24:0] ps2_mouse,
     input            [64:0] rtc_time,
     input             [7:0] uart_rx_data,
     input                   uart_rx,
@@ -268,9 +269,19 @@ module devices  #(parameter sysCLK)
         .io_device(io_device[DEV_PSG]),
         .sound(psg_sound),
         .data(psg_data),
-        .joy(joy),
+        .joy(joy_sw),
+        .ps2_mouse(ps2_mouse),
+        .mouse_en(ocm_present),
+        .mouse_port(msx_user_config.mouse_port),
         .tape_in(tape_in)
     );
+
+    // OCM: joystick swap and PS/2 mouse (OSD options shown only for OCM)
+    wire       ocm_present = io_device[DEV_OCM_BOOT][0].enable;
+    wire       joy_swap    = ocm_present && msx_user_config.joy_swap;
+    wire [5:0] joy_sw[2];
+    assign joy_sw[0] = joy_swap ? joy[1] : joy[0];
+    assign joy_sw[1] = joy_swap ? joy[0] : joy[1];
 
     MSX::sound_t dac_sound;
     dev_dac dev_dac

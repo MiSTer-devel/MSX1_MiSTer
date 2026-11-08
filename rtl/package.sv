@@ -389,6 +389,8 @@ package MSX;
         logic           border;
         cas_audio_src_t cas_audio_src;
         logic     [7:0] ocm_dip;
+        logic           joy_swap;       // OCM: swap joystick ports
+        logic           mouse_port;     // OCM: PS/2 mouse on port 1 (0) / 2 (1)
     } user_config_t;    
     
     typedef struct {

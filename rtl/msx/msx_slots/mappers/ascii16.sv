@@ -37,8 +37,8 @@
 
 module mapper_ascii16 (
     cpu_bus_if.device_mp    cpu_bus,
-    block_info              block_info,
-    mapper_out              out
+    input  MSX::block_info_t block_info,
+    output MSX::mapper_out_t out
 );
 
     logic cs, mapped, sram_exists, sram_en;
@@ -110,7 +110,7 @@ module mapper_ascii16 (
         endcase
     end
 
-    always @(posedge cpu_bus.clk) begin
+    always_ff @(posedge cpu_bus.clk) begin
         if (cpu_bus.reset) begin
             bank[0]      <= '{8'h00, 8'h00};
             bank[1]      <= '{8'h00, 8'h00};
@@ -144,5 +144,8 @@ module mapper_ascii16 (
     assign out.ram_cs  = ram_cs;
     assign out.rnw     = ~(sram_cs && cpu_bus.wr && cpu_bus.addr[15]);
     assign out.addr    = cs ? (sram_en ? sram_addr : ram_addr) : {27{1'b1}};
+
+    // outputs not used by this mapper: neutral for the merge in mappers.sv
+    assign out.data    = 8'hFF;
 
 endmodule

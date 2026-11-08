@@ -37,7 +37,7 @@
 
 module dev_YM2148 #(parameter COUNT=1) (
     cpu_bus_if.device_mp   cpu_bus,
-    device_bus             device_bus,
+    input  MSX::device_bus_t device_bus,
     clock_bus_if.base_mp   clock_bus,
     input MSX::io_device_t io_device[3],
     input            [7:0] uart_rx_data,

@@ -13,7 +13,7 @@ module motor #(parameter TIMEOUTms = 16'd30000, DELAYms = 3'd3) (
     genvar i;
     generate
         for (i = 0; i < 2; i++) begin : MOTOR_I
-            always_ff @(posedge clk or posedge reset) begin
+            always_ff @(posedge clk) begin
                 if (reset) begin
                     motor_timeout[i] <= 0;
                     motor_delay[i]   <= DELAYms;

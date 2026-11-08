@@ -56,7 +56,7 @@ assign kb_data    = row_state[kb_row];
 assign key_decode = ps2_key[8:0];
 
 logic [10:0] old_key = 11'd0;
-always @(posedge clk) begin
+always_ff @(posedge clk) begin
    change     <= 1'b0;
    old_key <= ps2_key;
    if (old_key != ps2_key) begin
@@ -68,7 +68,7 @@ end
 assign row = map_key[7:4];
 assign pos = 8'b1 << map_key[3:0];
 
-always @(posedge clk) begin
+always_ff @(posedge clk) begin
    if (change) begin
       row_state[row] <= down ?  row_state[row] & ~pos : row_state[row] | pos;
    end

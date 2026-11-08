@@ -168,7 +168,6 @@ interface cpu_bus_if(
     input       clk,
     input       reset
 );
-    wire        cpu_clk;
     wire        mreq;
     wire        iorq;
     wire        rd;
@@ -184,7 +183,6 @@ interface cpu_bus_if(
     modport cpu_mp (
         input   clk,
         input   reset,
-        output  cpu_clk,
         output  mreq,
         output  iorq,
         output  rd,
@@ -200,7 +198,6 @@ interface cpu_bus_if(
     
     modport device_mp (
         input   clk,
-        input   cpu_clk,
         input   reset,
         input   mreq,
         input   iorq,
@@ -239,7 +236,7 @@ interface ext_sd_card_if;
 endinterface
 
 interface flash_bus_if;
-    logic [22:0] base_addr;
+    logic [26:0] base_addr;     // full system address width (block may lie above 8 MB)
     logic [22:0] addr;
     logic  [7:0] data_to_flash;
     logic  [7:0] data_from_flash;
@@ -268,24 +265,6 @@ interface flash_bus_if;
     );
 endinterface
 
-interface video_bus_if;
-    logic  [7:0] R;
-    logic  [7:0] G;
-    logic  [7:0] B;
-    logic        DE;
-    logic        HS;
-    logic        VS;
-    logic        hblank;
-    logic        vblank;
-    logic        ce_pix;
-
-    modport device_mp (
-        output R, G, B, DE, HS, VS, hblank, vblank, ce_pix
-    );
-    modport display_mp (
-        input R, G, B, DE, HS, VS, hblank, vblank, ce_pix
-    );
-endinterface
 
 interface vram_bus_if;
     logic   [7:0] q_lo;
@@ -304,15 +283,6 @@ interface vram_bus_if;
         output q_lo, q_hi
     );
 
-endinterface
-
-interface device_bus;
-    logic [2:0] device_ref;
-    logic       we;
-    logic       en;
-    logic       mode;
-    logic       param;
-    logic [7:0] data;
 endinterface
 
 interface memory_bus_if;
@@ -334,24 +304,6 @@ interface memory_bus_if;
     );
 endinterface
 
-interface mapper_out;
-    logic [26:0] addr;
-    logic        rnw;
-    logic        ram_cs;
-    logic        sram_cs;
-    logic  [7:0] data;
-endinterface
-
-interface block_info;
-    logic [24:0] rom_size;
-    logic [15:0] sram_size;
-    logic  [1:0] offset_ram;
-    logic [26:0] base_ram;
-    logic [2:0]  device_ref;
-    mapper_typ_t typ;
-    logic        id;
-endinterface
-
 interface sd_bus;
    logic          ack;
    logic   [13:0] buff_addr;
@@ -367,21 +319,63 @@ interface sd_bus_control;
 endinterface
 
 package MSX;
-    
-    typedef struct {
-        logic [15:0] AF;
-        logic [15:0] BC;
-        logic [15:0] DE;
-        logic [15:0] HL;
-        logic [15:0] AF2;
-        logic [15:0] BC2;
-        logic [15:0] DE2;
-        logic [15:0] HL2;
-        logic [15:0] IX;
-        logic [15:0] IY;
-        logic [15:0] PC;
-        logic [15:0] SP;
-    } cpu_regs_t; 
+
+    // One-directional bundles (driver -> readers) between slots, mappers and devices.
+    // Inactive values are neutral for the wired-AND / OR merge (*_merge below).
+    typedef struct packed {
+        logic [26:0] addr;      // '1 when inactive (AND)
+        logic        rnw;       // 1 when inactive (AND)
+        logic        ram_cs;    // OR
+        logic        sram_cs;   // OR
+        logic  [7:0] data;      // FF when inactive (AND)
+    } mapper_out_t;            // mapper -> mappers.sv
+
+    typedef struct packed {
+        logic [24:0] rom_size;
+        logic [15:0] sram_size;
+        logic  [1:0] offset_ram;
+        logic [26:0] base_ram;
+        logic  [2:0] device_ref;
+        mapper_typ_t typ;
+        logic        id;
+    } block_info_t;            // msx_slots -> mappers, devices (active block of the access)
+
+    typedef struct packed {
+        logic  [2:0] device_ref;
+        logic        we;        // OR
+        logic        en;        // OR
+        logic        mode;      // 1 when inactive (AND)
+        logic        param;     // 1 when inactive (AND)
+    } device_bus_t;            // mappers (cartridge devices) -> devices
+
+    typedef struct packed {
+        logic  [7:0] R, G, B;
+        logic        DE, HS, VS, hblank, vblank, ce_pix;
+    } video_t;                 // VDP -> video output; inactive VDP drives 0 (OR merge)
+
+    // Inactive (neutral) values and pairwise merge of the bundles above.
+    localparam mapper_out_t MAPPER_OUT_IDLE = {27'h7FFFFFF, 1'b1, 1'b0, 1'b0, 8'hFF};
+    localparam device_bus_t DEVICE_BUS_IDLE = {3'd0, 1'b0, 1'b0, 1'b1, 1'b1};
+
+    function automatic mapper_out_t mapper_out_merge(input mapper_out_t a, input mapper_out_t b);
+        mapper_out_t r;
+        r.addr    = a.addr    & b.addr;
+        r.rnw     = a.rnw     & b.rnw;
+        r.ram_cs  = a.ram_cs  | b.ram_cs;
+        r.sram_cs = a.sram_cs | b.sram_cs;
+        r.data    = a.data    & b.data;
+        return r;
+    endfunction
+
+    function automatic device_bus_t device_bus_merge(input device_bus_t a, input device_bus_t b);
+        device_bus_t r;
+        r.device_ref = a.device_ref | b.device_ref;
+        r.we         = a.we         | b.we;
+        r.en         = a.en         | b.en;
+        r.mode       = a.mode       & b.mode;
+        r.param      = a.param      & b.param;
+        return r;
+    endfunction
 
     typedef struct {
         logic           border;
@@ -455,7 +449,35 @@ package MSX;
         cpu_t cpu;
         logic [2:0] wait_count;
         logic [2:0] cpu_clock_sel;
-        logic [5:0] fdd; 
+        logic [5:0] fdd;
     } msx_config_t;
+
+    // clk_core frequency in Hz (pll outclk_1). The only place it is defined.
+    localparam int CLK_CORE_HZ = 21477270;
+
+    // Synthesized copies of multi-instance devices (hardware is a superset of all
+    // configurations; io_device keeps 3 slots per type). Lower a count for a smaller
+    // build: a configuration needing more copies fails with ERR_MISSING_SOURCE
+    // ("Exceeded number of IO_DEVICE").
+    localparam int N_OPLL   = 3;
+    localparam int N_OPM    = 3;
+    localparam int N_SCC    = 2;
+    localparam int N_PSG    = 3;
+    localparam int N_WD2793 = 3;    // also the number of emulated FDD units (fdd0..2)
+
+    // Sound of one device type: sum of up to 3 instances x 16 bit signed, no overflow.
+    // Clipped only once, in sound_mix.
+    typedef logic signed [17:0] sound_t;
+
+    function automatic logic [1:0] dev_copies(input device_t d);
+        case (d)
+            DEV_OPLL:   return 2'(N_OPLL);
+            DEV_OPM:    return 2'(N_OPM);
+            DEV_SCC:    return 2'(N_SCC);
+            DEV_PSG:    return 2'(N_PSG);
+            DEV_WD2793: return 2'(N_WD2793);
+            default:    return 2'd3;
+        endcase
+    endfunction
 
 endpackage

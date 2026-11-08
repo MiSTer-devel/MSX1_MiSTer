@@ -37,7 +37,7 @@
 
 module dev_latch_port (
     cpu_bus_if.device_mp    cpu_bus,
-    device_bus              device_bus,
+    input  MSX::device_bus_t device_bus,
     input  MSX::io_device_t io_device[3],
     output            [7:0] data_to_mapper
 );
@@ -81,7 +81,7 @@ module latch_port (
     output logic [7:0] data_to_mapper
 );
 
-    always_ff @(posedge clk or posedge reset) begin
+    always_ff @(posedge clk) begin
         if (reset) begin
             data_to_mapper <= 8'd0;
         end else if (wr) begin

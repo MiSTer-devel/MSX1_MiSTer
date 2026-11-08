@@ -35,18 +35,21 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //
 
-module dev_opm #(parameter COUNT=3) (
+module dev_opm #(parameter COUNT = MSX::N_OPM) (   // synthesized copies, io_device has 3 slots
     cpu_bus_if.device_mp   cpu_bus,
-    device_bus             device_bus,
+    input  MSX::device_bus_t device_bus,
     clock_bus_if.base_mp   clock_bus,
-    input MSX::io_device_t io_device[COUNT],
-    output signed [15:0]   sound_L,
-    output signed [15:0]   sound_R,
+    input MSX::io_device_t io_device[3],
+    output MSX::sound_t    sound_L,
+    output MSX::sound_t    sound_R,
     output         [7:0]   data,
     output                 irq
 );
-    
-    logic signed [15:0] sound_L_accum, sound_R_accum;
+
+    logic signed [15:0] sound_OPM_L[3], sound_OPM_R[3];     // only [0 .. COUNT-1] used
+    logic         [7:0] jt51_data_out[3];
+    logic               irq_n[3];
+    MSX::sound_t sound_L_accum, sound_R_accum;
     logic [7:0] data_comb;
     logic irq_comb;
     always_comb begin
@@ -69,15 +72,18 @@ module dev_opm #(parameter COUNT=3) (
     assign irq     = ~irq_comb;
     assign data    = data_comb;
 
-    logic signed [15:0] sound_OPM_L[COUNT], sound_OPM_R[COUNT];
-    logic         [7:0] jt51_data_out[COUNT];
-    logic               irq_n[COUNT];
     logic               io_en;
     
     assign io_en = cpu_bus.iorq && ~cpu_bus.m1;
 
     genvar i;
     generate
+        for (i = COUNT; i < 3; i++) begin : OPM_UNUSED
+            assign sound_OPM_L[i]   = '0;
+            assign sound_OPM_R[i]   = '0;
+            assign jt51_data_out[i] = 8'hFF;
+            assign irq_n[i]         = 1'b1;
+        end
         for (i = 0; i < COUNT; i++) begin : OPM_INSTANCES
             wire cs_io_active = (cpu_bus.addr[7:0] & io_device[i].mask) == io_device[i].port;
             wire cs_io        = (io_device[i].enable && cs_io_active && io_en);

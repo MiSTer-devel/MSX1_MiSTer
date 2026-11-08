@@ -37,8 +37,8 @@
 
 module mapper_harryFox (
     cpu_bus_if.device_mp    cpu_bus,                // Interface for CPU communication
-    block_info              block_info,             // Struct containing mapper configuration and parameters
-    mapper_out              out                     // Interface for mapper output
+    input  MSX::block_info_t block_info,             // Active block (slot layout entry)
+    output MSX::mapper_out_t out                     // Mapper output, merged in mappers.sv
 );
 
     // Memory mapping control signals
@@ -54,7 +54,7 @@ module mapper_harryFox (
     logic [2:0] bank[2][4];          // Storage for bank data, two entries for two different mapper IDs
     
     // Initialize or update bank and SRAM enable signals
-    always @(posedge cpu_bus.clk) begin
+    always_ff @(posedge cpu_bus.clk) begin
         if (cpu_bus.reset) begin
             // Initialize banks on reset
             bank[0]    <= '{'b100, 'b000, 'b001, 'b100};
@@ -88,5 +88,10 @@ module mapper_harryFox (
     // Assign the final outputs for the mapper
     assign out.ram_cs  = ram_valid;
     assign out.addr    = ram_valid ? ram_addr : {27{1'b1}};
+
+    // outputs not used by this mapper: neutral for the merge in mappers.sv
+    assign out.rnw     = 1'b1;
+    assign out.sram_cs = 1'b0;
+    assign out.data    = 8'hFF;
 
 endmodule

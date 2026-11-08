@@ -38,7 +38,7 @@
 module dev_v99 (
     cpu_bus_if.device_mp    cpu_bus,
     clock_bus_if.base_mp    clock_bus,
-    video_bus_if.device_mp  video_bus,
+    output MSX::video_t     video_bus,
     vram_bus_if.device_mp   vram_bus,
     input  MSX::io_device_t io_device[3],
     output            [7:0] data,
@@ -79,7 +79,7 @@ module dev_v99 (
     
 
     logic hblank_cor;
-    always @(posedge cpu_bus.clk) begin
+    always_ff @(posedge cpu_bus.clk) begin
         if (hblank)
             hblank_cor <= 1'b1;
         else 

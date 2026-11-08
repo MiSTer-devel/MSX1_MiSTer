@@ -16,7 +16,7 @@ module fdd_crc #(
         crc_reg =  {CRC_WIDTH{1'b1}};
     end
 
-    always @(posedge clk) begin
+    always_ff @(posedge clk) begin
         if (valid) begin
             if (we) begin
                 crc_reg <= crc_next(crc_reg, data_in);

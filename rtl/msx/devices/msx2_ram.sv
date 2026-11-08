@@ -37,7 +37,7 @@
 
 module dev_msx2_ram (
     cpu_bus_if.device_mp    cpu_bus,
-    device_bus              device_bus,
+    input  MSX::device_bus_t device_bus,
     input  MSX::io_device_t io_device[3],
     input                   limit_internal_mapper,
     output            [7:0] data,
@@ -96,7 +96,7 @@ module msx2_ram (
 );
     logic [7:0] mem_seg[0:3];
 
-    always_ff @(posedge clk or posedge reset) begin
+    always_ff @(posedge clk) begin
         if (reset) begin
             mem_seg[0] <= 8'd0;
             mem_seg[1] <= 8'd0;

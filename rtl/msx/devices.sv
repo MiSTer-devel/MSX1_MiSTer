@@ -39,12 +39,12 @@ module devices  #(parameter sysCLK)
 (
     clock_bus_if.base_mp    clock_bus,                              // Clock interface
     cpu_bus_if.device_mp    cpu_bus,                                // CPU bus interface
-    device_bus              device_bus,                             // Device control bus interface
+    input  MSX::device_bus_t device_bus,                             // Device control bus interface
     FDD_if.FDC_mp           FDD_bus[3],
-    video_bus_if.device_mp  video_bus,
+    output MSX::video_t     video_bus,
     vram_bus_if.device_mp   vram_bus,
     memory_bus_if.device_mp memory_bus,
-    block_info              block_info,
+    input  MSX::block_info_t block_info,
     input MSX::io_device_t  io_device[32][3],                       // Array of IO devices
     input MSX::io_device_mem_ref_t io_memory[8],                    // Array of memory references
     input MSX::kb_memory_t  kb_upload_memory,
@@ -53,8 +53,8 @@ module devices  #(parameter sysCLK)
     input            [64:0] rtc_time,
     input             [7:0] uart_rx_data,
     input                   uart_rx,
-    output    signed [15:0] sound_L,                                // Combined audio output
-    output    signed [15:0] sound_R,                                // Combined audio output
+    output    signed [15:0] sound_L,                                // Mixed and clipped audio (sound_mix)
+    output    signed [15:0] sound_R,
     output            [7:0] data,                                   // Combined data output
     output                  data_oe_rq,                             // Priorite data
     output            [7:0] data_to_mapper,                         // Data output to mapper
@@ -73,14 +73,11 @@ module devices  #(parameter sysCLK)
     output [1:0]            ocm_slot2_mode
 );
 
-    video_bus_if            video_bus_tms();
+    MSX::video_t            video_bus_tms, video_bus_v99;
     vram_bus_if             vram_bus_tms();
-    video_bus_if            video_bus_v99();
     vram_bus_if             vram_bus_v99();
 
     // Výstupy kombinující jednotlivé zařízení
-    assign sound_L = opll_sound + scc_sound + psg_sound + opm_sound_L + dac_sound;
-    assign sound_R = opll_sound + scc_sound + psg_sound + opm_sound_R + dac_sound;
     assign data = scc_data & fdc_data & msx2_ram_data & tms_data & v99_data & rtc_data & psg_data & ppi_data & ocm_data & reset_status_data & opm_data & ym2148_data;// & TC8566AF_data;
     assign data_oe_rq = fdc_data_oe_rq;// | TC8566AF_data_oe_rq;
     assign data_to_mapper = msx2_ram_data_to_mapper & latch_port_data_to_mapper;
@@ -97,20 +94,12 @@ module devices  #(parameter sysCLK)
     // VIDEO interfaces
     assign cpu_interrupt     = tms_interrupt | v99_interrupt | opm_irq | ym2148_irq;
 
-    assign video_bus.R       = video_bus_tms.R              | video_bus_v99.R;          // default black
-    assign video_bus.G       = video_bus_tms.G              | video_bus_v99.G;          // default black
-    assign video_bus.B       = video_bus_tms.B              | video_bus_v99.B;          // default black
-    assign video_bus.DE      = video_bus_tms.DE             | video_bus_v99.DE;
-    assign video_bus.HS      = video_bus_tms.HS             | video_bus_v99.HS;
-    assign video_bus.VS      = video_bus_tms.VS             | video_bus_v99.VS;
-    assign video_bus.hblank  = video_bus_tms.hblank         | video_bus_v99.hblank;
-    assign video_bus.vblank  = video_bus_tms.vblank         | video_bus_v99.vblank;
-    assign video_bus.ce_pix  = video_bus_tms.ce_pix         | video_bus_v99.ce_pix;
+    assign video_bus         = video_bus_tms | video_bus_v99;     // only the enabled VDP drives
 
-    assign vram_bus.addr     = vram_bus_tms.device_mp.addr  & vram_bus_v99.device_mp.addr;
-    assign vram_bus.data     = vram_bus_tms.device_mp.data  & vram_bus_v99.device_mp.data;
-    assign vram_bus.we_lo    = vram_bus_tms.device_mp.we_lo | vram_bus_v99.device_mp.we_lo;
-    assign vram_bus.we_hi    = vram_bus_tms.device_mp.we_hi | vram_bus_v99.device_mp.we_hi;
+    assign vram_bus.addr     = vram_bus_tms.addr  & vram_bus_v99.addr;
+    assign vram_bus.data     = vram_bus_tms.data  & vram_bus_v99.data;
+    assign vram_bus.we_lo    = vram_bus_tms.we_lo | vram_bus_v99.we_lo;
+    assign vram_bus.we_hi    = vram_bus_tms.we_hi | vram_bus_v99.we_hi;
 
     assign vram_bus_tms.q_lo = vram_bus.q_lo;
     assign vram_bus_tms.q_hi = vram_bus.q_hi;
@@ -120,7 +109,7 @@ module devices  #(parameter sysCLK)
     //MSX2 memory limiter
 
     // Definice instancí zařízení s výstupy pro propojení
-    wire signed [15:0] opll_sound;
+    MSX::sound_t opll_sound;
     dev_opll opll (
         .cpu_bus(cpu_bus),
         .device_bus(device_bus),
@@ -129,7 +118,7 @@ module devices  #(parameter sysCLK)
         .sound(opll_sound)
     );
 
-    wire signed [15:0] opm_sound_L, opm_sound_R;
+    MSX::sound_t opm_sound_L, opm_sound_R;
     wire         [7:0] opm_data;
     wire               opm_irq;
     dev_opm opm (
@@ -157,7 +146,7 @@ module devices  #(parameter sysCLK)
     );
 
     wire [7:0] scc_data;
-    wire signed [15:0] scc_sound;
+    MSX::sound_t scc_sound;
     dev_scc scc (
         .cpu_bus(cpu_bus),
         .clock_bus(clock_bus),
@@ -271,7 +260,7 @@ module devices  #(parameter sysCLK)
     );
 
     wire [7:0] psg_data;
-    wire signed [15:0] psg_sound;
+    MSX::sound_t psg_sound;
     dev_psg dev_psg
     (
         .cpu_bus(cpu_bus),
@@ -283,7 +272,7 @@ module devices  #(parameter sysCLK)
         .tape_in(tape_in)
     );
 
-    wire signed [15:0] dac_sound;
+    MSX::sound_t dac_sound;
     dev_dac dev_dac
     (
         .cpu_bus(cpu_bus),
@@ -291,6 +280,21 @@ module devices  #(parameter sysCLK)
         .block_info(block_info),
         .io_device(io_device[DEV_DAC]),
         .sound(dac_sound)
+    );
+
+    // Single clipping point for all sound sources
+    sound_mix sound_mix (
+        .clk(cpu_bus.clk),
+        .opll(opll_sound),
+        .scc(scc_sound),
+        .psg(psg_sound),
+        .dac(dac_sound),
+        .opm_L(opm_sound_L),
+        .opm_R(opm_sound_R),
+        .keybeep(keybeep),
+        .tape(tape_in & ~tape_motor_on),
+        .sound_L(sound_L),
+        .sound_R(sound_R)
     );
 
     wire [7:0] ppi_data;

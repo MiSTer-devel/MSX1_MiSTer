@@ -37,8 +37,8 @@
 
 module mapper_gamemaster2 (
     cpu_bus_if.device_mp    cpu_bus,   // Interface for CPU communication
-    mapper_out              out,       // Interface for mapper output
-    block_info              block_info // Struct containing mapper configuration and parameters
+    output MSX::mapper_out_t out,       // Mapper output, merged in mappers.sv
+    input  MSX::block_info_t block_info // Active block (slot layout entry)
 );
 
     // Memory mapping control signals
@@ -56,8 +56,8 @@ module mapper_gamemaster2 (
     // Bank registers for memory mapping
     logic [5:0] bank1, bank2, bank3;
 
-    // Bank switching logic based on CPU reset and clock signals
-    always @(posedge cpu_bus.reset or posedge cpu_bus.clk) begin
+    // Bank switching logic
+    always_ff @(posedge cpu_bus.clk) begin
         if (cpu_bus.reset) begin
             // Initialize banks after reset
             bank1 <= 6'h01;  // Default bank 1
@@ -95,5 +95,8 @@ module mapper_gamemaster2 (
     assign out.ram_cs  = cs && ram_en;   // RAM chip select
     assign out.rnw     = ~(out.sram_cs && cpu_bus.wr && cpu_bus.addr[15:12] == 4'hB);  // Read/Write control signal
     assign out.addr    = cs ? (sram_en ? sram_addr : ram_addr) : {27{1'b1}};  // Address output, default to all 1s if not selected
+
+    // outputs not used by this mapper: neutral for the merge in mappers.sv
+    assign out.data    = 8'hFF;
 
 endmodule

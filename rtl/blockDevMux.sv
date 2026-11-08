@@ -58,8 +58,7 @@ module blockDevMux #(parameter VDNUM) (
     input                     img_readonly,
     
     block_device_if.hps_mp    block_device_FDD[6],
-    block_device_if.hps_mp    block_device_SD,
-    block_device_if.hps_mp    block_device_nvram[4]
+    block_device_if.hps_mp    block_device_SD
 );
 
     logic [23:0] FDD_image_size[6];

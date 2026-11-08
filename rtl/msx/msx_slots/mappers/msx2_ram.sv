@@ -37,8 +37,8 @@
 
 module mapper_msx2_ram (
     cpu_bus_if.device_mp    cpu_bus,         // Interface for CPU communication
-    block_info              block_info,      // Struct containing mapper configuration and parameters
-    mapper_out              out,             // Interface for mapper output
+    input  MSX::block_info_t block_info,      // Active block (slot layout entry)
+    output MSX::mapper_out_t out,             // Mapper output, merged in mappers.sv
     input [7:0]             data_to_mapper
 );
 
@@ -52,5 +52,9 @@ module mapper_msx2_ram (
 
     // Generate the Read/Not Write (rnw) signal based on the chip select and write signal
     assign out.rnw = ~(cs & cpu_bus.wr);
+
+    // outputs not used by this mapper: neutral for the merge in mappers.sv
+    assign out.sram_cs = 1'b0;
+    assign out.data    = 8'hFF;
 
 endmodule

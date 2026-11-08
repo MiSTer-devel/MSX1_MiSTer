@@ -37,8 +37,8 @@
 
 module mapper_ascii8 (
     cpu_bus_if.device_mp    cpu_bus,
-    mapper_out              out,
-    block_info              block_info
+    output MSX::mapper_out_t out,
+    input  MSX::block_info_t block_info
 );
 
     wire cs, mapped, mode_wizardy, mode_koei, mapper_en;
@@ -68,7 +68,7 @@ module mapper_ascii8 (
     wire  [7:0] bank_base     = bank[block_info.id][{cpu_bus.addr[15], cpu_bus.addr[13]}];
     wire  [7:0] sram_bank_base = sramBank[block_info.id][{cpu_bus.addr[15], cpu_bus.addr[13]}];
 
-    always @(posedge cpu_bus.clk) begin
+    always_ff @(posedge cpu_bus.clk) begin
         if (cpu_bus.reset) begin
             bank       <= '{'{default: '0},'{default: '0}};
             sramBank   <= '{'{default: '0},'{default: '0}};
@@ -98,5 +98,8 @@ module mapper_ascii8 (
     assign out.ram_cs  = ram_cs;
     assign out.rnw     = ~(sram_cs & cpu_bus.wr);
     assign out.addr    = cs ? (sram_en ? sram_addr : ram_addr) : {27{1'b1}};
+
+    // outputs not used by this mapper: neutral for the merge in mappers.sv
+    assign out.data    = 8'hFF;
 
 endmodule

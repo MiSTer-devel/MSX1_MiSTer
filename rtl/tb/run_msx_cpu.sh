@@ -1,0 +1,41 @@
+#!/bin/bash
+# msx_cpu testbench (Verilator --timing).
+#   wsl.exe -- bash rtl/tb/run_msx_cpu.sh                 golden suite (all speeds / waits)
+#   wsl.exe -- bash rtl/tb/run_msx_cpu.sh +sel=1 +lat=2   single run with plusargs
+# ALT=<dir> replaces tv80.sv, tv80a.sv and msx_cpu.sv with versions from <dir>.
+set -e
+cd "$(dirname "$0")"
+CPU=../peripheral/CPU
+SRC_TV80=${ALT:-$CPU}/tv80.sv
+SRC_TV80A=${ALT:-$CPU}/tv80a.sv
+SRC_MSXCPU=${ALT:-..}/msx_cpu.sv
+OUT=$(mktemp -d)
+verilator --binary --timing -Wno-fatal -Wno-lint -Wno-style -O2 \
+    --top-module msx_cpu_tb -Mdir "$OUT" -I. \
+    ../package.sv ../clock.sv $CPU/tv80_alu.sv $CPU/tv80_mcode.sv $CPU/tv80_reg.sv \
+    "$SRC_TV80" "$SRC_TV80A" "$SRC_MSXCPU" msx_cpu_tb.sv > "$OUT/build.log" 2>&1 \
+    || { cat "$OUT/build.log"; exit 1; }
+grep -E '%Error' "$OUT/build.log" || true
+
+if [ $# -gt 0 ]; then
+    "$OUT/Vmsx_cpu_tb" "$@" | grep -E 'RESULT|PASS|FAIL'
+else
+    # Golden hash (n=200000) from the derived-clock implementation before CE, identical for
+    # every speed/wait. lat = memory read latency margin of the CE version: lat+1 fails.
+    # (derived-clock version had margin +1: 11/12, 7/8, 3/4)
+    # sel wait lat
+    while read -r sel wait lat; do
+        for l in 0 $lat; do
+            "$OUT/Vmsx_cpu_tb" +sel=$sel +wait=$wait +lat=$l +golden=b6e812a5 | grep -E 'PASS|FAIL' \
+                | sed "s/^/sel=$sel wait=$wait lat=$l: /"
+        done
+    done <<'EOF'
+0 0 10
+0 1 11
+2 0 6
+2 1 7
+1 0 2
+1 1 3
+EOF
+fi
+rm -rf "$OUT"

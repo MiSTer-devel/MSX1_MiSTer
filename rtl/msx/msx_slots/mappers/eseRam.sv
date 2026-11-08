@@ -39,8 +39,8 @@
 
 module mapper_eseRam (
     cpu_bus_if.device_mp        cpu_bus,       
-    mapper_out                  out,           
-    block_info                  block_info,
+    output MSX::mapper_out_t out,           
+    input  MSX::block_info_t block_info,
     ext_sd_card_if.device_mp    ext_SD_card_bus,
     input                       megaSD_enable    
 );
@@ -51,7 +51,7 @@ module mapper_eseRam (
 
     logic [7:0] bank[4];
 
-    always @(posedge cpu_bus.clk) begin
+    always_ff @(posedge cpu_bus.clk) begin
         if (cpu_bus.reset) begin
             bank <= '{8'h00, 8'h00, 8'h00, 8'h00};
         end else begin
@@ -91,7 +91,7 @@ module mapper_eseRam (
     assign mmc_enable = bank[0][7:6] == 2'b01 && cpu_bus.addr[15:13] == 3'b010 && megaSD_enable;
     assign ram_addr   = {7'b0, bank_base, cpu_bus.addr[12:0]};                   
     
-    assign out.ram_cs = cs && (cpu_bus.rd && ~mmc_enable) || ram_wr;
+    assign out.ram_cs = cs && ((cpu_bus.rd && ~mmc_enable) || ram_wr);   // only in own slot
     assign out.addr   = cs ? ram_addr : {27{1'b1}};
     assign out.rnw    = cs ? ~ram_wr : 1'b1;
     assign out.data   = cs && mmc_enable ? ext_SD_card_bus.data_from_SD : '1;
@@ -99,7 +99,7 @@ module mapper_eseRam (
     // SD card function
     logic mmc_cs;
 
-    always @(posedge cpu_bus.clk) begin
+    always_ff @(posedge cpu_bus.clk) begin
         logic mmc_en;
         logic mmc_mod;
 
@@ -129,5 +129,8 @@ module mapper_eseRam (
             end
         end
     end
+
+    // outputs not used by this mapper: neutral for the merge in mappers.sv
+    assign out.sram_cs = 1'b0;
 
 endmodule

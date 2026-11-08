@@ -65,7 +65,7 @@ initial begin
    last_ack = 1'b0;
 end
 
-always @(posedge clk) begin
+always_ff @(posedge clk) begin
    if (img_mounted[0]) begin 
       image_mounted[0] <= ~img_readonly; 
       image_size[0] <= img_size; 
@@ -86,7 +86,7 @@ always @(posedge clk) begin
       image_size[num] <= {3'b0, lookup_SRAM[num].size, 13'b0};
 end
 
-always @(posedge clk) begin
+always_ff @(posedge clk) begin
    last_load_req <= load_req;
    last_save_req <= save_req;
 
@@ -114,7 +114,7 @@ always @(posedge clk) begin
    end
 end
 
-always @(posedge clk) begin
+always_ff @(posedge clk) begin
    done <= 1'b0;
    store_new_size <= 1'b0;
    

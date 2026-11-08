@@ -38,7 +38,7 @@
 module dev_FDC #(parameter sysCLK)
 (
    cpu_bus_if.device_mp    cpu_bus,
-   device_bus              device_bus,
+   input  MSX::device_bus_t device_bus,
    input MSX::io_device_t  io_device[32][3],
    FDD_if.FDC_mp           FDD_bus[3],
    output            [7:0] data,
@@ -53,18 +53,28 @@ module dev_FDC #(parameter sysCLK)
    genvar i;
    generate
       for (i = 0; i < 3; i++) begin : FDC_INSTANCES
-         wire cs_dev                = (io_device[DEV_WD2793][i].device_ref == device_bus.device_ref && io_device[DEV_WD2793][i].enable);
-         wire [1:0] model           = io_device[DEV_WD2793][i].param[1:0];
-         wire [1:0] floppy_drive_en = io_device[DEV_WD2793][i].param[3:2];
-         dev_WD2793 #(.sysCLK(sysCLK)) WD2793 (
-            .cpu_bus(cpu_bus),
-            .model(model),
-            .floppy_drive_en(floppy_drive_en),
-            .FDD_bus(FDD_bus[i]),
-            .cs(cs_dev),
-            .data(wd2793_data[i]),
-            .data_oe_rq(wd2793_oe_rq[i])
-         );
+         if (i < MSX::N_WD2793) begin : inst
+            wire cs_dev                = (io_device[DEV_WD2793][i].device_ref == device_bus.device_ref && io_device[DEV_WD2793][i].enable);
+            wire [1:0] model           = io_device[DEV_WD2793][i].param[1:0];
+            wire [1:0] floppy_drive_en = io_device[DEV_WD2793][i].param[3:2];
+            dev_WD2793 #(.sysCLK(sysCLK)) WD2793 (
+               .cpu_bus(cpu_bus),
+               .model(model),
+               .floppy_drive_en(floppy_drive_en),
+               .FDD_bus(FDD_bus[i]),
+               .cs(cs_dev),
+               .data(wd2793_data[i]),
+               .data_oe_rq(wd2793_oe_rq[i])
+            );
+         end else begin : none
+            assign wd2793_data[i]       = 8'hFF;
+            assign wd2793_oe_rq[i]      = 1'b0;
+            assign FDD_bus[i].USEL      = 1'b0;     // idle drive interface
+            assign FDD_bus[i].MOTORn    = 1'b1;
+            assign FDD_bus[i].STEPn     = 1'b1;
+            assign FDD_bus[i].SDIRn     = 1'b1;
+            assign FDD_bus[i].SIDEn     = 1'b1;
+         end
       end
    endgenerate
 

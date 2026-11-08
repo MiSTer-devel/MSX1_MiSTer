@@ -1,5 +1,5 @@
 module clockEnabler #(
-    parameter int clkFreq = 21477270,
+    parameter int clkFreq = MSX::CLK_CORE_HZ,
     parameter int targetFreq = 1000000
 )(
     input  logic                                 clk,

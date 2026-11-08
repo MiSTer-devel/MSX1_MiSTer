@@ -112,7 +112,7 @@ initial reset = 1'b1;
 always_ff @(posedge clock_bus.clk) begin
    hard_reset <= rst_core_async || status[0] || upload_reset;
    reset      <= rst_core_async || status[0] || upload_reset || status[10] || status[21]
-              || (status[12] && sd_img_mounted && io_device[DEV_WD2793][0].enable);
+              || (status[12] && sd_img_mounted && io_device[DEV_OCM_BOOT][0].enable);   // OCM: reset after VHD mount
 end
 
 /////////////////   COMPUTER   /////////////////

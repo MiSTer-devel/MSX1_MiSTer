@@ -35,9 +35,12 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //
 
+// Port F4 (reset status): cleared only by a cold reset, so the BIOS can tell a warm boot
+// (MSX2+ skips the logo); as OCM portF4_bit7 (pColdReset).
 module dev_reset_status (
     cpu_bus_if.device_mp    cpu_bus,
     input  MSX::io_device_t io_device[3],
+    input                   hard_reset,     // cold reset (power-up, MiSTer menu, pack upload)
     output            [7:0] data
 );
 
@@ -53,7 +56,7 @@ module dev_reset_status (
 
             reset_status latch_port_i (
                 .clk(cpu_bus.clk),
-                .reset(cpu_bus.reset),
+                .reset(hard_reset),
                 .data(cpu_bus.data),
                 .wr(cs_enable && cpu_bus.wr && cpu_bus.req),
                 .rd(cs_enable && cpu_bus.rd),

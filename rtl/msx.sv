@@ -182,6 +182,7 @@ assign memory_bus_devices.q = memory_bus.q;
 devices #(.sysCLK(sysCLK)) devices
 (
    .clock_bus(clock_bus),
+   .hard_reset(core_hard_reset),
    .cpu_bus(cpu_bus),
    .device_bus(device_bus),
    .FDD_bus(FDD_bus),

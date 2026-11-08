@@ -38,6 +38,7 @@
 module devices  #(parameter sysCLK)
 (
     clock_bus_if.base_mp    clock_bus,                              // Clock interface
+    input                   hard_reset,                             // cold reset (cpu_bus.reset is any reset)
     cpu_bus_if.device_mp    cpu_bus,                                // CPU bus interface
     input  MSX::device_bus_t device_bus,                             // Device control bus interface
     FDD_if.FDC_mp           FDD_bus[3],
@@ -313,6 +314,7 @@ module devices  #(parameter sysCLK)
     dev_reset_status dev_reset_status (
         .cpu_bus(cpu_bus),
         .io_device(io_device[DEV_RESET_STATUS]),
+        .hard_reset(hard_reset),
         .data(reset_status_data)
     );
 

@@ -1,7 +1,9 @@
 // memory_upload: loads an MSX pack (createComp.py output) from a DDR3 model through
 // ddram, prints the resulting tables and checks the OCM configuration
 // (tools/CreateMSXpack/Computer/OCM/OCM.xml).
-// Run: wsl.exe -- bash rtl/tb/run_memory_upload.sh <pack.msx> <ocm_iplrom.rom>
+// Optional FW pack (createDev.py output, DDR 300000h) and cartridge type of slot 2:
+// +fw=<CART_FW_EN.msx> +cartb=<cart_typ_t> (10 = MEGARAM: OCM MegaSCC+ / MegaRAM).
+// Run: wsl.exe -- bash rtl/tb/run_memory_upload.sh <pack.msx> <ocm_iplrom.rom> [fw.msx cartb]
 module memory_upload_tb;
 
 logic clk = 0;
@@ -11,6 +13,7 @@ always #1 clk = ~clk;
 localparam int LAT = 5;
 byte unsigned pack[$];
 byte unsigned ipl[$];
+byte unsigned fw[$];
 
 wire  [27:0] ddr3_addr;
 wire   [7:0] ddr3_dout;
@@ -40,7 +43,8 @@ always_ff @(posedge clk) begin
     else if (rd_wait == 0) begin
         for (int b = 0; b < 8; b++) begin
             int unsigned a = {rd_addr[24:0], 3'(b)};
-            DDRAM_DOUT[8*b +: 8] <= (a < pack.size()) ? pack[a] : 8'hFF;
+            DDRAM_DOUT[8*b +: 8] <= (a < pack.size()) ? pack[a] :
+                                    (a >= 32'h300000 && a - 32'h300000 < fw.size()) ? fw[a - 32'h300000] : 8'hFF;
         end
         DDRAM_DOUT_READY <= 1'b1;
         rd_wait <= -1;
@@ -116,8 +120,8 @@ task automatic expect_dev(input string what, input device_t d, input logic [7:0]
 endtask
 
 initial begin
-    string pack_name, ipl_name;
-    int fd, c;
+    string pack_name, ipl_name, fw_name;
+    int fd, c, cartb = int'(CART_TYP_ROM);
     int unsigned ese;
 
     if (!$value$plusargs("pack=%s", pack_name) || !$value$plusargs("ipl=%s", ipl_name)) begin
@@ -131,14 +135,31 @@ initial begin
     if (fd == 0) begin $display("cannot open %s", ipl_name); $finish; end
     while ((c = $fgetc(fd)) != -1) ipl.push_back(8'(c));
     $fclose(fd);
-    $display("pack %0d bytes, IPL %0d bytes", pack.size(), ipl.size());
+    if ($value$plusargs("fw=%s", fw_name)) begin
+        fd = $fopen(fw_name, "rb");
+        if (fd == 0) begin $display("cannot open %s", fw_name); $finish; end
+        while ((c = $fgetc(fd)) != -1) fw.push_back(8'(c));
+        $fclose(fd);
+    end
+    void'($value$plusargs("cartb=%d", cartb));
+    $display("pack %0d bytes, IPL %0d bytes, FW %0d bytes, cartridge B type %0d", pack.size(), ipl.size(), fw.size(), cartb);
 
     // ROM cartridges without an image: empty slots that do not need the FW pack
     cart_conf[0].typ = CART_TYP_ROM;
-    cart_conf[1].typ = CART_TYP_ROM;
+    cart_conf[1].typ = cart_typ_t'(cartb);
     repeat (4) @(posedge clk);
     ddr_reset = 0;
     repeat (4) @(posedge clk);
+
+    // HPS download of the FW pack (index 2), as at core start
+    if (fw.size() > 0) begin
+        ioctl_index = 16'd2; ioctl_download = 1;
+        @(posedge clk); ioctl_addr = 27'(fw.size());
+        @(posedge clk); ioctl_download = 0;
+        wait (upload);
+        wait (!upload);
+        repeat (10) @(posedge clk);
+    end
 
     // HPS download of the MSX pack (index 1)
     ioctl_index = 16'd1; ioctl_download = 1;
@@ -186,9 +207,26 @@ initial begin
     end
     // Cartridge slots without an image stay empty
     for (int p = 0; p < 4; p++)
-        if (slot_layout[{2'd1, 2'd0, 2'(p)}].mapper !== MAPPER_NONE || slot_layout[{2'd2, 2'd0, 2'(p)}].mapper !== MAPPER_NONE) begin
+        if (slot_layout[{2'd1, 2'd0, 2'(p)}].mapper !== MAPPER_NONE ||
+            (cartb == int'(CART_TYP_ROM) && slot_layout[{2'd2, 2'd0, 2'(p)}].mapper !== MAPPER_NONE)) begin
             errors++; $display("FAIL cartridge slot page %0d not empty", p);
         end
+    // OCM MegaSCC+ / MegaRAM in slot 2 (FW pack MEGARAM): 2 MB RAM, mapper MEGARAM, SCC
+    if (cartb == int'(MEGARAM)) begin
+        MSX::block_t b = slot_layout[{2'd2, 2'd0, 2'd1}];
+        bit scc = 0;
+        for (int p = 0; p < 4; p++)
+            if (slot_layout[{2'd2, 2'd0, 2'(p)}].mapper !== MAPPER_MEGARAM) begin
+                errors++; $display("FAIL MEGARAM slot 2 page %0d: mapper=%0d", p, slot_layout[{2'd2, 2'd0, 2'(p)}].mapper);
+            end
+        if (lookup_RAM[b.ref_ram].size !== 17'd256 || lookup_RAM[b.ref_ram].ro !== 1'b0) begin
+            errors++; $display("FAIL MEGARAM RAM size=%0d x 8 kB ro=%b (expected 256, 0)", lookup_RAM[b.ref_ram].size, lookup_RAM[b.ref_ram].ro);
+        end
+        for (int k = 0; k < 3; k++)
+            if (io_device[DEV_SCC][k].enable && io_device[DEV_SCC][k].device_ref == b.device_ref) scc = 1;
+        if (!scc) begin errors++; $display("FAIL MEGARAM: no SCC device for the slot 2 block (dev_ref %0d)", b.device_ref); end
+        if (!errors) $display("MEGARAM slot 2: mapper %0d, RAM %07h 2 MB, SCC dev_ref %0d", b.mapper, page_addr(2, 0, 0), b.device_ref);
+    end
 
     expect_dev("V9958",        DEV_VDP_V99xx,     8'h98, 8'hFC, 8'h02);
     expect_dev("PSG",          DEV_PSG,           8'hA0, 8'hF8, 8'h01);

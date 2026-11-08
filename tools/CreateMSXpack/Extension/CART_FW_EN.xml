@@ -183,6 +183,40 @@
     </block>
   </fw>
   
+  <fw name="MEGASCC1">                <!-- ESE MegaSCC+ 1 MB -->
+    <block>
+      <ram>1048576</ram>
+      <mapper>MEGASCC</mapper>
+      <device>SCC</device>
+    </block>
+  </fw>
+  <fw name="MEGASCC2">                <!-- ESE MegaSCC+ 2 MB -->
+    <block>
+      <ram>2097152</ram>
+      <mapper>MEGASCC</mapper>
+      <device>SCC</device>
+    </block>
+  </fw>
+  <fw name="MEGAASCII8">              <!-- ESE MegaRAM ASCII-8K 1 MB -->
+    <block>
+      <ram>1048576</ram>
+      <mapper>MEGAASCII8</mapper>
+    </block>
+  </fw>
+  <fw name="MEGAASCII16">             <!-- ESE MegaRAM ASCII-16K 2 MB -->
+    <block>
+      <ram>2097152</ram>
+      <mapper>MEGAASCII16</mapper>
+    </block>
+  </fw>
+  <fw name="MEGARAM">                 <!-- OCM internal ESE-SCC / MegaRAM: mode from Slot1Mode / Slot2Mode
+                                           (switched I/O port 42h); slot 1 uses 1 MB of it -->
+    <block>
+      <ram>2097152</ram>
+      <mapper>MEGARAM</mapper>
+      <device>SCC</device>
+    </block>
+  </fw>
   <fw name="MEGA_FLASH_ROM">
     <secondary slot="0">
       <block start="0" count="4">

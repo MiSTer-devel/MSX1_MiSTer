@@ -236,12 +236,13 @@ reset_sync rst_sync_sdram (.clk(clk_sdram), .arst(~locked_sdram),          .rst(
 //  [21]     reset / reset and close OSD
 //  [22]     OCM slot 1 (internal ESE-SCC)
 //  [24:23]  OCM slot 2 (internal ESE-SCC / MegaRAM)
+//  [25]     vertical crop
 //  [32:29]  slot B cartridge type (not OCM)
 //  [38]     SRAM save
 //  [39]     SRAM load
 //  [40]     tape input (file / ADC)
 //  [41]     border
-// Free: [28:25], [37:33], [127:42]
+// Free: [28:26], [37:33], [127:42]
 `include "build_id.v"
 localparam CONF_STR = {
    "MSX1;UART115200,MIDI;",
@@ -287,6 +288,7 @@ localparam CONF_STR = {
    "P1,Video settings;",
    "P1O[2:1],Aspect ratio,Original,Full Screen,[ARC1],[ARC2];",
    "P1O[5:3],Scandoubler Fx,None,HQ2x,CRT 25%,CRT 50%,CRT 75%;",
+   "P1O[25],Vertical Crop,No,Yes;",
    "P1O[8:6],Scale,Normal,V-Integer,Narrower HV-Integer,Wider HV-Integer,HV-Integer;",
    "P1O[41],Border,No,Yes;",
    "-;",
@@ -528,9 +530,11 @@ assign VGA_SL = sl[1:0];
 assign CLK_VIDEO   = clk_sdram;
 assign scandoubler = forced_scandoubler || scale != 0;
 
-logic en216p;
+// Vertical crop as MSX_MiSTer: 216 lines on a 1080 line output, else 240, 480 with the scandoubler
+logic [11:0] vcrop;
 always_ff @(posedge CLK_VIDEO) begin
-	en216p <= ((HDMI_WIDTH == 1920) && (HDMI_HEIGHT == 1080) && !scandoubler);
+	vcrop <= (HDMI_HEIGHT == 12'd1080) ? 12'd216 : 12'd240;
+	if (scandoubler) vcrop <= 12'd480;
 end
 
 video_freak video_freak
@@ -546,7 +550,7 @@ video_freak video_freak
    .VGA_DE_IN(vga_de),
    .ARX((ar == 0) ? 12'd4 : {10'b0, (ar - 1'd1)}),
    .ARY((ar == 0) ? 12'd3 : 12'd0),
-   .CROP_SIZE(en216p ? 12'd216 : 12'd0),
+   .CROP_SIZE(status[25] ? vcrop : 12'd0),
    .CROP_OFF(0),
    .SCALE(status[8:6])
 );

@@ -53,12 +53,16 @@ initial begin
     foreach (mem[i]) mem[i] = 8'h00;
     `include "msx_cpu_prog.svh"
     if ($test$plusargs("mul")) begin
-        // LD HL,0; LD DE,0; LD A,7; LD B,6; MULUB A,B; LD (3000h),HL; LD HL,1234h; LD BC,0100h;
-        // MULUW HL,BC; LD (3002h),HL; LD (3004h),DE; JR $
-        byte unsigned p[] = '{8'h21, 8'h00, 8'h00, 8'h11, 8'h00, 8'h00, 8'h3E, 8'h07, 8'h06, 8'h06,
-                              8'hED, 8'hC1, 8'h22, 8'h00, 8'h30, 8'h21, 8'h34, 8'h12, 8'h01, 8'h00,
-                              8'h01, 8'hED, 8'hC3, 8'h22, 8'h02, 8'h30, 8'hED, 8'h53, 8'h04, 8'h30,
-                              8'h18, 8'hFE};
+        // LD SP,4000h; F = FFh; LD HL,0; LD DE,0; LD A,7; LD B,6; MULUB A,B; LD (3000h),HL; AF -> (3006h)
+        // LD HL,1234h; LD BC,0100h; MULUW HL,BC; LD (3002h),HL; LD (3004h),DE; AF -> (3008h)
+        // LD A,0; LD C,5; MULUB A,C; LD (300Ch),HL; AF -> (300Ah); JR $
+        byte unsigned p[] = '{8'h31, 8'h00, 8'h40, 8'h21, 8'hFF, 8'hFF, 8'hE5, 8'hF1, 8'h21, 8'h00,
+                              8'h00, 8'h11, 8'h00, 8'h00, 8'h3E, 8'h07, 8'h06, 8'h06, 8'hED, 8'hC1,
+                              8'h22, 8'h00, 8'h30, 8'hF5, 8'hE1, 8'h22, 8'h06, 8'h30, 8'h21, 8'h34,
+                              8'h12, 8'h01, 8'h00, 8'h01, 8'hED, 8'hC3, 8'h22, 8'h02, 8'h30, 8'hED,
+                              8'h53, 8'h04, 8'h30, 8'hF5, 8'hE1, 8'h22, 8'h08, 8'h30, 8'h3E, 8'h00,
+                              8'h0E, 8'h05, 8'hED, 8'hC9, 8'h22, 8'h0C, 8'h30, 8'hF5, 8'hE1, 8'h22,
+                              8'h0A, 8'h30, 8'h18, 8'hFE};
         foreach (mem[i]) mem[i] = 8'h00;
         foreach (p[i]) mem[i] = p[i];
     end
@@ -163,15 +167,20 @@ initial begin
     repeat (20) @(posedge clk);
     reset = 0;
     if ($test$plusargs("mul")) begin
-        // R800: 7*6 = 002Ah, 1234h*0100h = 0012 3400h (DE high, HL low as openMSX muluw_hl_SS;
-        // the T80 of MSX_MiSTer / OCM-PLD swaps DE and HL); Z80: HL / DE unchanged
-        byte unsigned exp[6];
+        // R800 (openMSX mulub_a_R / muluw_hl_SS): HL = 002Ah, F = 3Ah (S V Z C = 0, N H X Y kept);
+        // DE:HL = 0012 3400h, F = 3Bh (C: result > 16 bits); 0*5: HL = 0, F = 7Ah (Z).
+        // Z80: the opcodes are NOPs, HL / DE / F unchanged.
+        byte unsigned exp[14];
         bit ok = 1;
-        exp = r800 ? '{8'h2A, 8'h00, 8'h00, 8'h34, 8'h12, 8'h00} : '{8'h00, 8'h00, 8'h34, 8'h12, 8'h00, 8'h00};
-        wait (count >= 200);
-        for (int i = 0; i < 6; i++) if (mem[16'h3000 + i] != exp[i]) ok = 0;
-        $display("%s msx_cpu_tb mul r800=%0d: 3000h = %02h %02h %02h %02h %02h %02h", ok ? "PASS" : "FAILED", r800,
-                 mem[16'h3000], mem[16'h3001], mem[16'h3002], mem[16'h3003], mem[16'h3004], mem[16'h3005]);
+        string got = "";
+        exp = r800 ? '{8'h2A, 8'h00, 8'h00, 8'h34, 8'h12, 8'h00, 8'h3A, 8'h07, 8'h3B, 8'h07, 8'h7A, 8'h00, 8'h00, 8'h00} :
+                     '{8'h00, 8'h00, 8'h34, 8'h12, 8'h00, 8'h00, 8'hFF, 8'h07, 8'hFF, 8'h07, 8'hFF, 8'h00, 8'hFF, 8'h07};
+        wait (count >= 400);
+        for (int i = 0; i < 14; i++) begin
+            if (mem[16'h3000 + i] != exp[i]) ok = 0;
+            got = {got, $sformatf(" %02h", mem[16'h3000 + i])};
+        end
+        $display("%s msx_cpu_tb mul r800=%0d: 3000h =%s", ok ? "PASS" : "FAILED", r800, got);
         $finish;
     end
     wait (count >= ntrans);

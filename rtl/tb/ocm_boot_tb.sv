@@ -259,19 +259,27 @@ always @(posedge clk_core) begin
         $display("%0t Slot1Mode %b Slot2Mode %b", $time, sys.MSX.devices.ocm.Slot1Mode, sys.MSX.devices.ocm.Slot2Mode);
 end
 
-// Internal ESE-SCC / MegaRAM (mapper MEGARAM): register writes and RAM traffic per slot
-int ese_reg_log = 0;
-int ese_rd[2] = '{0, 0}, ese_wr[2] = '{0, 0};
+// Internal ESE-SCC / MegaRAM (mapper MEGARAM) per slot: RAM reads / writes, M1 fetches (code
+// running from the slot), other writes (bank / mode / SCC registers), SCC sound register writes
+// (9800-98FF, B800-B8FF); mode register writes (7FFE, BFFE) are logged
+int ese_mode_log = 0;
+int ese_rd[2] = '{0, 0}, ese_wr[2] = '{0, 0}, ese_m1[2] = '{0, 0}, ese_reg[2] = '{0, 0}, ese_snd[2] = '{0, 0};
 always @(posedge clk_core) begin
     if (dos && sys.MSX.cpu_bus.req && !req_q && !reset && sys.MSX.cpu_bus.mreq &&
         sys.MSX.block_info.typ == MAPPER_MEGARAM) begin
+        if (sys.MSX.cpu_bus.m1) ese_m1[sys.MSX.block_info.id]++;
         if (sys.MSX.memory_bus_slots.ram_cs) begin
             if (sys.MSX.cpu_bus.wr) ese_wr[sys.MSX.block_info.id]++;
             else                    ese_rd[sys.MSX.block_info.id]++;
-        end else if (sys.MSX.cpu_bus.wr && ese_reg_log < 120) begin
-            ese_reg_log++;
-            $display("%0t ESE-SCC slot %0d reg %04h <= %02h", $time, sys.MSX.block_info.id + 1,
-                     sys.MSX.cpu_bus.addr, sys.MSX.cpu_bus.data);
+        end else if (sys.MSX.cpu_bus.wr) begin
+            ese_reg[sys.MSX.block_info.id]++;
+            if (sys.MSX.cpu_bus.addr[15:8] == 8'h98 || sys.MSX.cpu_bus.addr[15:8] == 8'hB8)
+                ese_snd[sys.MSX.block_info.id]++;
+            if ((sys.MSX.cpu_bus.addr == 16'h7FFE || sys.MSX.cpu_bus.addr == 16'hBFFE) && ese_mode_log < 80) begin
+                ese_mode_log++;
+                $display("%0t ESE-SCC slot %0d mode %04h <= %02h", $time, sys.MSX.block_info.id + 1,
+                         sys.MSX.cpu_bus.addr, sys.MSX.cpu_bus.data);
+            end
         end
     end
 end
@@ -302,8 +310,8 @@ always @(posedge clk_core) begin
 end
 
 function automatic string screen_text();
-    bit         t2   = vreg[0][2];
-    int         cols = t2 ? 80 : 40;
+    bit         t2   = vreg[1][4] && vreg[0][2];                    // TEXT2 80, TEXT1 40, else GRAPHIC1 32
+    int         cols = vreg[1][4] ? (t2 ? 80 : 40) : 32;
     int unsigned base = t2 ? {vreg[2][6:2], 12'h000} : {vreg[2][6:0], 10'h000};
     string      txt  = "";
     for (int r = 0; r < 24; r++) begin
@@ -443,24 +451,33 @@ initial begin
     if (vdp_writes < 16) begin errors++; $display("FAIL BIOS did not set up the VDP (%0d writes)", vdp_writes); end
     $display("sectors read %0d, IPL end %0t, VDP writes %0d, MAIN M1 %0d", sectors_read, t_ipl_end, vdp_writes, main_m1);
 
-    // +dos: run on, print the text screen whenever it changes (every 100 ms of MSX time)
+    // +dos: run on; every 100 ms of MSX time a status line (if anything changed) and the text
+    // screen (if changed). Ends on "No suitable" or 1 s after code started to run from slot 2.
     if (dos) begin
-        string last = "", now;
+        string last = "", now, st_last = "", st;
+        int    game_ms = -1;
         for (int ms = 0; ms < run_ms; ms += 100) begin
             repeat (MSX::CLK_CORE_HZ / 10) @(posedge clk_core);
+            st = $sformatf("SD rd %0d wr %0d | slot 1 rd %0d wr %0d m1 %0d reg %0d | slot 2 rd %0d wr %0d m1 %0d reg %0d snd %0d | mode %b %b | VDP R0 %02h R1 %02h R2 %02h",
+                           sectors_read, sectors_written, ese_rd[0], ese_wr[0], ese_m1[0], ese_reg[0],
+                           ese_rd[1], ese_wr[1], ese_m1[1], ese_reg[1], ese_snd[1],
+                           sys.MSX.devices.ocm.Slot1Mode, sys.MSX.devices.ocm.Slot2Mode, vreg[0], vreg[1], vreg[2]);
+            if (st != st_last) begin $display("%0t %0d ms: %s", $time, ms, st); st_last = st; end
             now = screen_text();
             if (now != last) begin
-                $display("%0t screen (%0d ms, SD read %0d / written %0d, ESE-SCC slot 1 rd %0d wr %0d, slot 2 rd %0d wr %0d):\n%s",
-                         $time, ms, sectors_read, sectors_written, ese_rd[0], ese_wr[0], ese_rd[1], ese_wr[1], now);
+                $display("%0t screen (%0d ms):\n%s", $time, ms, now);
                 last = now;
             end
-            if (contains(now, "No suitable") || contains(now, "Loading ROM: ooooo")) begin
-                repeat (MSX::CLK_CORE_HZ / 2) @(posedge clk_core);
-                $display("%0t final screen:\n%s", $time, screen_text());
-                break;
+            if (game_ms < 0 && ese_m1[1] > 100000) begin
+                game_ms = ms;
+                $display("%0t code runs from slot 2 (ESE-SCC): %0d M1 fetches", $time, ese_m1[1]);
             end
+            if (contains(now, "No suitable") || (game_ms >= 0 && ms >= game_ms + 1000)) break;
         end
-        $display("ESE-SCC traffic: slot 1 rd %0d wr %0d, slot 2 rd %0d wr %0d", ese_rd[0], ese_wr[0], ese_rd[1], ese_wr[1]);
+        $display("%0t final screen:\n%s", $time, screen_text());
+        $display("ESE-SCC traffic: slot 1 rd %0d wr %0d m1 %0d, slot 2 rd %0d wr %0d m1 %0d, slot 2 SCC sound writes %0d",
+                 ese_rd[0], ese_wr[0], ese_m1[0], ese_rd[1], ese_wr[1], ese_m1[1], ese_snd[1]);
+        if (game_ms < 0) begin errors++; $display("FAIL: no code run from slot 2 (SofaROM did not start the ROM)"); end
     end
 
     if (errors == 0) $display("PASS ocm_boot_tb");

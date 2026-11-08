@@ -1,7 +1,7 @@
 #!/bin/bash
 # memory_upload testbench (Verilator --timing): loads an MSX pack and checks the OCM layout.
 # Usage: wsl.exe -- bash rtl/tb/run_memory_upload.sh <pack.msx> <ocm_iplrom.rom> [fw.msx cartb]
-#   pack: python createComp.py --xml-dir Computer/OCM --output-dir <dir>  (OCM.msx)
+#   pack: python createComp.py --xml-dir Computer/OCM --output-dir <dir>  (1chipMSX.msx)
 #   fw:   python createDev.py (MSX/CART_FW_EN.msx), cartb: cart_typ_t of slot 2; OCM has no
 #         cartridge slots, the layout must not depend on them
 #   OLD=<git rev>: memory_upload.sv of that revision

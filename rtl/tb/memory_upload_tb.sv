@@ -1,6 +1,6 @@
 // memory_upload: loads an MSX pack (createComp.py output) from a DDR3 model through
 // ddram, prints the resulting tables and checks the OCM configuration
-// (tools/CreateMSXpack/Computer/OCM/OCM.xml).
+// (tools/CreateMSXpack/Computer/OCM/1chipMSX.xml).
 // Optional FW pack (createDev.py output, DDR 300000h) and cartridge type of slot 2:
 // +fw=<CART_FW_EN.msx> +cartb=<cart_typ_t>.
 // OCM has no cartridge slots: slots 1 and 2 hold the internal ESE-SCC / MegaRAM (machine

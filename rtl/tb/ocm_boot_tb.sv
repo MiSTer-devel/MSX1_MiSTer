@@ -5,7 +5,7 @@
 // +dos: then runs on (+run_ms MSX time) and logs the switched I/O ports, the internal
 // ESE-SCC / MegaRAM accesses in slots 1/2 and the text screen (shadow VRAM from ports 98h/99h).
 // +fw=<CART_FW_EN.msx>: FW pack (needed for cartridge types other than ROM), +status=<hex>: OSD.
-// Run: wsl.exe -- bash rtl/tb/run_ocm_boot.sh <OCM.msx> <OCM-BIOS.rom>
+// Run: wsl.exe -- bash rtl/tb/run_ocm_boot.sh <1chipMSX.msx> <OCM-BIOS.rom>
 module ocm_boot_tb;
 
 // clk_sdram = 4x clk_core, phase aligned (as the PLL)
@@ -412,7 +412,7 @@ initial begin
 
     if (!$value$plusargs("pack=%s", pack_name) || !$value$plusargs("img=%s", img_name) ||
         !$value$plusargs("bios=%s", bios_name)) begin
-        $display("usage: +pack=<OCM.msx> +img=<sd.img> +bios=<OCM-BIOS.rom>"); $finish;
+        $display("usage: +pack=<1chipMSX.msx> +img=<sd.img> +bios=<OCM-BIOS.rom>"); $finish;
     end
     fd = $fopen(pack_name, "rb"); while ((c = $fgetc(fd)) != -1) pack.push_back(8'(c)); $fclose(fd);
     fd = $fopen(bios_name, "rb"); while ((c = $fgetc(fd)) != -1) bios.push_back(8'(c)); $fclose(fd);

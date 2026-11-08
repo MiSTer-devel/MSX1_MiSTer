@@ -1,4 +1,4 @@
-// dev_opll: an OPLL of the machine (OCM.xml, device_ref 0) must take I/O writes on 7Ch/7Dh
+// dev_opll: an OPLL of the machine (1chipMSX.xml, device_ref 0) must take I/O writes on 7Ch/7Dh
 // while the device bus is idle; an OPLL of an FM-PAC block (device_ref != 0) only after the
 // block enabled it (device_bus.en, FM-PAC 7FF6h bit 0). In turbo (enawait) back-to-back writes
 // must wait while the OPLL is busy (as OCM eseopll, with YM2413 timing) and all reach the OPLL.

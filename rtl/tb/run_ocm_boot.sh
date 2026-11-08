@@ -1,10 +1,10 @@
 #!/bin/bash
 # OCM boot simulation (Verilator): msx_system + SD path + HPS/DDR3/SDRAM models.
-# Usage: wsl.exe -- bash rtl/tb/run_ocm_boot.sh <OCM.msx> <OCM-BIOS.rom>   (SIMARGS=+trace for a trace)
+# Usage: wsl.exe -- bash rtl/tb/run_ocm_boot.sh <1chipMSX.msx> <OCM-BIOS.rom>   (SIMARGS=+trace for a trace)
 #   SDADD="--add NAME.EXT=<path> ..."  more files on the card (e.g. MSXDOS2.SYS, COMMAND2.COM,
 #   AUTOEXEC.BAT for a DOS run with SIMARGS="+dos +fw=<CART_FW_EN.msx> +status=<hex>"; SofaROM:
 #   AUTOEXEC.BAT "SROM /Q GAME.ROM", /Q skips the key prompt before the ROM is started)
-#   OCM.msx: cd tools/CreateMSXpack; python createComp.py --xml-dir Computer/OCM --output-dir <dir>
+#   1chipMSX.msx: cd tools/CreateMSXpack; python createComp.py --xml-dir Computer/OCM --output-dir <dir>
 #   The SD image (MBR + FAT16, OCM-BIOS.DAT first) is built by make_sd_image.py; the IPL
 #   needs a partition table (as made by sdcreate), a FAT16 volume without MBR is not booted.
 set -e

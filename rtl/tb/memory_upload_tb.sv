@@ -183,10 +183,11 @@ initial begin
                      page_addr(i[5:4], i[3:2], i[1:0]), lookup_RAM[slot_layout[i].ref_ram].size,
                      lookup_RAM[slot_layout[i].ref_ram].ro);
     for (int d = 0; d < 32; d++)
-        if (io_device[d][0].enable)
-            $display("device %0d: port=%02h mask=%02h param=%02h mem_ref=%0d dev_ref=%0d",
-                     d, io_device[d][0].port, io_device[d][0].mask, io_device[d][0].param,
-                     io_device[d][0].mem_ref, io_device[d][0].device_ref);
+        for (int k = 0; k < 3; k++)
+            if (io_device[d][k].enable)
+                $display("device %0d[%0d]: port=%02h mask=%02h param=%02h mem_ref=%0d dev_ref=%0d",
+                         d, k, io_device[d][k].port, io_device[d][k].mask, io_device[d][k].param,
+                         io_device[d][k].mem_ref, io_device[d][k].device_ref);
 
     // ---- OCM checks
     if (error != ERR_NONE) begin errors++; $display("FAIL error %0d", error); end

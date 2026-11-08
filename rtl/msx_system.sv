@@ -312,24 +312,23 @@ tape cass
 );
 
 /////////////////   FLOPPY DRIVES   /////////////////
-// One FDD unit (2 drives) per WD2793 copy (MSX::N_WD2793)
+// One FDD unit (2 drives) per WD2793 copy (MSX::N_WD2793). memory_upload puts the FDC at a
+// fixed position (0 cartridge A, 1 cartridge B, 2 internal), unit fi is that controller's.
+// Drive properties from its XML parameters: bit 4 single_sided, bits 1:0 style
+// (TRACK0 / WPROT need the motor except for National, openMSX signalsNeedMotorOn).
 genvar fi, fd;
 generate
    for (fi = 0; fi < 3; fi++) begin : g_fdd
       if (fi < MSX::N_WD2793) begin : inst
-         fdd #(.sysCLK(sysCLK), .SECTORS(9), .SECTOR_SIZE(512), .TRACKS(80),
-               .ID(fi == 0 ? "FDD0" : fi == 1 ? "FDD1" : "FDD2")) fdd_i (
+         wire [7:0] fdc_param  = io_device[DEV_WD2793][fi].param;
+         wire       fdc_enable = io_device[DEV_WD2793][fi].enable;
+         fdd #(.sysCLK(sysCLK), .ID(fi == 0 ? "FDD0" : fi == 1 ? "FDD1" : "FDD2")) fdd_i (
             .clk(clock_bus.clk),
             .reset(reset),
             .FDD_bus(FDD_bus[fi]),
             .block_device(block_device_FDD[2*fi:2*fi+1]),
-            // CONFIGURATION
-            .speed(2'b00),
-            .mfm(2'b11),
-            .sides(2'b11),
-            .sectors('{9,9}),             // sectors per track
-            .sector_size('{2,2}),         // 0 - 128B / 1 - 256B / 2 - 512B / 3 - 1024B
-            .density('{0,0})              // 0 - 250kbit / 1 - 500kbit / 2 - 1000kbit
+            .drive_ds(fdc_param[4] ? 2'b00 : 2'b11),
+            .need_motor(!fdc_enable || fdc_param[1:0] != 2'd1)
          );
       end else begin : none               // no FDC: block devices idle
          for (fd = 2*fi; fd < 2*fi+2; fd++) begin : idle

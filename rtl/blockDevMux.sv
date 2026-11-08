@@ -61,22 +61,22 @@ module blockDevMux #(parameter VDNUM) (
     block_device_if.hps_mp    block_device_SD
 );
 
+    // FDD images: size and read-only latched per drive (img_size / img_readonly of hps_io are
+    // valid only with the img_mounted pulse); img_mounted itself goes on as the 1 clk event
+    // "image (re)mounted", as for the SD card. A mounted image survives a core reset.
     logic [23:0] FDD_image_size[6];
     logic  [5:0] FDD_image_ro;
-    logic  [5:0] FDD_image_mounted;
 
     initial begin
         FDD_image_size     = '{default: 24'd0};
         FDD_image_ro       = 6'd0;
-        FDD_image_mounted  = 6'd0;
     end
 
     always_ff @(posedge clk) begin
         for (int i = 0; i < 6; i++) begin
             if (img_mounted[i+1]) begin
-                FDD_image_size[i]     = img_size[23:0];
-                FDD_image_ro[i]       = img_readonly;
-                FDD_image_mounted[i]  = 1'b1;
+                FDD_image_size[i] <= img_size[23:0];
+                FDD_image_ro[i]   <= img_readonly;
             end
         end
     end
@@ -95,7 +95,7 @@ module blockDevMux #(parameter VDNUM) (
             assign block_device_FDD[i].buff_dout    = sd_buff_dout;
             assign block_device_FDD[i].buff_wr      = msx_config.fdd[i] ? sd_buff_wr : '0;          
             
-            assign block_device_FDD[i].img_mounted  = reset ? '0 : FDD_image_mounted[i];
+            assign block_device_FDD[i].img_mounted  = img_mounted[i+1];
             assign block_device_FDD[i].img_size     = msx_config.fdd[i] ? 64'(FDD_image_size[i]) : 'd0; 
             assign block_device_FDD[i].img_readonly = FDD_image_ro[i];
             

@@ -61,8 +61,8 @@ logic motor, side;
 drive_t drive;
 
 
-assign FDD_bus.USEL   = 0;                //TODO zatim jeden image
-assign FDD_bus.MOTORn = ~(motor && drive == DRIVE_A);
+assign FDD_bus.USEL   = drive == DRIVE_B;
+assign FDD_bus.MOTORn = ~(motor && drive != DRIVE_NONE);       // no drive selected: no motor, not ready
 assign FDD_bus.SIDEn  = ~side;
 
 //wire [1:0] dbg_status = {drq, intrq};

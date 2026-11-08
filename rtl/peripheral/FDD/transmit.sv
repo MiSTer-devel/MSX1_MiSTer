@@ -1,347 +1,180 @@
-module transmit #(parameter sysCLK)
+// Flux stream of one formatted IBM track (MFM, or FM), regenerated every rotation from the
+// track buffer: index gap, IAM, then per sector the ID field and the data field with CRC.
+// A sector (and the IAM) is recorded only while 'valid' (the buffer holds this track);
+// otherwise it reads as gap without address marks, so a controller never gets stale data.
+module transmit #(parameter logic MFM = 1'b1)
 (
     input  logic        clk,
     input  logic        reset,
-    
-    input  logic        drive_motor_rpm,
-    input  logic        floppy_bitRate,
-    input  logic        floppy_mfm,
-    input  logic  [5:0] floppy_sectors,
-    input  logic  [1:0] floppy_sectors_size,
-
+    input  logic        index,          // start of a rotation (1 clk)
+    input  logic        cell_en,        // MFM bit cell enable (2 cells per data bit)
+    input  logic  [4:0] spt,            // sectors per track (512 B each)
+    input  logic  [6:0] cyl,            // ID field C
+    input  logic        hd,             // ID field H
+    input  logic        valid,
     output logic [12:0] buffer_addr,
     input  logic  [7:0] buffer_q,
-    input  logic        track_ready,
-    input  logic  [6:0] track,
-    input  logic        side,
-    output logic        INDEXn,
-    output logic        READ_DATAn
+    output logic        flux            // 1 clk pulse per flux transition
 );
-    
-    typedef enum { 
-        WRITE_DATA,
-        WRITE_A1,
-        WRITE_C2,
-        WRITE_CRC1,
-        WRITE_CRC2,
-        WAIT
-    } write_type_t;
 
-    typedef enum { 
-        FDD_GAP4a,
-        FDD_SYNC_1,
-        FDD_IAM,
-        FDD_IAM_2,
-        FDD_GAP1,
-        FDD_SYNC_2,
-        FDD_IDAM,
-        FDD_IDAM_2,
-        FDD_C,
-        FDD_H,
-        FDD_R,
-        FDD_N,
-        FDD_CRC,
-        FDD_CRC1,
-        FDD_CRC2,
-        FDD_GAP2,
-        FDD_SYNC_3,
-        FDD_DDAM,
-        FDD_DDAM_2,
-        FDD_DATA,
-        FDD_CRC_D,
-        FDD_CRC_D1,
-        FDD_CRC_D2,
-        FDC_GAP3,
-        FDD_GAP4b
-    } fdd_track_state_t;
+    typedef enum logic [4:0] {
+        F_GAP4A, F_SYNC0, F_IAM_M, F_IAM, F_GAP1,
+        F_SYNC1, F_IDAM_M, F_IDAM, F_ID, F_ICRC, F_GAP2,
+        F_SYNC2, F_DAM_M, F_DAM, F_DATA, F_DCRC, F_GAP3,
+        F_GAP4B
+    } field_t;
 
-    logic [10:0] sector_sz;
-    logic [10:0] write_count;
-    logic [10:0] buff_pos;
-    logic [12:0] track_position;
-    logic  [5:0] sector;
-    logic  [5:0] next_sector;
+    localparam logic [7:0] GAP = MFM ? 8'h4E : 8'hFF;
+
+    function automatic logic [9:0] field_len(input field_t f);
+        case (f)
+            F_GAP4A:                     return MFM ? 10'd80 : 10'd40;
+            F_SYNC0, F_SYNC1, F_SYNC2:   return MFM ? 10'd12 : 10'd6;
+            F_IAM_M, F_IDAM_M, F_DAM_M:  return 10'd3;
+            F_GAP1:                      return MFM ? 10'd50 : 10'd26;
+            F_ID:                        return 10'd4;
+            F_ICRC, F_DCRC:              return 10'd2;
+            F_GAP2:                      return MFM ? 10'd22 : 10'd11;
+            F_DATA:                      return 10'd512;
+            F_GAP3:                      return MFM ? 10'd84 : 10'd42;
+            default:                     return 10'd1;      // marks; GAP4B lasts until index
+        endcase
+    endfunction
+
+    function automatic field_t next_field(input field_t f, input logic last_sector);
+        case (f)
+            F_GAP4A:  return F_SYNC0;
+            F_SYNC0:  return MFM ? F_IAM_M : F_IAM;
+            F_IAM_M:  return F_IAM;
+            F_IAM:    return F_GAP1;
+            F_GAP1:   return F_SYNC1;
+            F_SYNC1:  return MFM ? F_IDAM_M : F_IDAM;
+            F_IDAM_M: return F_IDAM;
+            F_IDAM:   return F_ID;
+            F_ID:     return F_ICRC;
+            F_ICRC:   return F_GAP2;
+            F_GAP2:   return F_SYNC2;
+            F_SYNC2:  return MFM ? F_DAM_M : F_DAM;
+            F_DAM_M:  return F_DAM;
+            F_DAM:    return F_DATA;
+            F_DATA:   return F_DCRC;
+            F_DCRC:   return F_GAP3;
+            F_GAP3:   return last_sector ? F_GAP4B : F_SYNC1;
+            default:  return F_GAP4B;
+        endcase
+    endfunction
+
+    function automatic logic [15:0] crc_upd(input logic [15:0] c, input logic [7:0] d);
+        logic [15:0] r;
+        r = c ^ {d, 8'h00};
+        for (int i = 0; i < 8; i++) r = r[15] ? {r[14:0], 1'b0} ^ 16'h1021 : {r[14:0], 1'b0};
+        return r;
+    endfunction
+
+    field_t      field;
+    logic  [9:0] cnt;
+    logic  [3:0] sector;
+    logic  [4:0] spt_l;
+    logic        sec_ok;                // current sector is recorded
+    logic [15:0] crc;
     logic  [7:0] txdat;
-    logic        crc_calc;
-    logic        txwr;
-    logic        fm_txmf8;
-    logic        fm_txmfb;
-    logic        fm_txmfc;
-    logic        fm_txmfe;
-    logic        mfm_txma1;
-    logic        mfm_txmc2;
-    
-    assign next_sector = sector + 6'd1;
-    assign buffer_addr = (sector_sz * sector) + {2'd0,buff_pos};
-    assign sector_sz   = 11'd128 << floppy_sectors_size;
-    
-    assign READ_DATAn  = ~(floppy_mfm ? mfm_bitout : fm_bitout);
+    typedef enum logic [2:0] {M_A1, M_C2, M_FC, M_FE, M_FB} mark_t;
+    logic        txwr, txmark;
+    mark_t       mark;
+    wire         txemp;
 
-    write_type_t write_type;
-    fdd_track_state_t fdd_state_next;
+    assign buffer_addr = {sector, cnt[8:0]};
+
+    // byte to send now
+    logic  [7:0] b;
+    logic        b_mark, b_crc_init, b_crc_upd;
+    mark_t       b_kind;
+    wire   in_sector = field >= F_SYNC1 && field <= F_GAP3;
+    wire   rec       = in_sector ? sec_ok : (field == F_IAM_M || field == F_IAM) ? valid : 1'b1;
+    always_comb begin
+        b = GAP;
+        {b_mark, b_crc_init, b_crc_upd} = '0;
+        b_kind = M_A1;
+        case (field)
+            F_SYNC0, F_SYNC1, F_SYNC2: b = 8'h00;
+            F_IAM_M:  begin b = 8'hC2; b_mark = 1'b1; b_kind = M_C2; end
+            F_IAM:    begin b = 8'hFC; b_mark = !MFM; b_kind = M_FC; end
+            F_IDAM_M, F_DAM_M: begin b = 8'hA1; b_mark = 1'b1; b_crc_upd = 1'b1; b_crc_init = cnt == 0; end
+            F_IDAM:   begin b = 8'hFE; b_mark = !MFM; b_kind = M_FE; b_crc_upd = 1'b1; b_crc_init = !MFM; end
+            F_DAM:    begin b = 8'hFB; b_mark = !MFM; b_kind = M_FB; b_crc_upd = 1'b1; b_crc_init = !MFM; end
+            F_ID: begin
+                b_crc_upd = 1'b1;
+                case (cnt[1:0])
+                    2'd0: b = {1'b0, cyl};
+                    2'd1: b = {7'd0, hd};
+                    2'd2: b = {3'd0, sector + 5'd1};
+                    2'd3: b = 8'd2;                       // 512 B
+                endcase
+            end
+            F_DATA:   begin b = buffer_q; b_crc_upd = 1'b1; end
+            F_ICRC, F_DCRC: b = cnt[0] ? crc[7:0] : crc[15:8];
+            default: ;
+        endcase
+        if (!rec) begin
+            b = GAP;
+            {b_mark, b_crc_init, b_crc_upd} = '0;
+        end
+    end
 
     always_ff @(posedge clk) begin
+        {txwr, txmark} <= '0;
         if (reset) begin
-            fdd_state_next <= FDD_GAP4b;
-            fdd_state_next <= FDD_GAP4b;
-            write_count    <= 0;
-            write_type     <= WRITE_DATA;
-            INDEXn         <= 1;
-            crc_calc       <= 0;
+            field  <= F_GAP4B;
+            cnt    <= '0;
+            sector <= '0;
+            spt_l  <= 5'd9;
+            sec_ok <= 1'b0;
         end else begin
-            if (drive_motor_rpm) begin
-                fdd_state_next <= FDD_GAP4a;
-                write_count    <= floppy_mfm ?  11'd80 : 11'd40;
-                txdat          <= floppy_mfm ?  8'h4E : 8'hFF;
-                sector         <= 0;
-                INDEXn         <= 0;
-            end
-            if (txemp) begin
-                if (write_count > 0) begin
-                    write_count <= write_count - 11'd1;
-                    case(write_type)
-                        WRITE_DATA: txwr      <= 1;
-                        WRITE_A1:   mfm_txma1 <= 1;
-                        WRITE_C2:   mfm_txmc2 <= 1;
-                        WRITE_CRC1: begin  txwr <= 1; txdat <= crc_out[15:8]; end
-                        WRITE_CRC2: begin  txwr <= 1; txdat <= crc_out[7:0]; end
-                        default:;
-                    endcase
-                    if (fdd_state_next == FDD_DATA) begin
-                        txdat    <= buffer_q;
-                        buff_pos <= buff_pos + 11'd1;              
-                    end
-                end else begin
-                    case (fdd_state_next)
-                        FDD_GAP4b: begin
-                            write_count        <= 1;
-                            txdat              <= floppy_mfm ?  8'h4E : 8'hFF;
-                        end
-                        FDD_GAP4a: begin
-                            write_count        <= floppy_mfm ?  11'd12 : 11'd6;
-                            txdat              <= 8'd00;
-                            fdd_state_next     <= FDD_SYNC_1;
-                        end
-                        FDD_SYNC_1: begin
-                            if (floppy_mfm) begin
-                                write_count    <= 3;
-                                txdat          <= 8'hC2;
-                                write_type     <= WRITE_C2;
-                                fdd_state_next <= FDD_IAM;
-                            end else begin
-                                fm_txmfc       <= 1;
-                                INDEXn         <= 1;
-                                fdd_state_next <= FDD_IAM_2;
-                            end
-                        end
-                        FDD_IAM: begin
-                            write_type     <= WRITE_DATA;
-                            write_count    <= 3;
-                            txdat          <= 8'hFC;
-                            INDEXn         <= 1;
-                            fdd_state_next <= FDD_IAM_2;
-                        end
-                        FDD_IAM_2: begin
-                            write_count    <= floppy_mfm ?  11'd50 : 11'd26;
-                            txdat          <= floppy_mfm ?  8'h4E : 8'hFF;
-                            fdd_state_next <= FDD_GAP1;
-                        end
-                        FDD_GAP1: begin
-                            write_count    <= floppy_mfm ?  11'd12 : 11'd6;
-                            txdat          <= 8'd00;
-                            fdd_state_next <= FDD_SYNC_2;
-                        end
-
-                        FDD_SYNC_2: begin
-                            crc_calc           <= 1;
-                            if (floppy_mfm) begin
-                                write_count    <= 3;
-                                txdat          <= 8'hA1;
-                                write_type     <= WRITE_A1;
-                                fdd_state_next <= FDD_IDAM;
-                            end else begin
-                                txdat          <= 8'hFE;
-                                fm_txmfe       <= 1;
-                                fdd_state_next <= FDD_IDAM_2;
-                            end
-                        end
-                        FDD_IDAM: begin
-                            write_count    <= 1;
-                            write_type     <= WRITE_DATA;
-                            txdat          <= 8'hFE;
-                            fdd_state_next <= FDD_IDAM_2;
-                        end
-                        FDD_IDAM_2: begin
-                            write_count    <= 1;
-                            txdat          <= {8'(track)};
-                            fdd_state_next <= FDD_C;
-                        end
-                        FDD_C: begin
-                            write_count    <= 1;
-                            txdat          <= {8'(side)};
-                            fdd_state_next <= FDD_H;
-                        end
-                        FDD_H: begin
-                            write_count    <= 1;
-                            txdat          <= {8'(next_sector)};
-                            fdd_state_next <= FDD_R;
-                        end
-                        FDD_R: begin
-                            write_count    <= 1;
-                            txdat          <= {8'(floppy_sectors_size)};
-                            fdd_state_next <= FDD_N;
-                        end
-                        FDD_N: begin
-                            crc_calc       <= 0;
-                            write_count    <= 1;
-                            write_type     <= WAIT;
-                            fdd_state_next <= FDD_CRC;
-                        end
-                        FDD_CRC: begin
-                            write_count    <= 1;
-                            write_type     <= WRITE_CRC1;
-                            fdd_state_next <= FDD_CRC1;
-                        end
-                        FDD_CRC1: begin
-                            write_count    <= 1;
-                            write_type     <= WRITE_CRC2;
-                            fdd_state_next <= FDD_CRC2;
-                        end
-                        FDD_CRC2: begin
-                            write_type     <= WRITE_DATA;
-                            write_count    <= floppy_mfm ?  11'd22 : 11'd11;
-                            txdat          <= floppy_mfm ?  8'h4E : 8'hFF;
-                            fdd_state_next <= FDD_GAP2;
-                        end
-                        FDD_GAP2: begin
-                            write_count    <= floppy_mfm ?  11'd12 : 11'd6;
-                            txdat          <= 8'd00;
-                            fdd_state_next <= FDD_SYNC_3;
-                        end
-                        FDD_SYNC_3: begin
-                            buff_pos       <= 0;
-                            crc_calc       <= 1;
-                            if (floppy_mfm) begin
-                                write_count    <= 3;
-                                txdat          <= 8'hA1;
-                                write_type     <= WRITE_A1;
-                                fdd_state_next <= FDD_DDAM;
-                            end else begin
-                                txdat          <= 8'hFB;
-                                fm_txmfb       <= 1;          // TODO fm_txmfb nebo fm_txmf8 podle toho zda jsou data delete
-                                fdd_state_next <= FDD_DDAM_2;
-                            end
-
-                        end
-                        FDD_DDAM: begin
-                            write_type     <= WRITE_DATA;
-                            write_count    <= 1;
-                            txdat          <= 8'hFB;         // TODO FB nebo F8 podle toho zda jsou data delete
-                            fdd_state_next <= FDD_DDAM_2;
-                        end
-                        FDD_DDAM_2: begin
-                            write_count    <= sector_sz;
-                            if (track_ready) begin
-                                txdat      <= buffer_q;
-                            end else begin
-                                txwr       <= 0;
-                            end
-                            fdd_state_next <= FDD_DATA;
-                        end
-                        FDD_DATA: begin
-                            crc_calc       <= 0;
-                            write_count    <= 1;
-                            write_type     <= WAIT;
-                            fdd_state_next <= FDD_CRC_D;
-                        end
-                        FDD_CRC_D: begin
-                            write_count    <= 1;
-                            write_type     <= WRITE_CRC1;
-                            fdd_state_next <= FDD_CRC_D1;
-                        end
-                        FDD_CRC_D1: begin
-                            write_count    <= 1;
-                            write_type     <= WRITE_CRC2;
-                            fdd_state_next <= FDD_CRC_D2;
-                        end
-                        FDD_CRC_D2: begin
-                            write_type     <= WRITE_DATA;
-                            write_count    <= floppy_mfm ?  11'd83 : 11'd42;        // TODO ověřit
-                            txdat          <= floppy_mfm ?  8'h4E : 8'hFF;
-                            fdd_state_next <= FDC_GAP3;
-                        end
-                        FDC_GAP3: begin
-                            if (sector == 8)
-                                fdd_state_next <= FDD_GAP4b;
-                            else begin
-                                fdd_state_next <= FDD_GAP1;
-                                sector         <= next_sector;
-                            end
-                        end
-                        default: ;
-                    endcase
+            if (!valid) sec_ok <= 1'b0;
+            if (index) begin
+                field  <= F_GAP4A;
+                cnt    <= '0;
+                sector <= '0;
+                spt_l  <= spt;
+            end else if (txemp) begin
+                txdat  <= b;
+                mark   <= b_kind;
+                txmark <= b_mark;
+                txwr   <= !b_mark;
+                if (b_crc_upd) crc <= crc_upd(b_crc_init ? 16'hFFFF : crc, b);
+                if (field != F_GAP4B) begin
+                    if (cnt == field_len(field) - 10'd1) begin
+                        field <= next_field(field, {1'b0, sector} == spt_l - 5'd1);
+                        cnt   <= '0;
+                        if (field == F_GAP3) sector <= sector + 4'd1;
+                        if (field == F_GAP1 || field == F_GAP3) sec_ok <= valid;
+                    end else
+                        cnt <= cnt + 10'd1;
                 end
-            end else begin
-                if (txwr)      txwr      <= 0;
-                if (fm_txmf8)  fm_txmf8  <= 0;
-                if (fm_txmfb)  fm_txmfb  <= 0;
-                if (fm_txmfc)  fm_txmfc  <= 0;
-                if (fm_txmfe)  fm_txmfe  <= 0;
-                if (mfm_txma1) mfm_txma1 <= 0;
-                if (mfm_txmc2) mfm_txmc2 <= 0;
             end
         end
     end
 
-logic txemp, crcwr;
-assign txemp = floppy_mfm ? mfm_txemp : fm_txemp;
-assign crcwr = txwr | mfm_txma1 | mfm_txmc2 | fm_txmfb | fm_txmf8 | fm_txmfe;
+    // Modulator; FM uses every 2nd cell (half the data rate of MFM on the same medium)
+    logic half = 1'b0;
+    always_ff @(posedge clk) if (cell_en) half <= ~half;
 
-logic fm_txemp;
-logic fm_bitout;
-fmmod fmmod(
-      .txdat(txdat),
-      .txwr(~floppy_mfm & txwr),
-      .txmf8(fm_txmf8),
-      .txmfb(fm_txmfb),
-      .txmfc(fm_txmfc),
-      .txmfe(fm_txmfe),
-      .txend(),
-      .txemp(fm_txemp),
-      .brk(1'b0),
-      .sft(floppy_bitRate),
-   
-      .bitout(fm_bitout),
-      .clk(clk),
-      .rstn(~reset)
-);
-
-logic mfm_txemp;
-logic mfm_bitout;
-mfmmod mfmmod(
-      .txdat(txdat),
-      .txwr(floppy_mfm & txwr),
-      .txma1(mfm_txma1),
-      .txmc2(mfm_txmc2),
-      .brk(1'b0),
-   
-      .txemp(mfm_txemp),
-      .txend(),
-   
-      .bitout(mfm_bitout),
-   
-      .sft(floppy_bitRate),
-      .clk(clk),
-      .rstn(~reset)
-);
-
-logic [15:0] crc_out;
-fdd_crc #(.POLYNOM(16'h1021)) crc (
-    .clk(clk),
-    .valid(crc_calc),
-    .we(crcwr),
-    .data_in(txdat),
-    .crc(crc_out)
-);
+    generate
+        if (MFM) begin : g_mfm
+            mfmmod mod (
+                .txdat(txdat), .txwr(txwr), .brk(1'b0),
+                .txma1(txmark && mark == M_A1), .txmc2(txmark && mark == M_C2),
+                .txemp(txemp), .txend(), .bitout(flux), .writeen(), .sft(cell_en),
+                .clk(clk), .rstn(~reset)
+            );
+        end else begin : g_fm
+            fmmod mod (
+                .txdat(txdat), .txwr(txwr), .txmf8(1'b0), .txmfb(txmark && mark == M_FB),
+                .txmfc(txmark && mark == M_FC), .txmfe(txmark && mark == M_FE),
+                .brk(1'b0), .sft(cell_en && half), .clk(clk), .rstn(~reset),
+                .txemp(txemp), .txend(), .bitout(flux), .writeen()
+            );
+        end
+    endgenerate
 
 endmodule

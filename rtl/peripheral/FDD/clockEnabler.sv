@@ -5,10 +5,10 @@ module clockEnabler #(
     input  logic                                 clk,
     output logic                                 en
 );
-    
+
     localparam int maxCount = clkFreq / targetFreq - 1;
 
-    logic [$clog2(maxCount)-1:0] counter;
+    logic [$clog2(maxCount+1)-1:0] counter;
 
     always_comb begin
         en = counter == 0;
@@ -19,7 +19,7 @@ module clockEnabler #(
         if (counter > 0) begin
             counter <= counter - 1'b1;
         end else begin
-            counter <= ($clog2(maxCount))'(maxCount);
+            counter <= ($clog2(maxCount+1))'(maxCount);
         end
     end
 

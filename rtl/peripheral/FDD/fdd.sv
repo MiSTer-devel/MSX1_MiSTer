@@ -20,7 +20,8 @@
 // Reads: transmit regenerates the track from the track buffer. Writes: receive decodes the
 // controller's stream (WRITE GATE, WRITE DATA) into the buffer, track_buffer flushes the written
 // sectors to the image. A write protected image ignores the gate; READ DATA is silent while
-// the gate is open.
+// the gate is open. The encoding (MFM / FM) follows the controller (FDD_if.MFM): a real drive
+// only moves flux, here the track is regenerated from sectors in the encoding asked for.
 //
 // The disk geometry comes from the image size (openMSX Disk::detectGeometryFallback, plus
 // 8 sectors per track): 720K / 640K double sided, 360K / 320K single sided, 80 tracks.
@@ -40,7 +41,6 @@
 module fdd #(
     parameter int   sysCLK,
     parameter       ID           = 0,
-    parameter logic MFM          = 1'b1,    // 0 = FM (not used by MSX)
     parameter int   SETTLE_MS    = 15
 )(
     input  logic              clk,
@@ -135,15 +135,14 @@ module fdd #(
     );
 
     logic flux;
-    transmit #(.MFM(MFM)) FDD_transmit (
-        .clk(clk), .reset(reset), .index(index_start), .cell_en(cell_en),
+    transmit FDD_transmit (
+        .clk(clk), .reset(reset), .index(index_start), .cell_en(cell_en), .mfm(FDD_bus.MFM),
         .spt(g.spt), .cyl(head_track), .hd(side), .valid(track_ready),
         .buffer_addr(buffer_addr), .buffer_q(buffer_q), .flux(flux), .sector_out(tx_sector)
     );
 
-    receive #(.MFM(MFM)) FDD_receive (
-        .clk(clk), .reset(reset), .wg(wg), .wd(FDD_bus.WRITE_DATAn),
-        .bitlen(32'(sysCLK / (MFM ? 500_000 : 250_000))),
+    receive #(.sysCLK(sysCLK)) FDD_receive (
+        .clk(clk), .reset(reset), .wg(wg), .wd(FDD_bus.WRITE_DATAn), .mfm(FDD_bus.MFM),
         .spt(g.spt), .valid(track_ready), .tx_sector(tx_sector),
         .wr_en(wr_en), .wr_addr(wr_addr), .wr_data(wr_data), .wr_sector(wr_sector),
         .wr_done(wr_done), .wr_bad(wr_bad)

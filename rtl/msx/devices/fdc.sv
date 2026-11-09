@@ -51,6 +51,7 @@ module dev_FDC #(parameter sysCLK)
                .cpu_bus(cpu_bus),
                .model(model),
                .floppy_drive_en(floppy_drive_en),
+               .density(io_device[DEV_WD2793][i].param[5]),
                .FDD_bus(wd_bus),
                .cs(cs_dev),
                .data(wd_data),
@@ -99,6 +100,7 @@ module fdc_if_idle (FDD_if.FDC_mp FDC_bus);
    assign FDC_bus.SIDEn      = 1'b1;
    assign FDC_bus.WRITE_GATEn = 1'b1;
    assign FDC_bus.WRITE_DATAn = 1'b1;
+   assign FDC_bus.MFM        = 1'b1;
    assign FDC_bus.DSKCHG_ACK = 2'b00;
 endmodule
 
@@ -116,6 +118,7 @@ module fdd_if_mux (
    assign fdd.SIDEn      = sel ? fdc1.SIDEn      : fdc0.SIDEn;
    assign fdd.WRITE_GATEn = sel ? fdc1.WRITE_GATEn : fdc0.WRITE_GATEn;
    assign fdd.WRITE_DATAn = sel ? fdc1.WRITE_DATAn : fdc0.WRITE_DATAn;
+   assign fdd.MFM        = sel ? fdc1.MFM        : fdc0.MFM;
    assign fdd.DSKCHG_ACK = sel ? fdc1.DSKCHG_ACK : fdc0.DSKCHG_ACK;
 
    assign fdc0.READYn     = fdd.READYn;

@@ -47,6 +47,7 @@ module wd279x_demodulator #(parameter sysCLK)
     logic [7:0]  fm_data, mfm_data;
     logic        fm_rx, mfm_rx;
     logic        mfm_a1, mfm_c2;
+    logic        fm_fe, fm_fb, fm_f8, fm_fc;        // FM marks (missing clocks), with fm_rx
 
     // Přepínání mezi FM a MFM
     assign fdd_data = DDENn ? fm_data : mfm_data;
@@ -68,22 +69,26 @@ module wd279x_demodulator #(parameter sysCLK)
         end
     end
 
-    // --- FM dekodér ---
-    fmdem fmdem_i (
+    // --- FM dekodér: 4 us cells (250 kbit/s media written in FM) ---
+    fmdem #(.bwidth(sysCLK / 250_000)) fmdem_i (
         .clk(clk),
         .rstn(MRn),
         .datin(RAWRDn),
-        .bitlen(sysCLK / 500_000), // TODO: podle bitrate
+        .bitlen(sysCLK / 250_000),
         .RXDAT(fm_data),
-        .RXED(fm_rx)
+        .RXED(fm_rx),
+        .DetMF8(fm_f8),
+        .DetMFB(fm_fb),
+        .DetMFC(fm_fc),
+        .DetMFE(fm_fe)
     );
 
-    // --- MFM dekodér ---
+    // --- MFM dekodér: 2 us cells ---
     mfmdem mfmdem_i (
         .clk(clk),
         .rstn(MRn),
         .datin(RAWRDn),
-        .bitlen(sysCLK / 500_000), // TODO: podle bitrate
+        .bitlen(sysCLK / 500_000),
         .RXDAT(mfm_data),
         .RXED(mfm_rx),
         .DetMA1(mfm_a1),
@@ -102,13 +107,13 @@ module wd279x_demodulator #(parameter sysCLK)
             IDAM_valid  <= 0;
             DAM_valid   <= 0;
         end else begin
-            if (~INDEXn || mfm_c2) begin
+            if (~INDEXn || mfm_c2 || (DDENn && fm_fc)) begin
                 IDAM_valid <= 0;
                 DAM_valid  <= 0;
                 a1_cnt     <= 0;
             end
 
-            if (mfm_a1) begin
+            if (!DDENn && mfm_a1) begin
                 a1_cnt     <= a1_cnt + 2'd1;
                 crc_calc   <= 1;
                 crcwr      <= (a1_cnt == 0);
@@ -117,8 +122,8 @@ module wd279x_demodulator #(parameter sysCLK)
                 a1_cnt <= 0;
             end
 
-            // Detekce ID Address Mark (0xFE)
-            if (a1_cnt == 3 && fdd_rx) begin
+            // Detekce ID Address Mark (0xFE): MFM after three A1
+            if (!DDENn && a1_cnt == 3 && fdd_rx) begin
                 if (mfm_data == 8'hFE) begin
                     IDAM_valid <= 0;
                     a1_cnt     <= 0;
@@ -131,6 +136,23 @@ module wd279x_demodulator #(parameter sysCLK)
                 end else begin
                     crc_calc <= 0;
                 end
+            end
+
+            // FM: the marks carry their missing clocks; the CRC starts at the mark (crcwr)
+            if (DDENn && fm_fe) begin
+                IDAM_valid <= 0;
+                DAM_valid  <= 0;
+                sec_id_cnt <= 0;
+                IDAM       <= 1;
+                crc_calc   <= 1;
+                crcwr      <= 1;
+            end
+            if (DDENn && (fm_fb || fm_f8) && IDAM_valid) begin
+                DATA_counter <= 10'd128 << IDAM_data[3][1:0];
+                DAM_valid    <= 1;
+                DAM_deleted  <= fm_f8;
+                crc_calc     <= 1;
+                crcwr        <= 1;
             end
 
             // Ukládání IDAM dat a CRC kontrola

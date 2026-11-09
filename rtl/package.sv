@@ -159,6 +159,8 @@ interface FDD_if();
     wire       READ_DATAn;
     wire       WRITE_GATEn;  // 0 = the controller writes; READ_DATA is silent meanwhile
     wire       WRITE_DATAn;  // flux transitions from the controller (falling edge)
+    wire       MFM;          // encoding of the controller (1 MFM, 0 FM): emulation only, the drive
+                             // regenerates the track from sectors (WD279x DDEN, TC8566AF MF bit)
     wire [1:0] DSKCHGn;     // per drive: 0 = disk changed since DSKCHG_ACK (turbo R FDCHG1/2)
     wire [1:0] DSKCHG_ACK;  // per drive: the controller has read the change (openMSX: read clears)
 
@@ -175,6 +177,7 @@ interface FDD_if();
         output  READ_DATAn,
         input   WRITE_GATEn,
         input   WRITE_DATAn,
+        input   MFM,
         output  DSKCHGn,
         input   DSKCHG_ACK
     );
@@ -192,6 +195,7 @@ interface FDD_if();
         input   READ_DATAn,
         output  WRITE_GATEn,
         output  WRITE_DATAn,
+        output  MFM,
         input   DSKCHGn,
         output  DSKCHG_ACK
     );

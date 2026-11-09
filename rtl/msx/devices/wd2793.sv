@@ -21,6 +21,7 @@ module dev_WD2793 #(parameter sysCLK)
    cpu_bus_if.device_mp    cpu_bus,
    input             [1:0] model,
    input             [1:0] floppy_drive_en,
+   input                   density,     // XML density: 0 MFM, 1 FM (the DDEN pin of the interface)
    FDD_if.FDC_mp           FDD_bus,
    input                   cs,
    output            [7:0] data,
@@ -48,6 +49,7 @@ assign FDD_bus.MOTORn = ~(motor && drive != DRIVE_NONE);       // no drive selec
 assign FDD_bus.SIDEn  = ~side;
 assign FDD_bus.WRITE_GATEn = ~wg;
 assign FDD_bus.WRITE_DATAn = ~wd;
+assign FDD_bus.MFM         = ~density;
 
 // Philips 7FFDh bit 2 = 0 iff the disk of the selected drive changed (openMSX PhilipsFDC; read
 // by the Sony disk ROMs, the Philips ROMs ignore it). The read clears it: acknowledged at the
@@ -159,8 +161,8 @@ wd279x #(.WD279_57(0),.sysCLK(sysCLK)) wd2793_i
    .READYn(FDD_bus.READYn),
    .WPROTn(FDD_bus.WPROTn),
    .RAWRDn(FDD_bus.READ_DATAn),
-   .DDENn(1'b0),              //TODO      Režim FM/MFM
-   .SSO(),                //Pouze WD2795/7
+   .DDENn(density),       // MSX interfaces wire DDEN to MFM; XML density="FM" for others
+   .SSO(),                // WD2795/7 only (side select output)
    .WG(wg),
    .WD(wd)
 );

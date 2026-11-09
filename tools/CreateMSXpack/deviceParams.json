@@ -23,6 +23,14 @@
             "max": null,
             "default": 0,
             "value_offset": 4
+        },
+        "density": {
+            "param_type": "enum",
+            "enums": ["MFM", "FM"],
+            "min": null,
+            "max": null,
+            "default": 0,
+            "value_offset": 5
         }
     },
     "TC8566AF": {

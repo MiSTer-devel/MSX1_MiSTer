@@ -62,6 +62,7 @@ dev_TC8566AF #(.sysCLK(SYS)) tc (
 `ifdef PREV_CORE
 assign FDD_bus.WRITE_GATEn = 1'b1;                      // the old glue does not drive the write signals
 assign FDD_bus.WRITE_DATAn = 1'b1;
+assign FDD_bus.MFM         = 1'b1;
 `endif
 
 // CPU accesses at least 4 us apart (Z80 LD A,(nn) at 3.58 MHz is 3.6 us): the MSR is only
@@ -278,12 +279,12 @@ endtask
 // a byte while RQM and NDM, then a TC pulse after the last expected byte
 int res_us;                                             // read_data: TC to result phase, us
 task automatic read_data(input string what, input int c, input int h, input int sec, input int eot,
-                         input int lba, output logic [7:0] st[]);
+                         input int lba, output logic [7:0] st[], input bit mfm = 1);
     logic [7:0] s, v;
     int n, bad, nbytes;
     longint unsigned t_end, t_tc;
     n = 0; bad = 0; nbytes = (eot - sec + 1) * 512;
-    command(what, '{8'h46, 8'(h << 2), 8'(c), 8'(h), 8'(sec), 8'h02, 8'(eot), 8'h2A, 8'hFF});
+    command(what, '{mfm ? 8'h46 : 8'h06, 8'(h << 2), 8'(c), 8'(h), 8'(sec), 8'h02, 8'(eot), 8'h2A, 8'hFF});
     t_end = cyc + 3000 * longint'(MS);
     while (n < nbytes && cyc < t_end) begin
         mem_rd(r_msr, s);
@@ -575,6 +576,11 @@ initial begin
             fail($sformatf("write protected: ST0 %02h ST1 %02h (expected IC 01, NW)", r[0], r[1]));
         repeat (30 * MS) @(negedge clk);
         if (stores[0] != s0) fail("write protected: sector stored");
+
+        // --- FM (MF = 0): the drive follows the controller's encoding, then MFM again
+        read_data("FM T3 H0 S5", 3, 0, 5, 5, 58, r, 0);
+        if (FDD_bus.MFM !== 1'b0) fail("FDD_if.MFM not 0 after an FM command");
+        read_data("MFM again T3 H0 S5", 3, 0, 5, 5, 58, r, 1);
     end
 `endif
 

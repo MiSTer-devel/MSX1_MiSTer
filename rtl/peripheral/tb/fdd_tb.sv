@@ -52,10 +52,17 @@ assign cpu_bus.rd   = rd;    assign cpu_bus.wr   = wr;    assign cpu_bus.req = r
 FDD_if     FDD_bus();
 wire [7:0] wd_data;
 wire       wd_oe;
+logic      tb_density = 1'b0;                           // XML density: 0 MFM, 1 FM (DDEN)
 dev_WD2793 #(.sysCLK(SYS)) wd (
     .cpu_bus(cpu_bus), .model(2'd0), .floppy_drive_en(2'b11), .FDD_bus(FDD_bus),
+`ifndef NO_DENSITY
+    .density(tb_density),
+`endif
     .cs(1'b1), .data(wd_data), .data_oe_rq(wd_oe)
 );
+`ifdef NO_DENSITY
+assign FDD_bus.MFM = 1'b1;                              // the old glue does not drive it
+`endif
 
 task automatic mem_wr(input logic [15:0] a, input logic [7:0] d);
     @(negedge clk); addr = a; dbo = d; mreq = 1; wr = 1; req = 1;
@@ -420,7 +427,7 @@ FDD_if  wr_bus();
 logic   tb_wgn = 1'b1, tb_stepn = 1'b1, tb_sdirn = 1'b1;
 assign wr_bus.USEL  = 1'b0;     assign wr_bus.MOTORn = 1'b0;  assign wr_bus.STEPn = tb_stepn;
 assign wr_bus.SDIRn = tb_sdirn; assign wr_bus.SIDEn  = 1'b1;  assign wr_bus.DSKCHG_ACK = 2'b00;
-assign wr_bus.WRITE_GATEn = tb_wgn;
+assign wr_bus.WRITE_GATEn = tb_wgn; assign wr_bus.MFM = 1'b1;
 fdd #(.sysCLK(SYS), .ID("FDDW")) wr_dut (
     .clk(clk), .reset(reset), .FDD_bus(wr_bus), .block_device(block_device_FDD[2:3]),
     .drive_ds(2'b11), .need_motor(1'b0)
@@ -526,44 +533,13 @@ int rd_during_wg = 0;
 always @(posedge clk) if (!wr_bus.WRITE_GATEn && !wr_bus.READ_DATAn) rd_during_wg++;
 `endif
 
-// ------------------------------------------------------------------ FM cell rate (separate unit, no SD answers)
-FDD_if          fm_bus();
-block_device_if fm_bd[2]();
-assign fm_bus.USEL = 1'b0;  assign fm_bus.MOTORn = 1'b0;  assign fm_bus.STEPn = 1'b1;
-assign fm_bus.SDIRn = 1'b1; assign fm_bus.SIDEn  = 1'b1; assign fm_bus.DSKCHG_ACK = 2'b00;
-assign fm_bus.WRITE_GATEn = 1'b1; assign fm_bus.WRITE_DATAn = 1'b1;
-generate
-    for (gi = 0; gi < 2; gi++) begin : fm_hps
-        assign fm_bd[gi].ack = 1'b0;          assign fm_bd[gi].buff_addr = '0;
-        assign fm_bd[gi].buff_dout = '0;      assign fm_bd[gi].buff_wr = 1'b0;
-        assign fm_bd[gi].img_size = 64'd737280;
-        assign fm_bd[gi].img_readonly = 1'b0;
-`ifdef OLD
-        assign fm_bd[gi].img_mounted = 1'b1;  // level in the old block device semantics
-`else
-        assign fm_bd[gi].img_mounted = 1'b0;
-`endif
-    end
-endgenerate
-`ifdef OLD
-fdd #(.sysCLK(SYS), .ID("FDDF")) fm_dut (
-    .clk(clk), .reset(reset), .FDD_bus(fm_bus), .block_device(fm_bd),
-    .speed(2'b00), .mfm(2'b00), .sides(2'b11), .sectors('{9,9}), .sector_size('{2,2}), .density('{0,0})
-);
-`else
-fdd #(.sysCLK(SYS), .ID("FDDF"), .MFM(1'b0)) fm_dut (
-    .clk(clk), .reset(reset), .FDD_bus(fm_bus), .block_device(fm_bd),
-    .drive_ds(2'b11), .need_motor(1'b0)
-`ifndef NO_MOTOR_OFF
-    , .motor_off_ms(16'd0)
-`endif
-);
-`endif
+// ------------------------------------------------------------------ cell rate monitor (drive A while measure_cells)
 longint unsigned fm_last = 0, fm_min = '1;
 logic fm_q = 1;
+bit   measure_cells = 0;
 always @(posedge clk) begin
-    fm_q <= fm_bus.READ_DATAn;
-    if (fm_q && !fm_bus.READ_DATAn && !reset) begin
+    fm_q <= FDD_bus.READ_DATAn;
+    if (measure_cells && fm_q && !FDD_bus.READ_DATAn) begin
         if (fm_last != 0 && cyc - fm_last < fm_min) fm_min <= cyc - fm_last;
         fm_last <= cyc;
     end
@@ -667,10 +643,6 @@ initial begin
     repeat (450 * MS) @(negedge clk);
     if (index_edges - e0 < 2 || index_edges - e0 > 3)
         fail($sformatf("index with motor on: %0d pulses in 450 ms", index_edges - e0));
-
-    // --- FM: one cell = 4 us at 250 kbit/s media (FF gap: a pulse every cell)
-    if (fm_min < longint'(SYS / 250_000) - 4 || fm_min > longint'(SYS / 250_000) + 4)
-        fail($sformatf("FM cell %0d clk (expected %0d)", fm_min, SYS / 250_000));
 
 `ifndef OLD
     // --- single sided drive: side 1 is not ready (openMSX RealDrive::isDiskInserted)
@@ -923,9 +895,60 @@ initial begin
         end else
             $display("WD2793 type III: no Read Address, the remaining type III checks are skipped");
     end
+
+`ifndef NO_DENSITY
+    // ================================================================ FM: the drive follows DDEN of the controller
+    begin
+        logic [7:0] w1[512], b1[1024], fmt[8192], st, data[$];
+        logic [15:0] c;
+        int s0, n;
+        foreach (w1[i]) w1[i] = 8'(i * 11 + 5);
+        foreach (b1[i]) b1[i] = i < 512 ? w1[i] : 8'h00;
+        mount(0, 737280, 14);
+        tb_density = 1'b1;
+        select_drive(0, 0, 1);
+        type1("restore FM", 8'h00);
+        seek(1);
+        repeat (20 * MS) @(negedge clk);
+
+        // --- read in FM: only possible when the drive transmits FM (the FM demodulator of the
+        //     controller cannot decode MFM); the shortest transition interval is 4 us in both
+        if (FDD_bus.MFM !== 1'b0) fail("FDD_if.MFM not 0 with density = FM");
+        fm_last = 0; fm_min = '1; measure_cells = 1;
+        read_ok("FM read T1 S2", 1, 2, 0, 1 * 18 + 1);
+        measure_cells = 0;
+        if (fm_min < longint'(SYS / 250_000) - 4)
+            fail($sformatf("FM: transitions %0d clk apart (at least %0d expected)", fm_min, SYS / 250_000));
+
+        // --- write in FM, into the image and back
+        s0 = stores[0];
+        write_cmd(1, 4, 1, b1, 0, 1, st, n);
+        if (n != 512 || (st & 8'hFC) != 0) fail($sformatf("FM write T1 S4: %0d bytes taken, status %02h", n, st));
+        wait_stores("FM write T1 S4", 0, s0 + 1, 50);
+        check_img("FM write T1 S4", 0, 1 * 18 + 3, w1);
+        read_ok("FM read back T1 S4", 1, 4, 0, 1 * 18 + 3);
+
+        // --- Read Address in FM: the CRC starts at the mark (no A1)
+        type3_cmd(8'hC0, fmt, 0, st, data, n);
+        if (data.size() != 6 || (st & 8'hFC) != 0)
+            fail($sformatf("FM read address: %0d bytes, status %02h", data.size(), st));
+        else begin
+            c = FDC::crc16(FDC::CRC_INIT, 8'hFE);
+            for (int k = 0; k < 4; k++) c = FDC::crc16(c, data[k]);
+            if (data[0] != 8'd1 || data[1] != 8'd0 || data[3] != 8'd2 || {data[4], data[5]} != c)
+                fail($sformatf("FM read address: %p (expected 01 00 R 02 and the CRC %04h)", data, c));
+        end
+
+        // --- back to MFM: the same track reads again
+        tb_density = 1'b0;
+        repeat (10) @(negedge clk);
+        if (FDD_bus.MFM !== 1'b1) fail("FDD_if.MFM not 1 with density = MFM");
+        read_ok("MFM again T1 S4", 1, 4, 0, 1 * 18 + 3);
+    end
+`endif
 `endif
 
-    $display("track loads: A %0d, B %0d, W %0d; stores W %0d; FM min interval %0d clk", loads[0], loads[1], loads[2], stores[2], fm_min);
+    $display("track loads: A %0d, B %0d, W %0d; stores A %0d, W %0d", loads[0], loads[1], loads[2], stores[0], stores[2]);
     if (errors == 0) $display("PASS fdd_tb");
     else             $display("FAILED fdd_tb: %0d errors", errors);
     $finish;

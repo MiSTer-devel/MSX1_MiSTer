@@ -21,6 +21,8 @@ if [ -n "$REV" ]; then
     [ -n "$OLD" ] && DEF="+define+OLD"
     # before the shared modem library: demodulators were wd279x_*dem in WD279x
     [ -z "$(git -C "$ROOT" ls-tree "$REV" rtl/peripheral/FDC/modem)" ] && DEF="$DEF +define+MODEM_OLD"
+    # before the density input of dev_WD2793 (FDD_if.MFM from the controller)
+    git -C "$ROOT" show "$REV:rtl/msx/devices/wd2793.sv" | grep -q density || DEF="$DEF +define+NO_DENSITY"
 fi
 [ -n "$NO_MOTOR_OFF" ] && DEF="$DEF +define+NO_MOTOR_OFF"
 verilator --binary --timing -O3 -Wno-fatal -Wno-lint -Wno-style -Wno-MULTIDRIVEN $DEF \

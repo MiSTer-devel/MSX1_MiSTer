@@ -98,9 +98,10 @@ module dev_TC8566AF #(parameter sysCLK)
    localparam int CELLF  = (sysCLK / 1000) * 1024 / 1000;
    localparam int CELLM  = CELLF / 2;
 
-   wire sdir, side;
+   wire sdir, side, core_mfm;
    assign FDD_bus.SDIRn = !sdir;              // core: 0 = step in; fdd: SDIRn 1 = in
    assign FDD_bus.SIDEn = side;               // core: side = ~HD
+   assign FDD_bus.MFM   = core_mfm;           // MF bit of the command
 
    tc8566af #(.sysclk(sysCLK / 1_000_000), .fracin(1)) fdc (
       .RDn(!(dev_cs && cpu_bus.rd && fdc_reg)),
@@ -141,7 +142,7 @@ module dev_TC8566AF #(parameter sysCLK)
       .td3(1'b1),
       .hmssft(hmssft),
       .busy(),
-      .mfm(),
+      .mfm(core_mfm),
       .sclk(cpu_bus.clk),
       .fclk(cpu_bus.clk),
       .rstn(!cpu_bus.reset)

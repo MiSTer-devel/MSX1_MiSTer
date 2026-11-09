@@ -27,6 +27,8 @@ module msx_slots (
     input MSX::block_t          slot_layout[64],
     input MSX::lookup_RAM_t     lookup_RAM[16],
     input MSX::lookup_SRAM_t    lookup_SRAM[4],
+    input MSX::main_ram_t       main_ram,         // turbo R: RAM other blocks may map (main_cs)
+    input                       dram,             // turbo R S1990: DRAM mode
     input                 [1:0] active_slot,      // Currently active slot
     output                [7:0] data,
     output                      data_oe_rq,       // Priority output
@@ -68,6 +70,10 @@ module msx_slots (
     assign active_RAM = lookup_RAM[active_block.ref_ram];
     assign active_SRAM = lookup_SRAM[active_block.ref_sram];
 
+    MSX::lookup_RAM_t main_RAM;
+    assign main_RAM = lookup_RAM[main_ram.ref_ram];
+    wire main_cs;
+
     wire [1:0] offset_ram = active_block.offset_ram;
     wire       cart_num   = active_block.cart_num;
 
@@ -84,10 +90,10 @@ module msx_slots (
     assign data       = subslot_output_rq ? subslot_data : mapper_data;
     assign data_oe_rq = subslot_output_rq;
 
-    assign memory_bus.addr    = (memory_bus_mappers.sram_cs ? 27'(base_sram) : base_ram) + memory_bus_mappers.addr;
+    assign memory_bus.addr    = (memory_bus_mappers.sram_cs ? 27'(base_sram) : main_cs ? main_RAM.addr : base_ram) + memory_bus_mappers.addr;
     assign memory_bus.rnw     = memory_bus_mappers.rnw | (memory_bus_mappers.ram_cs & ram_ro);
     assign memory_bus.data    = cpu_bus.data;
-    assign memory_bus.ram_cs  = ~subslot_output_rq && (memory_bus_mappers.ram_cs || memory_bus_mappers.sram_cs);
+    assign memory_bus.ram_cs  = ~subslot_output_rq && (memory_bus_mappers.ram_cs || memory_bus_mappers.sram_cs || main_cs);
     assign memory_bus.sram_cs = '0;
 
     assign memory_bus_mappers.q = memory_bus.q;
@@ -97,6 +103,9 @@ module msx_slots (
     // OCM internal ESE-SCC (machine block): slot 2 follows Slot2Mode, slot 1 Slot1Mode
     assign block_info.id         = active_block.mapper == MAPPER_MEGARAM ? active_slot == 2'd2 : cart_num;
     assign block_info.offset_ram = offset_ram;
+    assign block_info.mapper_param  = active_block.mapper_param;
+    assign block_info.main_ram_size = main_ram.en ? main_RAM.size : 17'd0;
+    assign block_info.dram          = dram;
 
     wire [7:0] mapper_data;
     wire slot_expander_force_en;
@@ -105,6 +114,7 @@ module msx_slots (
         .cpu_bus(cpu_bus),
         .device_bus(device_bus),
         .memory_bus(memory_bus_mappers),
+        .main_cs(main_cs),
         .ext_SD_card_bus(ext_SD_card_bus),
         .flash_bus(flash_bus),
         .block_info(block_info),

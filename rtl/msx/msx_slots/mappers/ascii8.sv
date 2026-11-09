@@ -76,6 +76,7 @@ module mapper_ascii8 (
     wire ram_cs    = cs & ram_valid & ~sram_en & cpu_bus.rd;
 
     assign out.sram_cs = sram_cs;
+    assign out.main_cs = 1'b0;
     assign out.ram_cs  = ram_cs;
     assign out.rnw     = ~(sram_cs & cpu_bus.wr);
     assign out.addr    = cs ? (sram_en ? sram_addr : ram_addr) : {27{1'b1}};

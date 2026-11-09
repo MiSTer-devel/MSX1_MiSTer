@@ -94,6 +94,7 @@ module mapper_national (
 
     // Assign the final outputs for the mapper
     assign out.sram_cs = (sram_rd | sram_wr) && 0 ;                                     // TODO proč tu mám nulu
+    assign out.main_cs = 1'b0;
     assign out.ram_cs  = ~sram_rq && ~bank_rd && cs;
     assign out.rnw     = ~sram_wr;
     assign out.data    = bank_rd ? bank[cpu_bus.addr[2:1]] : 8'hFF;

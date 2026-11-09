@@ -84,6 +84,7 @@ module mapper_fm_pac (
 
     // Mapper output signals
     assign out.sram_cs  = cs && sram_en;
+    assign out.main_cs  = 1'b0;
     assign out.ram_cs   = cs && ~sram_en && cpu_bus.rd && mapped;
     assign out.rnw      = ~(out.sram_cs && cpu_bus.wr);
     assign out.addr     = cs ? (out.sram_cs ? sram_addr : ram_addr) : {27{1'b1}};

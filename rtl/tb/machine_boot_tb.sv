@@ -178,6 +178,27 @@ logic req_q = 0;
 always @(posedge clk_core) req_q <= sys.MSX.cpu_bus.req;
 wire  access = sys.MSX.cpu_bus.req && !req_q && !reset;
 
+// Turbo R: writes to the S1990 (E5h) with the last M1 fetch, CPU / DRAM mode changes, accesses
+// to the main RAM through main_cs (Panasonic RAM banks, DRAM mode)
+logic [15:0] last_m1 = '0;
+int          s1990_wr = 0, main_rd = 0, main_wr = 0;
+logic        r800_q = 0, dram_q = 0;
+always @(posedge clk_core) begin
+    if (access && sys.MSX.cpu_bus.mreq && sys.MSX.cpu_bus.m1) last_m1 <= sys.MSX.cpu_bus.addr;
+    if (access && sys.MSX.cpu_bus.iorq && !sys.MSX.cpu_bus.m1 && sys.MSX.cpu_bus.wr && sys.MSX.cpu_bus.addr[7:0] == 8'hE5
+        && sys.io_device[DEV_S1990][0].enable) begin
+        s1990_wr++;
+        if (s1990_wr <= 40) $display("%0t S1990 E5 <= %02h (last M1 %04h)", $time, sys.MSX.cpu_bus.data, last_m1);
+    end
+    if (access && sys.MSX.msx_slots.main_cs) begin
+        if (sys.MSX.cpu_bus.wr) main_wr++; else main_rd++;
+    end
+    r800_q <= sys.MSX.turbor_r800;
+    dram_q <= sys.MSX.turbor_dram;
+    if (!reset && r800_q != sys.MSX.turbor_r800) $display("%0t S1990: %s", $time, sys.MSX.turbor_r800 ? "R800" : "Z80");
+    if (!reset && dram_q != sys.MSX.turbor_dram) $display("%0t S1990: %s mode", $time, sys.MSX.turbor_dram ? "DRAM" : "ROM");
+end
+
 // Floppy controller (TC8566AF at its fixed position): bytes written to / read from the data
 // register; M1 fetches in its block (the disk ROM runs)
 wire        tc_cs   = sys.MSX.devices.FDC.FDC_INSTANCES[MSX::TC8566AF_POS].tc.cs_dev;
@@ -372,6 +393,8 @@ initial begin
     if ($value$plusargs("vram_dump=%s", dump)) dump_vram(dump);
     $display("disk ROM M1 %0d, FDC commands %0d, Read Data ok %0d / abnormal %0d, HPS reads %0d (LBA 0: %0d)",
              disk_m1, fdc_log, reads_ok, reads_bad, lba_reads, lba0_reads);
+    if (sys.io_device[DEV_S1990][0].enable)
+        $display("turbo R: S1990 E5 writes %0d, main RAM via main_cs: %0d reads, %0d writes", s1990_wr, main_rd, main_wr);
 
     // controller checks only for the TC8566AF (a WD2793 machine checks the drive and the screen)
     tc_used = sys.io_device[DEV_TC8566AF][MSX::TC8566AF_POS].enable;

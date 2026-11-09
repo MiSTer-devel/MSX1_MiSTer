@@ -55,6 +55,7 @@ module msx #(parameter sysCLK)
    input MSX::block_t       slot_layout[64],
    input MSX::lookup_RAM_t  lookup_RAM[16],
    input MSX::lookup_SRAM_t lookup_SRAM[4],
+   input MSX::main_ram_t    main_ram,
    input MSX::io_device_t   io_device[32][3],
    input MSX::io_device_mem_ref_t io_memory[8],
    input MSX::msx_config_t  msx_config,
@@ -99,6 +100,7 @@ wire                 reset_lock, reset_request;
 wire                 ocm_megaSD_enable, ocm_slot1_mode;
 wire           [1:0] ocm_slot2_mode;
 wire                 ocm_ipl_en, ocm_mmc_on, ocm_mmc_wait, opll_wait;
+wire                 turbor_r800, turbor_dram;
 MSX::cpu_speed_t     cpu_speed;
 wire signed   [15:0] device_sound_L, device_sound_R;
 
@@ -234,6 +236,8 @@ devices #(.sysCLK(sysCLK)) devices
    .reset_request(reset_request),
    .cpu_speed(cpu_speed),
    .opll_wait(opll_wait),
+   .turbor_r800(turbor_r800),
+   .turbor_dram(turbor_dram),
    .ocm_mmc_on(ocm_mmc_on),
    .ocm_megaSD_enable(ocm_megaSD_enable),
    .ocm_slot1_mode(ocm_slot1_mode),
@@ -252,6 +256,8 @@ msx_slots msx_slots
    .slot_layout(slot_layout),
    .lookup_RAM(lookup_RAM),
    .lookup_SRAM(lookup_SRAM),
+   .main_ram(main_ram),
+   .dram(turbor_dram),
    .data(d_from_slots),
    .data_oe_rq(slot_oe_rq),
    .memory_bus(memory_bus_slots),

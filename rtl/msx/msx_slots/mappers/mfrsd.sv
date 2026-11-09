@@ -36,6 +36,7 @@ module mapper_mfrsd0 (
     // outputs not used by this mapper: neutral for the merge in mappers.sv
     assign out.rnw     = 1'b1;
     assign out.sram_cs = 1'b0;
+    assign out.main_cs = 1'b0;
     assign out.data    = 8'hFF;
 
 endmodule
@@ -218,6 +219,7 @@ module mapper_mfrsd1 (
     // outputs not used by this mapper: neutral for the merge in mappers.sv
     assign out.data    = 8'hFF;   // flash read data comes from mfrsd3 (shared data_valid)
     assign out.sram_cs = 1'b0;
+    assign out.main_cs = 1'b0;
     assign device_out.device_ref = 3'd0;
     assign device_out.we         = 1'b0;
 
@@ -244,6 +246,7 @@ module mapper_mfrsd2 (
 
     // outputs not used by this mapper: neutral for the merge in mappers.sv
     assign out.sram_cs = 1'b0;
+    assign out.main_cs = 1'b0;
     assign out.data    = 8'hFF;
 
 endmodule
@@ -356,6 +359,7 @@ module mapper_mfrsd3 (
 
     // outputs not used by this mapper: neutral for the merge in mappers.sv
     assign out.sram_cs = 1'b0;
+    assign out.main_cs = 1'b0;
 
 endmodule
 

@@ -35,6 +35,7 @@ module memory_upload
     output MSX::block_t         slot_layout[64],
     output MSX::lookup_RAM_t    lookup_RAM[16],
     output MSX::lookup_SRAM_t   lookup_SRAM[4],
+    output MSX::main_ram_t      main_ram,           // turbo R: block with mapper PANASONIC_RAM
     input  MSX::config_cart_t   cart_conf[2],
     output MSX::io_device_t     io_device[32][3],
     output MSX::io_device_mem_ref_t io_memory[8],
@@ -151,7 +152,7 @@ module memory_upload
         logic [2:0]  head_addr, read_cnt;
         logic [27:0] save_addr, save_addr2;
         logic        ref_add, ref_sram_add, fw_space, ref_dev_block, ref_dev_mem, set_offset, fix_offset;
-        logic [1:0]  slot, subslot, block, size, offset, ref_sram;
+        logic [1:0]  slot, subslot, block, size, offset, ref_sram, mapper_param;
         logic [15:0] rom_fw_table;
         logic  [2:0] io_ref_mem, io_ref_mapper;
         logic        cart_id;
@@ -217,7 +218,9 @@ module memory_upload
                     slot_layout[block_num].ref_sram   <= '0;
                     slot_layout[block_num].external   <= '0;
                     slot_layout[block_num].device_ref <= '0;
+                    slot_layout[block_num].mapper_param <= '0;
                     lookup_SRAM[block_num[1:0]].size  <= '0;
+                    main_ram.en                       <= '0;
                     slot_expander[block_num & 3].en   <= '0;
                     slot_expander[block_num & 3].wo   <= '1;
                     slot_expander[block_num & 3].init <= '0;
@@ -411,6 +414,7 @@ module memory_upload
                 end
                 STATE_PROCESS_BLOCK: begin
                     mapper        <= MAPPER_NONE;
+                    mapper_param  <= '0;
                     device        <= DEV_NONE;
                     ref_dev_block <= '0;
                     ref_dev_mem   <= '0;
@@ -541,9 +545,10 @@ module memory_upload
                             end
                         end
                         BLOCK_MAPPER: begin
-                            $display("BLOCK MAPPER %d offset enable %d offset %d set_offset %d fix_offset %d", conf[3], conf[4][7], conf[4][1:0],conf[4][7],conf[4][6]);
+                            $display("BLOCK MAPPER %d offset enable %d offset %d set_offset %d fix_offset %d param %d", conf[3], conf[4][7], conf[4][1:0],conf[4][7],conf[4][6],conf[4][3:2]);
                             mapper     <= mapper_typ_t'(conf[3]);
                             offset     <= conf[4][1:0];
+                            mapper_param <= conf[4][3:2];
                             set_offset <= conf[4][7];
                             fix_offset <= conf[4][6];
                             state      <= STATE_SET_LAYOUT;
@@ -672,6 +677,7 @@ module memory_upload
                         set_offset   <= '0;
                         fix_offset   <= '0;
                         mapper       <= MAPPER_NONE;
+                        mapper_param <= '0;
                         state        <= next_state;
                         next_state   <= STATE_LOAD_CONF;
                     end
@@ -693,6 +699,12 @@ module memory_upload
 
                     if (mapper != MAPPER_NONE) begin
                         slot_layout[{slot, subslot, block}].mapper     <= mapper;
+                        slot_layout[{slot, subslot, block}].mapper_param <= mapper_param;
+                        if (mapper == MAPPER_PANASONIC_RAM) begin   // the RAM of this block (set by its RAM entry)
+                            main_ram.en      <= 1'b1;
+                            main_ram.ref_ram <= slot_layout[{slot, subslot, block}].ref_ram;
+                            $display("BLOCK slot:%x subslot:%x block:%x = main RAM ref:%x", slot, subslot, block, slot_layout[{slot, subslot, block}].ref_ram);
+                        end
                         $display("BLOCK slot:%x subslot:%x block:%x < mapper:%x", slot, subslot, block, mapper );
                     end
 
@@ -720,6 +732,7 @@ module memory_upload
                     if (ref_dev_mem) begin
                         slot_layout[{slot, subslot, block}].ref_ram    <= slot_layout[{slot, subslot, conf[3][1:0]}].ref_ram;
                         slot_layout[{slot, subslot, block}].mapper     <= slot_layout[{slot, subslot, conf[3][1:0]}].mapper;
+                        slot_layout[{slot, subslot, block}].mapper_param <= slot_layout[{slot, subslot, conf[3][1:0]}].mapper_param;
                         slot_layout[{slot, subslot, block}].offset_ram <= slot_layout[{slot, subslot, conf[3][1:0]}].offset_ram;
                         $display("BLOCK slot:%x subslot:%x block:%x < reference:%x ", slot, subslot, block, slot_layout[{slot, subslot, conf[3][1:0]}].ref_ram);
                         $display("BLOCK slot:%x subslot:%x block:%x < offset:%x ", slot, subslot, block, slot_layout[{slot, subslot, conf[3][1:0]}].offset_ram);

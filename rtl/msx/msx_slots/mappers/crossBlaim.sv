@@ -70,6 +70,7 @@ module mapper_crossBlaim (
     // outputs not used by this mapper: neutral for the merge in mappers.sv
     assign out.rnw     = 1'b1;
     assign out.sram_cs = 1'b0;
+    assign out.main_cs = 1'b0;
     assign out.data    = 8'hFF;
 
 endmodule

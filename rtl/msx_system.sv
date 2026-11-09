@@ -77,6 +77,7 @@ MSX::config_cart_t       cart_conf[2];
 MSX::block_t             slot_layout[64];
 MSX::lookup_RAM_t        lookup_RAM[16];
 MSX::lookup_SRAM_t       lookup_SRAM[4];
+MSX::main_ram_t          main_ram;
 MSX::io_device_t         io_device[32][3];
 MSX::io_device_mem_ref_t io_memory[8];
 MSX::slot_expander_t     slot_expander[4];
@@ -164,6 +165,7 @@ msx #(.sysCLK(sysCLK)) MSX
    .slot_layout(slot_layout),
    .lookup_RAM(lookup_RAM),
    .lookup_SRAM(lookup_SRAM),
+   .main_ram(main_ram),
    .io_device(io_device),
    .io_memory(io_memory),
    .msx_config(msx_config),
@@ -202,6 +204,7 @@ memory_upload memory_upload(
    .slot_layout(slot_layout),
    .lookup_RAM(lookup_RAM),
    .lookup_SRAM(lookup_SRAM),
+   .main_ram(main_ram),
    .cart_conf(cart_conf),
    .load_sram(load_sram),
    .io_device(io_device),

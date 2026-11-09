@@ -43,6 +43,7 @@ module mapper_turbor_fdc (
     assign out.addr    = rom ? {5'b0, bank[block_info.id], cpu_bus.addr[13:0]} : {27{1'b1}};
     assign out.rnw     = 1'b1;
     assign out.sram_cs = 1'b0;
+    assign out.main_cs = 1'b0;
     assign out.data    = 8'hFF;
 
 endmodule

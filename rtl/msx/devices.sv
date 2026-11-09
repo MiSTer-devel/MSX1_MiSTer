@@ -51,6 +51,8 @@ module devices  #(parameter sysCLK)
     output                  reset_request,
     output MSX::cpu_speed_t cpu_speed,              // OCM turbo, '0 without OCM
     output                  opll_wait,              // CPU wait: OPLL busy (turbo)
+    output                  turbor_r800,            // S1990: R800 selected
+    output                  turbor_dram,            // S1990: DRAM mode (ROM read from the main RAM)
     input                   ocm_mmc_on,
     output                  ocm_megaSD_enable,
     output                  ocm_slot1_mode,
@@ -278,18 +280,18 @@ module devices  #(parameter sysCLK)
         .sound(dac_sound)
     );
 
-    // Turbo R: S1990 (E4h / E5h), PCM (A4h / A5h), pause (A7h). TODO: CPU switch (r800, dram),
-    // firmware switch, pause key and LEDs are not connected yet (doc/turboR.md).
+    // Turbo R: S1990 (E4h / E5h), PCM (A4h / A5h), pause (A7h). TODO: firmware switch, pause key
+    // and LEDs are not connected yet (doc/turboR.md).
     wire [7:0] s1990_data, turbor_pcm_data, turbor_pause_data;
-    wire       s1990_r800, s1990_dram, turbor_mute;
+    wire       turbor_mute;
     MSX::sound_t turbor_pcm_sound;
     dev_s1990 dev_s1990 (
         .cpu_bus(cpu_bus),
         .io_device(io_device[DEV_S1990]),
         .firmware_sw(1'b0),
         .data(s1990_data),
-        .r800(s1990_r800),
-        .dram(s1990_dram)
+        .r800(turbor_r800),
+        .dram(turbor_dram)
     );
     dev_turbor_pcm dev_turbor_pcm (
         .cpu_bus(cpu_bus),

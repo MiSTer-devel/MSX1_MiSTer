@@ -1,8 +1,8 @@
 // mapper_panasonic against openMSX RomPanasonic: reset banks = ROM 0, low bits written at
 // 6000-7FEF with regions 5 and 6 swapped, bit 8 at 7FF8, control at 7FF9, read back by control
 // bits 2 / 4 / 3, SRAM banks 80h.., SRAM writes from any region, ROM block masking, RAM banks
-// (from 180h) not mapped yet.
-// Run: wsl.exe -- bash rtl/msx/msx_slots/tb/run_panasonic.sh
+// (from 180h) in the main RAM through main_cs, ROM without a main RAM.
+// Run: wsl.exe -- bash rtl/msx/msx_slots/tb/run_panasonic.sh   (PREV=<git ref>: mapper from that ref)
 module panasonic_tb;
 
 logic clk = 0, rst = 1;
@@ -28,7 +28,7 @@ assign cpu_bus.m1   = 1'b0;
 int errors = 0;
 task automatic fail(input string what);
     errors++;
-    $display("FAIL %s: ram_cs %b sram_cs %b rnw %b addr %07h data %02h", what, out.ram_cs, out.sram_cs, out.rnw, out.addr, out.data);
+    $display("FAIL %s: ram_cs %b sram_cs %b main_cs %b rnw %b addr %07h data %02h", what, out.ram_cs, out.sram_cs, out.main_cs, out.rnw, out.addr, out.data);
 endtask
 
 task automatic write(input logic [15:0] a, input logic [7:0] d);
@@ -104,9 +104,30 @@ initial begin
     if (out.sram_cs || out.ram_cs) fail("write to a ROM bank ignored");
     @(negedge clk); req = 0; idle();
 
-    // RAM banks (180h..): not mapped yet
+    // RAM banks (180h..): 8 KB block (bank - 180h) of the main RAM (256 KB = 32 blocks), main_cs
+    block_info.main_ram_size = 17'd32;
     write(16'h7FF8, 8'b0000_0100); write(16'h6800, 8'h80);   // region 2 = 180h
-    read(16'h4000); if (out.ram_cs || out.sram_cs || out.data !== 8'hFF) fail("RAM bank 180h unmapped"); idle();
+    read(16'h4123); if (!(out.main_cs && !out.ram_cs && !out.sram_cs && out.addr == 27'h0000123)) fail("RAM bank 180h read"); idle();
+    write(16'h6800, 8'h9F);                                   // 19Fh = RAM block 1Fh
+    read(16'h5FFF); if (!(out.main_cs && out.addr == 27'h003FFFF)) fail("RAM bank 19Fh = block 1Fh"); idle();
+    write(16'h6800, 8'hA1);                                   // 1A1h = block 21h, masked to 01h
+    read(16'h4000); if (!(out.main_cs && out.addr == 27'h0002000)) fail("RAM bank 1A1h masked to block 01h"); idle();
+    @(negedge clk); addr = 16'h4777; data = 8'h5A; mreq = 1; wr = 1; req = 1; #0;
+    if (!(out.main_cs && !out.rnw && out.addr == 27'h0002777)) fail("RAM bank write");
+    @(negedge clk); req = 0; idle();
+    write(16'h6C00, 8'h80); write(16'h7FF8, 8'b0000_1100);   // region 3 (6000-7FFF) = 180h
+    @(negedge clk); addr = 16'h7FF0; data = 8'h77; mreq = 1; wr = 1; req = 1; #0;
+    if (!(out.main_cs && !out.rnw && out.addr == 27'h0001FF0)) fail("RAM write at 7FF0 (region 3)");
+    @(negedge clk); req = 0; idle();
+    @(negedge clk); addr = 16'h6C00; data = 8'h80; mreq = 1; wr = 1; req = 1; #0;
+    if (out.main_cs || out.sram_cs) fail("register write at 6C00 is not a RAM write");
+    @(negedge clk); req = 0; idle();
+    write(16'h7FF9, 8'h04);                                   // read back banks
+    read(16'h7FF2); if (out.main_cs || out.data !== 8'hA1) fail("7FF2 reads bank 2 over a RAM bank"); idle();
+    write(16'h7FF9, 8'h00);
+    // no main RAM: banks from 180h are ROM (openMSX: getRamSize() == 0)
+    block_info.main_ram_size = 17'd0;
+    expect_rom("bank 1A1h without main RAM = ROM A1h", 16'h4000, 8'hA1);
 
     // other mapper type: idle
     block_info.typ = MAPPER_GENERIC8KB;

@@ -134,5 +134,6 @@ module mapper_eseRam (
 
     // outputs not used by this mapper: neutral for the merge in mappers.sv
     assign out.sram_cs = 1'b0;
+    assign out.main_cs = 1'b0;
 
 endmodule

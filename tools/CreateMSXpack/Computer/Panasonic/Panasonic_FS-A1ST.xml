@@ -1,0 +1,93 @@
+<?xml version="1.0" ?>
+<!-- Panasonic FS-A1ST (MSX turbo R), layout as openMSX share/machines/Panasonic_FS-A1ST.xml.
+     The firmware is one 4 MB file of 8 KB blocks; each ROM below is a cut of it (skip = block x 8 KB).
+     Not yet: SRAM 16 KB of the Panasonic mapper (computer blocks have no SRAM), printer, firmware
+     switch, pause key, R800 timing (doc/turboR.md). -->
+<msxConfig>
+  <cpu>Z80</cpu>                   <!-- Z80 at reset, R800 switched by the S1990 -->
+  <wait_count>1</wait_count>       <!-- 0 - 3 -->
+  <cpu_frequency>0</cpu_frequency> <!-- 0-3.58, 1-5.39, 2-10.7-->
+  <device mask="0xFC" port="0x98" VDP_ID="V9958">V99xx</device>
+  <device mask="0xF8" port="0xA0" system="true">PSG</device>
+  <device mask="0xF8" port="0xA8">PPI</device>
+  <device mask="0xFE" port="0xB4">RTC</device>
+  <device mask="0xFE" port="0x7C">OPLL</device>                     <!-- MSX-MUSIC -->
+  <device mask="0xFF" port="0xF4">RESET_STATUS</device>
+  <device mask="0xFE" port="0xE4">S1990</device>
+  <device mask="0xFE" port="0xE6">SYSTIMER</device>
+  <device mask="0xFE" port="0xA4">TURBOR_PCM</device>
+  <device mask="0xFF" port="0xA7">TURBOR_PAUSE</device>
+  <device mask="0xD8" port="0xD8" ROM_SHA1="5aff2d9b6efc723bc395b0f96f0adfa83cc54a49">KANJI</device>
+  <kbd_layout>/yX/cWdlZv//ZP//cHMh////YP9hRgH///9XUCZUAv//MFUxMgQD//+AUzNRRwX//0MnNTRWBv///0I3UgcQ//8iQDZEABH//yMkQRdFEv///yD/FRP//2Ngdxb/FP//////////df///////////////////3L/dv//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////Yv//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////hIH///+Cg4b/h4X///////90//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////8=</kbd_layout>
+  <primary slot="0">
+    <secondary slot="0">
+      <block start="0" count="2"> <!-- BIOS + BASIC, blocks 40-43; DRAM mode: top 64 KB of the RAM, pages 0-1 -->
+        <memory SHA1="c212b11fda13f83dafed688c54d098e7e47ab225" filename="fs-a1st_firmware.rom" skip="0x50000" size="32768">ROM</memory>
+        <mapper param="0">DRAM</mapper>
+      </block>
+    </secondary>
+    <secondary slot="2">
+      <block start="1" count="1"> <!-- MSX-MUSIC, blocks 62-63 -->
+        <memory SHA1="c212b11fda13f83dafed688c54d098e7e47ab225" filename="fs-a1st_firmware.rom" skip="0x7C000" size="16384">ROM</memory>
+      </block>
+    </secondary>
+    <secondary slot="3">
+      <block start="1" count="1"> <!-- Opening ROM, blocks 36-37 -->
+        <memory SHA1="c212b11fda13f83dafed688c54d098e7e47ab225" filename="fs-a1st_firmware.rom" skip="0x48000" size="16384">ROM</memory>
+      </block>
+    </secondary>
+  </primary>
+  <primary slot="3">
+    <secondary slot="0">
+      <block start="0"> <!-- main RAM: also mapped by the Panasonic mapper and the DRAM mode -->
+        <memory size="262144">RAM</memory>
+        <mapper>PANASONIC_RAM</mapper>
+        <device mask="0xFC" port="0xFC" size="262144">MEM_MAPPER</device>
+      </block>
+    </secondary>
+    <secondary slot="1">
+      <block start="0" count="1"> <!-- Sub ROM, blocks 56-57; DRAM page 2 -->
+        <memory SHA1="c212b11fda13f83dafed688c54d098e7e47ab225" filename="fs-a1st_firmware.rom" skip="0x70000" size="16384">ROM</memory>
+        <mapper param="2">DRAM</mapper>
+      </block>
+      <block start="1" count="1"> <!-- Kanji driver, blocks 58-59; DRAM page 3 -->
+        <memory SHA1="c212b11fda13f83dafed688c54d098e7e47ab225" filename="fs-a1st_firmware.rom" skip="0x74000" size="16384">ROM</memory>
+        <mapper param="3">DRAM</mapper>
+      </block>
+      <block start="2" count="1"> <!-- Kanji driver, blocks 60-61: always ROM -->
+        <memory SHA1="c212b11fda13f83dafed688c54d098e7e47ab225" filename="fs-a1st_firmware.rom" skip="0x78000" size="16384">ROM</memory>
+      </block>
+    </secondary>
+    <secondary slot="2">
+      <block start="1" count="1"> <!-- disk ROM, blocks 48-55 in 16 KB banks (7FF0), FDC registers 7FF2 -->
+        <memory SHA1="c212b11fda13f83dafed688c54d098e7e47ab225" filename="fs-a1st_firmware.rom" skip="0x60000" size="65536">ROM</memory>
+        <mapper>TURBO_R_FDC</mapper>
+        <device ioRegs="7FF2" fdd_count="1">TC8566AF</device>
+      </block>
+      <block start="2" count="1"> <!-- FDC registers also at BFF0-BFFF, no ROM -->
+        <ref to_block="1">DEVICE</ref>
+      </block>
+    </secondary>
+    <secondary slot="3">
+      <block start="0" count="4"> <!-- Panasonic mapper over blocks 0-255 -->
+        <memory SHA1="c212b11fda13f83dafed688c54d098e7e47ab225" filename="fs-a1st_firmware.rom" size="2097152">ROM</memory>
+        <mapper>PANASONIC</mapper>
+      </block>
+    </secondary>
+  </primary>
+  <!-- Location of external slots at the end of the XML definition -->
+  <primary slot="1">
+    <secondary slot="0">
+      <block start="0">
+        <cart>A</cart>
+      </block>
+    </secondary>
+  </primary>
+  <primary slot="2">
+    <secondary slot="0">
+      <block start="0">
+        <cart>B</cart>
+      </block>
+    </secondary>
+  </primary>
+</msxConfig>

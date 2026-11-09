@@ -35,5 +35,7 @@
   "SUPERSWANGI" : 33,
   "MSXWRITE" : 34,
   "OCM_IPL" : 35,
-  "PANASONIC" : 36
+  "PANASONIC" : 36,
+  "PANASONIC_RAM" : 37,
+  "DRAM" : 38
 }

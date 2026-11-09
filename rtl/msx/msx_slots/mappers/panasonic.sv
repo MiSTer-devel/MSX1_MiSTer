@@ -18,7 +18,8 @@
 
 // Behaviour as openMSX src/memory/RomPanasonic.cc. Eight 8 KB banks over 0000-FFFF, 9-bit bank
 // numbers: below 80h a ROM block, 80h .. 80h + SRAM/8K the SRAM, from 180h a block of the main RAM,
-// any other value a ROM block (masked by the number of blocks).
+// any other value a ROM block (masked by the number of blocks). Without a main RAM the banks from
+// 180h are ROM too.
 //   write 6000-7FEF: low 8 bits of the bank of region (A & 1C00h) >> 10, regions 5 and 6 swapped
 //         (7400h -> C000-DFFF, 7800h -> A000-BFFF)
 //   write 7FF8: bit n = bit 8 of bank n;  write 7FF9: control
@@ -26,8 +27,8 @@
 //         banks;  7FF9 (bit 3): control
 //   other writes go to the SRAM or RAM the bank selects (tested on an FS-A1GT, openMSX)
 // Reset: control 0, every bank = ROM block 0.
-// TODO: banks from 180h map the main RAM (PanasonicRAM, "device idref Main RAM"), which needs the
-// base of that RAM in the system memory; until then they read FFh and ignore writes.
+// The main RAM (block with mapper PANASONIC_RAM) is reached through out.main_cs (msx_slots adds its
+// base); the bank selects 8 KB block (bank - 180h) masked by the RAM size.
 module mapper_panasonic (
     cpu_bus_if.device_mp    cpu_bus,
     output MSX::mapper_out_t out,           // Mapper output, merged in mappers.sv
@@ -69,18 +70,23 @@ module mapper_panasonic (
     wire [8:0] sel       = bank[cpu_bus.addr[15:13]];
     wire [7:0] sram_bnks = 8'(block_info.sram_size[10:3]);           // 8 KB SRAM banks
     wire       is_sram   = sram_bnks != 8'd0 && sel >= 9'h080 && sel < 9'h080 + {1'b0, sram_bnks};
-    wire       is_ram    = sel >= 9'h180;
+    wire       is_ram    = block_info.main_ram_size != 17'd0 && sel >= 9'h180;
+    wire [7:0] ram_block = 8'(sel - 9'h180) & 8'(block_info.main_ram_size - 1'b1);
     wire [9:0] nr_blocks = 10'(block_info.rom_size[24:13]);          // 8 KB ROM blocks (ST 256, GT 512)
     wire [8:0] rom_block = {1'b0, sel} < nr_blocks || nr_blocks == 10'd0 ? sel : sel & 9'(nr_blocks - 1'b1);
     wire [7:0] sram_bank = (sel[7:0] - 8'h80) & (sram_bnks - 1'b1);
 
     wire rom_rd  = cs && cpu_bus.rd && !is_sram && !is_ram && !rd_reg;
-    wire sram_rw = cs && is_sram && (cpu_bus.rd ? !rd_reg : !(reg_area || cpu_bus.addr == 16'h7FF8 || cpu_bus.addr == 16'h7FF9));
+    wire mem_rw  = cs && (cpu_bus.rd ? !rd_reg : !(reg_area || cpu_bus.addr == 16'h7FF8 || cpu_bus.addr == 16'h7FF9));
+    wire sram_rw = mem_rw && is_sram;
+    wire ram_rw  = mem_rw && is_ram;
 
     assign out.ram_cs  = rom_rd;
     assign out.sram_cs = sram_rw;
-    assign out.rnw     = !(sram_rw && cpu_bus.wr);
+    assign out.main_cs = ram_rw;
+    assign out.rnw     = !((sram_rw || ram_rw) && cpu_bus.wr);
     assign out.addr    = sram_rw ? {6'b0, sram_bank, cpu_bus.addr[12:0]} :
+                         ram_rw  ? {6'b0, ram_block, cpu_bus.addr[12:0]} :
                          rom_rd  ? {5'b0, rom_block, cpu_bus.addr[12:0]} : {27{1'b1}};
     assign out.data    = !(cs && cpu_bus.rd) ? 8'hFF :
                          rd_bank ? bank[cpu_bus.addr[2:0]][7:0] :

@@ -32,7 +32,7 @@ typedef enum logic [5:0] {MAPPER_NONE, MAPPER_OFFSET, MAPPER_ASCII16, MAPPER_RTY
                           MAPPER_SUPERSWANGI,
                           MAPPER_MSXWRITE,
                           MAPPER_OCM_IPL,
-                          MAPPER_PANASONIC,
+                          MAPPER_PANASONIC, MAPPER_PANASONIC_RAM, MAPPER_DRAM,
                           MAPPER_UNUSED} mapper_typ_t;
 typedef enum logic [3:0] {BLOCK_RAM, BLOCK_ROM, BLOCK_SRAM, BLOCK_DEVICE, BLOCK_MAPPER, BLOCK_CART, BLOCK_REF_MEM, BLOCK_REF_DEV, BLOCK_IO_DEVICE, BLOCK_EXPANDER, BLOCK_REF_SHARED_MEM} block_t;
 typedef enum logic [2:0] {CONF_BLOCK, CONF_DEVICE, CONF_LAYOUT, CONF_CARTRIGE, CONF_BLOCK_FW, CONF_UNUSED5, CONF_UNUSED6, CONF_END} conf_t;
@@ -355,6 +355,7 @@ package MSX;
         logic        rnw;       // 1 when inactive (AND)
         logic        ram_cs;    // OR
         logic        sram_cs;   // OR
+        logic        main_cs;   // OR; addr is an offset in the main RAM (turbo R)
         logic  [7:0] data;      // FF when inactive (AND)
     } mapper_out_t;            // mapper -> mappers.sv
 
@@ -366,6 +367,9 @@ package MSX;
         logic  [2:0] device_ref;
         mapper_typ_t typ;
         logic        id;
+        logic  [1:0] mapper_param;   // per block, from the pack (DRAM: first 16 KB page of the top 64 KB)
+        logic [16:0] main_ram_size;  // main RAM in 8 KB blocks, 0 = none (turbo R)
+        logic        dram;           // turbo R S1990: ROM read from the top 64 KB of the main RAM
     } block_info_t;            // msx_slots -> mappers, devices (active block of the access)
 
     typedef struct packed {
@@ -389,7 +393,7 @@ package MSX;
     } cpu_speed_t;             // devices (OCM turbo) -> msx_cpu; '0 = no override
 
     // Inactive (neutral) values and pairwise merge of the bundles above.
-    localparam mapper_out_t MAPPER_OUT_IDLE = {27'h7FFFFFF, 1'b1, 1'b0, 1'b0, 8'hFF};
+    localparam mapper_out_t MAPPER_OUT_IDLE = {27'h7FFFFFF, 1'b1, 1'b0, 1'b0, 1'b0, 8'hFF};
     localparam device_bus_t DEVICE_BUS_IDLE = {3'd0, 1'b0, 1'b0, 1'b1, 1'b1};
 
     function automatic mapper_out_t mapper_out_merge(input mapper_out_t a, input mapper_out_t b);
@@ -398,6 +402,7 @@ package MSX;
         r.rnw     = a.rnw     & b.rnw;
         r.ram_cs  = a.ram_cs  | b.ram_cs;
         r.sram_cs = a.sram_cs | b.sram_cs;
+        r.main_cs = a.main_cs | b.main_cs;
         r.data    = a.data    & b.data;
         return r;
     endfunction
@@ -433,6 +438,7 @@ package MSX;
         logic  [1:0] offset_ram;
         logic  [2:0] device_ref;
         mapper_typ_t mapper;
+        logic  [1:0] mapper_param;
         logic        cart_num;
         logic        external;
     } block_t;    
@@ -447,6 +453,11 @@ package MSX;
         logic [26:0] addr;
         logic [15:0] size;
     } lookup_SRAM_t;
+
+    typedef struct packed {
+        logic        en;
+        logic  [3:0] ref_ram;   // lookup_RAM entry of the main RAM
+    } main_ram_t;              // memory_upload -> msx_slots (turbo R: mapper PANASONIC_RAM)
 
     typedef struct {
         cart_typ_t   typ;

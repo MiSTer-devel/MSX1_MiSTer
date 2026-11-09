@@ -7,7 +7,9 @@
 // touch the track buffer, second drive, track beyond the image,
 // unformatted 2nd side of a single-sided disk, index only with motor, IAM C2 C2 C2 FC,
 // FM cell rate; new configuration: single-sided drive, TRACK0 needs motor (Philips);
-// disk change: Philips 7FFDh bit 2 per selected drive, cleared by the read, DSKCHGn per drive.
+// disk change: Philips 7FFDh bit 2 per selected drive, cleared by the read, DSKCHGn per drive;
+// READY without the motor (openMSX), motor keeps running motor_off_ms, a seek with 6 ms steps
+// loads only the target track (head settle).
 //
 // Run: wsl.exe -- bash rtl/peripheral/tb/run_fdd.sh          (OLD=<git rev>: old FDD code)
 module fdd_tb;
@@ -98,6 +100,7 @@ endgenerate
 
 logic [1:0] drive_ds   = 2'b11;     // drives are double sided
 logic       need_motor = 1'b0;      // TRACK0 / WPROT without motor (National style)
+logic [15:0] motor_off_ms = 16'd0;  // motor run-on after switch off (Sony 4000)
 
 `ifdef OLD
 fdd #(.sysCLK(SYS), .SECTORS(9), .SECTOR_SIZE(512), .TRACKS(80), .ID("FDDT")) dut (
@@ -108,6 +111,9 @@ fdd #(.sysCLK(SYS), .SECTORS(9), .SECTOR_SIZE(512), .TRACKS(80), .ID("FDDT")) du
 fdd #(.sysCLK(SYS), .ID("FDDT")) dut (
     .clk(clk), .reset(reset), .FDD_bus(FDD_bus), .block_device(block_device_FDD[0:1]),
     .drive_ds(drive_ds), .need_motor(need_motor)
+`ifndef NO_MOTOR_OFF
+    , .motor_off_ms(motor_off_ms)
+`endif
 );
 `endif
 
@@ -312,6 +318,9 @@ fdd #(.sysCLK(SYS), .ID("FDDF")) fm_dut (
 fdd #(.sysCLK(SYS), .ID("FDDF"), .MFM(1'b0)) fm_dut (
     .clk(clk), .reset(reset), .FDD_bus(fm_bus), .block_device(fm_bd),
     .drive_ds(2'b11), .need_motor(1'b0)
+`ifndef NO_MOTOR_OFF
+    , .motor_off_ms(16'd0)
+`endif
 );
 `endif
 longint unsigned fm_last = 0, fm_min = '1;
@@ -445,6 +454,30 @@ initial begin
     repeat (5 * MS) @(negedge clk);
     if (FDD_bus.TRACK0n !== 1'b0) fail("Philips: no TRACK0 with motor on");
     need_motor = 1'b0;
+
+    // --- READY only from the disk (openMSX WD2793::isReady), also with the motor off
+    select_drive(0, 0, 0);
+    repeat (MS) @(negedge clk);
+    if (FDD_bus.READYn !== 1'b0) fail("READY with disk in, motor off");
+
+    // --- seek with 6 ms steps over the whole disk: only the target track is loaded
+    select_drive(0, 0, 1);
+    type1("restore before the long seek", 8'h00);
+    repeat (20 * MS) @(negedge clk);
+    e0 = loads[0];
+    seek(79);
+    read_ok("720K T79 S1 after a long seek", 79, 1, 0, 79 * 2 * 9);
+    if (loads[0] - e0 > 2) fail($sformatf("long seek: %0d track loads (expected 1)", loads[0] - e0));
+
+    // --- the motor keeps running motor_off_ms after it is switched off (Sony: 4000)
+    motor_off_ms = 16'd50;
+    select_drive(0, 0, 1);
+    select_drive(0, 0, 0);
+    repeat (30 * MS) @(negedge clk);
+    if (dut.motor_run[0] !== 1'b1) fail("motor stopped before motor_off_ms");
+    repeat (30 * MS) @(negedge clk);
+    if (dut.motor_run[0] !== 1'b0) fail("motor runs after motor_off_ms");
+    motor_off_ms = 16'd0;
 
     // --- ejected disk (size 0): not ready
     mount(1, 0, 6);

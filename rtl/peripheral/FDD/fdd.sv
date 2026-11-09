@@ -4,9 +4,13 @@
 // The disk geometry comes from the image size (openMSX Disk::detectGeometryFallback, plus
 // 8 sectors per track): 720K / 640K double sided, 360K / 320K single sided, 80 tracks.
 // The drive properties come from the machine definition (msx_system):
-//   drive_ds    0 = single sided drive: side 1 is not ready (openMSX RealDrive::isDiskInserted)
-//   need_motor  TRACK0 and WPROT only while the motor runs (openMSX signalsNeedMotorOn: Philips)
-// Index and data only while the disk turns (motor on, disk in); READY = disk in and motor on.
+//   drive_ds      0 = single sided drive: side 1 is not ready (openMSX RealDrive::isDiskInserted)
+//   need_motor    TRACK0 and WPROT only while the motor runs (openMSX signalsNeedMotorOn: Philips)
+//   motor_off_ms  the motor keeps running after it is switched off (openMSX motor_off_timeout_ms)
+// Index and data only while the disk turns (motor on, disk in). READY = disk in, as openMSX
+// WD2793::isReady (no motor emulation there). A track is loaded after the head settle time
+// (SETTLE_MS, 3.5" drive 15 ms, as the WD279x verify delay), so a seek with step rates below
+// it (WD279x 6 / 12 ms) loads only the target track.
 // Disk change per drive (DSKCHGn[i] = 0): set at power on and when the image of drive i is
 // mounted or removed, cleared by the controller with DSKCHG_ACK[i] (openMSX DiskChanger: read
 // clears). Used by the Philips glue 7FFDh bit 2 (Sony disk ROMs) and turbo R 7FF1h bits 4/5.
@@ -16,14 +20,15 @@ module fdd #(
     parameter int   sysCLK,
     parameter       ID           = 0,
     parameter logic MFM          = 1'b1,    // 0 = FM (not used by MSX)
-    parameter int   MOTOR_OFF_MS = 0
+    parameter int   SETTLE_MS    = 15
 )(
     input  logic              clk,
     input  logic              reset,
     FDD_if.FDD_mp             FDD_bus,
     block_device_if.device_mp block_device[2],
     input  logic        [1:0] drive_ds,
-    input  logic              need_motor
+    input  logic              need_motor,
+    input  logic       [15:0] motor_off_ms
 );
 
     typedef struct packed {
@@ -65,8 +70,8 @@ module fdd #(
     wire index_start = angle == '0;
 
     logic [1:0] motor_run;
-    motor #(.OFF_MS(MOTOR_OFF_MS)) FDD_motor (
-        .clk(clk), .msclk(msclk), .reset(reset),
+    motor FDD_motor (
+        .clk(clk), .msclk(msclk), .reset(reset), .off_ms(motor_off_ms),
         .USEL(sel), .MOTORn(FDD_bus.MOTORn), .motor_run(motor_run)
     );
 
@@ -82,12 +87,24 @@ module fdd #(
     wire recorded  = disk_in && head_track < g.tracks && (g.ds || !side);   // formatted track under the head
     wire sig_ok    = !need_motor || spin;
 
+    // Head settle: SETTLE_MS without a step of the selected drive before its track is loaded
+    logic [6:0] track_q;
+    logic       sel_q;
+    logic [4:0] settle;
+    always_ff @(posedge clk) begin
+        track_q <= head_track;
+        sel_q   <= sel;
+        if (reset)                                      settle <= 5'd0;
+        else if (head_track != track_q && sel == sel_q) settle <= 5'(SETTLE_MS);
+        else if (msclk && settle != 5'd0)               settle <= settle - 5'd1;
+    end
+
     logic [12:0] buffer_addr;
     logic  [7:0] buffer_q;
     logic        track_ready;
     track_buffer #(.ID(ID)) FDD_buffer (
         .clk(clk), .reset(reset), .block_device(block_device),
-        .want(recorded), .drive(sel), .track(head_track), .head(side),
+        .want(recorded && settle == 5'd0), .drive(sel), .track(head_track), .head(side),
         .disk_ds(g.ds), .spt(g.spt), .changed(changed),
         .buffer_addr(buffer_addr), .buffer_q(buffer_q), .ready(track_ready)
     );
@@ -99,7 +116,7 @@ module fdd #(
         .buffer_addr(buffer_addr), .buffer_q(buffer_q), .flux(flux)
     );
 
-    assign FDD_bus.READYn     = !(disk_in && spin);
+    assign FDD_bus.READYn     = !disk_in;
     assign FDD_bus.INDEXn     = !(rotate && angle < ($clog2(ROT))'(INDEX_LEN));
     assign FDD_bus.READ_DATAn = !(rotate && flux);
     assign FDD_bus.TRACK0n    = !(sig_ok && head_track == 7'd0);

@@ -314,8 +314,9 @@ tape cass
 /////////////////   FLOPPY DRIVES   /////////////////
 // One FDD unit (2 drives) per WD2793 copy (MSX::N_WD2793). memory_upload puts the FDC at a
 // fixed position (0 cartridge A, 1 cartridge B, 2 internal), unit fi is that controller's.
-// Drive properties from its XML parameters: bit 4 single_sided, bits 1:0 style
-// (TRACK0 / WPROT need the motor except for National, openMSX signalsNeedMotorOn).
+// Drive properties from its XML parameters: bit 4 single_sided, bits 1:0 style 0 Philips,
+// 1 National, 2 Sony (openMSX MSXFDC: TRACK0 / WPROT need the motor only for Philips; Sony motor
+// keeps running 4 s, motor_off_timeout_ms of all Sony machines).
 genvar fi, fd;
 generate
    for (fi = 0; fi < 3; fi++) begin : g_fdd
@@ -328,7 +329,8 @@ generate
             .FDD_bus(FDD_bus[fi]),
             .block_device(block_device_FDD[2*fi:2*fi+1]),
             .drive_ds(fdc_param[4] ? 2'b00 : 2'b11),
-            .need_motor(!fdc_enable || fdc_param[1:0] != 2'd1)
+            .need_motor(!fdc_enable || fdc_param[1:0] == 2'd0),
+            .motor_off_ms(fdc_enable && fdc_param[1:0] == 2'd2 ? 16'd4000 : 16'd0)
          );
       end else begin : none               // no FDC: block devices idle
          for (fd = 2*fi; fd < 2*fi+2; fd++) begin : idle

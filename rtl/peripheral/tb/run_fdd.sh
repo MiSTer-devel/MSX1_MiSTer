@@ -2,6 +2,7 @@
 # fdd testbench (Verilator --timing). Usage: wsl.exe -- bash rtl/peripheral/tb/run_fdd.sh
 #   OLD=<git rev>   FDD, blockDevMux and dev_WD2793 of that revision (shows the old behaviour)
 #   PREV=<git rev>  the same for a revision with the current fdd interface (e.g. HEAD)
+#   NO_MOTOR_OFF=1  fdd without the motor_off_ms input (revisions before 2026-11-09)
 set -e
 cd "$(dirname "$0")"
 ROOT=$(cd ../../.. && pwd)
@@ -18,6 +19,7 @@ if [ -n "$REV" ]; then
     SRC="$OUT/old/*.sv"
     [ -n "$OLD" ] && DEF="+define+OLD"
 fi
+[ -n "$NO_MOTOR_OFF" ] && DEF="$DEF +define+NO_MOTOR_OFF"
 verilator --binary --timing -O3 -Wno-fatal -Wno-lint -Wno-style -Wno-MULTIDRIVEN $DEF \
     --top-module fdd_tb -Mdir "$OUT" \
     "$ROOT/rtl/package.sv" $SRC "$ROOT"/rtl/peripheral/FDC/WD279x/*.sv \

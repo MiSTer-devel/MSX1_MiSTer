@@ -1,11 +1,12 @@
 // Spindle motors of the two drives. MOTORn applies to the selected drive; the motor runs
-// SPINUP_MS after it is switched on and keeps running OFF_MS after it is switched off
-// (openMSX motor_off_timeout_ms, 0 for most interfaces).
-module motor #(parameter int SPINUP_MS = 3, parameter int OFF_MS = 0)
+// SPINUP_MS after it is switched on and keeps running off_ms after it is switched off
+// (openMSX motor_off_timeout_ms: 4000 for the Sony interfaces, 0 for the others).
+module motor #(parameter int SPINUP_MS = 3)
 (
     input  logic        clk,
     input  logic        msclk,          // 1 ms enable
     input  logic        reset,
+    input  logic [15:0] off_ms,
     input  logic        USEL,
     input  logic        MOTORn,
     output logic  [1:0] motor_run
@@ -21,7 +22,7 @@ module motor #(parameter int SPINUP_MS = 3, parameter int OFF_MS = 0)
                     spin[i] <= '0;
                     hold[i] <= '0;
                 end else if (USEL == i && !MOTORn) begin
-                    hold[i] <= 16'(OFF_MS);
+                    hold[i] <= off_ms;
                     if (msclk && spin[i] != 3'(SPINUP_MS)) spin[i] <= spin[i] + 3'd1;
                 end else if (hold[i] != '0) begin
                     if (msclk) hold[i] <= hold[i] - 16'd1;

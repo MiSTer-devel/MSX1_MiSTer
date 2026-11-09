@@ -50,7 +50,8 @@ typedef enum logic [1:0] {DRIVE_NONE, DRIVE_A, DRIVE_B} drive_t;
 
 logic [7:0] philips_sideReg, philips_driveReg;
 
-wire area_philips   = (cpu_bus.addr[13:3] == 11'b11111111111) && model == 2'h0;
+// model (XML style): 0 Philips, 1 National, 2 Sony (Philips registers, openMSX PhilipsFDC)
+wire area_philips   = (cpu_bus.addr[13:3] == 11'b11111111111) && (model == 2'h0 || model == 2'h2);
 wire area_national  = (cpu_bus.addr[13:7] ==  7'b1111111) && model == 2'h1;
 wire area_device    = area_philips || area_national;
 wire device_cs      = cs && area_device && cpu_bus.mreq;

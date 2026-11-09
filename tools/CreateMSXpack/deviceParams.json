@@ -10,7 +10,7 @@
         },
         "style": {
             "param_type": "enum",
-            "enums": ["Philips", "National"],
+            "enums": ["Philips", "National", "Sony"],
             "min": null,
             "max": null,
             "default": 0,

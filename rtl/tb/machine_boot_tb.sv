@@ -8,6 +8,10 @@
 // +dsk=none: no disk in the drive (the boot must not hang on the empty drive).
 // +key=<hex>: a key held down from the start until +key_ms (default 8000), PS/2 code with bit 8
 // = extended, e.g. 171 = Delete (Panasonic FS-A1F: skips the A1 Cockpit firmware).
+// Cartridge: +fw=<CART_FW_EN.msx> +db=<mappers.db> +rom=<game.rom> loads a ROM into slot A as the
+// OSD does (FW pack, mapper database, ROM; the mapper comes from the CRC32 in the database).
+// +frames=<prefix> +frame_ms=<ms> +frame_n=<n>: n frames of the video output (DE area) from
+// frame_ms on as <prefix>_NNN.ppm.
 // Turbo R: +firmware=1 turns the firmware switch on (OSD status[26]); +pause_ms=<ms> presses the
 // Pause key (hps_io event 377h) at that time and checks that the BIOS lights the pause LED (A7h
 // bit 0) and turns it off after a second press 500 ms later. The FS-A1ST BIOS pauses BASIC in
@@ -24,7 +28,7 @@ clock_bus_if clock_bus(clk_core, clk_sdram);
 clock #(.sysCLK(MSX::CLK_CORE_HZ)) clock_i (.clock_bus(clock_bus));
 
 // ------------------------------------------------------------------ files
-byte unsigned pack[$];
+byte unsigned pack[$], fwpk[$], db[$], rom[$];
 byte unsigned dsk[];
 int unsigned  dsk_bytes = 0;
 
@@ -91,7 +95,10 @@ always_ff @(posedge clk_core) begin
     else if (ddr_wait == 0) begin
         for (int b = 0; b < 8; b++) begin
             int unsigned a = {ddr_rd_addr[24:0], 3'(b)};
-            DDRAM_DOUT[8*b +: 8] <= (a < pack.size()) ? pack[a] : 8'hFF;
+            DDRAM_DOUT[8*b +: 8] <= (a < pack.size()) ? pack[a] :
+                (a >= 32'h300000  && a - 32'h300000  < fwpk.size())  ? fwpk[a - 32'h300000] :
+                (a >= 32'hC00000  && a - 32'hC00000  < rom.size()) ? rom[a - 32'hC00000] :
+                (a >= 32'h1600000 && a - 32'h1600000 < db.size())  ? db[a - 32'h1600000] : 8'hFF;
         end
         DDRAM_DOUT_READY <= 1'b1;
         ddr_wait <= -1;
@@ -331,6 +338,40 @@ task automatic dump_vram(input string prefix);
     $fclose(fd);
 endtask
 
+// Video capture: frames of the DE area as PPM
+string      frame_prefix = "";
+int         frame_left = 0, frame_idx = 0, fr_w = 0, fr_h = 0, fr_x = 0;
+bit         frame_arm = 0, fr_on = 0, prev_vbl = 1;
+int         frame_fd;
+always @(posedge clk_core) if (video_bus.ce_pix) begin
+    if (video_bus.vblank && !prev_vbl && fr_on) begin            // frame done
+        for (int y = fr_h; y < 240; y++) for (int i = 0; i < 256; i++) $fwrite(frame_fd, "%c%c%c", 8'd0, 8'd0, 8'd0);
+        $fclose(frame_fd);
+        $display("%0t frame %0d: %0dx%0d", $time, frame_idx, fr_w, fr_h);
+        frame_idx++; frame_left--; fr_on = 0;
+    end
+    if (!video_bus.vblank && prev_vbl && frame_arm && frame_left > 0) begin   // frame starts
+        frame_fd = $fopen($sformatf("%s_%03d.ppm", frame_prefix, frame_idx), "wb");
+        $fwrite(frame_fd, "P6\n%0d %0d\n255\n", 256, 192 + 48);
+        fr_on = 1; fr_w = 0; fr_h = 0; fr_x = 0;
+    end
+    prev_vbl = video_bus.vblank;
+    if (fr_on && !video_bus.vblank) begin
+        if (!video_bus.hblank) begin
+            if (fr_x < 256 && fr_h < 240) $fwrite(frame_fd, "%c%c%c", video_bus.R, video_bus.G, video_bus.B);
+            fr_x++;
+        end else if (fr_x > 0) begin
+            for (int i = fr_x; i < 256; i++) if (fr_h < 240) $fwrite(frame_fd, "%c%c%c", 8'd0, 8'd0, 8'd0);
+            if (fr_x > fr_w) fr_w = fr_x;
+            fr_h++; fr_x = 0;
+        end
+    end
+end
+final if (fr_on) begin
+    for (int y = fr_h; y < 240; y++) for (int i = 0; i < 256; i++) $fwrite(frame_fd, "%c%c%c", 8'd0, 8'd0, 8'd0);
+    $fclose(frame_fd);
+end
+
 function automatic bit contains(input string s, input string k);
     for (int i = 0; i + k.len() <= s.len(); i++) if (s.substr(i, i + k.len() - 1) == k) return 1;
     return 0;
@@ -338,7 +379,8 @@ endfunction
 
 // ------------------------------------------------------------------ run
 initial begin
-    string pack_name, dsk_name, expect_txt = "", last = "", now, dump;
+    string pack_name, dsk_name, expect_txt = "", last = "", now, dump, fname;
+    int frame_ms = 0;
     int fd, c, errors = 0, run_ms = 15000, found_ms = -1, key_ms = 8000, pause_ms = -1, fw = 0, m1_paused = 0;
     logic [8:0] key = '0;
     bit         use_key, no_disk, tc_used;
@@ -353,6 +395,14 @@ initial begin
     void'($value$plusargs("pause_ms=%d", pause_ms));
     if ($value$plusargs("firmware=%d", fw)) status[26] = fw[0];
     fd = $fopen(pack_name, "rb"); while ((c = $fgetc(fd)) != -1) pack.push_back(8'(c)); $fclose(fd);
+    if ($value$plusargs("fw=%s", fname))  begin fd = $fopen(fname, "rb"); while ((c = $fgetc(fd)) != -1) fwpk.push_back(8'(c));  $fclose(fd); end
+    if ($value$plusargs("db=%s", fname))  begin fd = $fopen(fname, "rb"); while ((c = $fgetc(fd)) != -1) db.push_back(8'(c));  $fclose(fd); end
+    if ($value$plusargs("rom=%s", fname)) begin fd = $fopen(fname, "rb"); while ((c = $fgetc(fd)) != -1) rom.push_back(8'(c)); $fclose(fd); end
+    if ($value$plusargs("frames=%s", frame_prefix)) begin
+        void'($value$plusargs("frame_ms=%d", frame_ms));
+        frame_left = 10; void'($value$plusargs("frame_n=%d", frame_left));
+    end
+    if (rom.size() > 0) $display("FW pack %0d B, mapper DB %0d B, ROM %0d B", fwpk.size(), db.size(), rom.size());
     no_disk = dsk_name == "none";
     dsk = new[2 * 1024 * 1024];
     if (!no_disk) begin
@@ -364,14 +414,35 @@ initial begin
 
     repeat (8) @(posedge clk_core);
     rst_core_async = 0;
+    // HPS downloads as at the core start (FW pack, mapper DB), the MSX pack, then the ROM (OSD)
+    if (fwpk.size() > 0) begin
+        ioctl_index = 16'd2; ioctl_download = 1;
+        @(posedge clk_core); ioctl_addr = 27'(fwpk.size());
+        @(posedge clk_core); ioctl_download = 0;
+        wait (sys.upload); wait (!sys.upload);
+        repeat (10) @(posedge clk_core);
+    end
+    if (db.size() > 0) begin
+        ioctl_index = 16'd6; ioctl_download = 1;
+        @(posedge clk_core); ioctl_addr = 27'(db.size());
+        @(posedge clk_core); ioctl_download = 0;
+        repeat (10) @(posedge clk_core);
+    end
     ioctl_index = 16'd1; ioctl_download = 1;
     @(posedge clk_core); ioctl_addr = 27'(pack.size());
     @(posedge clk_core); ioctl_download = 0;
     wait (sys.upload);
     wait (!sys.upload);
+    if (rom.size() > 0) begin
+        repeat (10) @(posedge clk_core);
+        ioctl_index = 16'd3; ioctl_download = 1;
+        @(posedge clk_core); ioctl_addr = 27'(rom.size());
+        @(posedge clk_core); ioctl_download = 0;
+        wait (sys.upload); wait (!sys.upload);
+    end
     $display("%0t pack loaded, error=%0d, msx_config.fdd=%b", $time, sys.error, msx_config.fdd);
     if (sys.error != ERR_NONE) begin $display("FAILED machine_boot_tb: pack error"); $finish; end
-    if (!msx_config.fdd[VD - 1]) begin errors++; $display("FAIL msx_config.fdd[%0d] = 0: VD %0d not enabled", VD - 1, VD); end
+    if (!no_disk && !msx_config.fdd[VD - 1]) begin errors++; $display("FAIL msx_config.fdd[%0d] = 0: VD %0d not enabled", VD - 1, VD); end
 
     // key down once the keyboard map of the pack is loaded
     if (use_key) begin
@@ -387,6 +458,7 @@ initial begin
 
     for (int ms = 0; ms < run_ms; ms += 100) begin
         repeat (MSX::CLK_CORE_HZ / 10) @(posedge clk_core);
+        if (frame_prefix != "" && ms + 100 >= frame_ms) frame_arm = 1;
         if (use_key && ps2_key[9] && ms + 100 >= key_ms) begin
             ps2_key = {~ps2_key[10], 1'b0, ps2_key[8:0]};
             use_key = 0;

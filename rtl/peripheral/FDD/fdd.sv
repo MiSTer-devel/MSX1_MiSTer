@@ -1,153 +1,132 @@
-module fdd #(parameter sysCLK, SECTORS=9, SECTOR_SIZE=512, TRACKS=80, ID=0, TEST=0)
-(
+// Floppy disk drive unit: two 3.5" DD drives (300 rpm, 250 kbit/s) on one Shugart style bus
+// (FDD_if), disks are DSK images of the HPS block devices block_device[0..1]. Read only.
+//
+// The disk geometry comes from the image size (openMSX Disk::detectGeometryFallback, plus
+// 8 sectors per track): 720K / 640K double sided, 360K / 320K single sided, 80 tracks.
+// The drive properties come from the machine definition (msx_system):
+//   drive_ds      0 = single sided drive: side 1 is not ready (openMSX RealDrive::isDiskInserted)
+//   need_motor    TRACK0 and WPROT only while the motor runs (openMSX signalsNeedMotorOn: Philips)
+//   motor_off_ms  the motor keeps running after it is switched off (openMSX motor_off_timeout_ms)
+// Index and data only while the disk turns (motor on, disk in). READY = disk in, as openMSX
+// WD2793::isReady (no motor emulation there). A track is loaded after the head settle time
+// (SETTLE_MS, 3.5" drive 15 ms, as the WD279x verify delay), so a seek with step rates below
+// it (WD279x 6 / 12 ms) loads only the target track.
+// Disk change per drive (DSKCHGn[i] = 0): set at power on and when the image of drive i is
+// mounted or removed, cleared by the controller with DSKCHG_ACK[i] (openMSX DiskChanger: read
+// clears). Used by the Philips glue 7FFDh bit 2 (Sony disk ROMs) and turbo R 7FF1h bits 4/5.
+//
+// https://map.grauw.nl/articles/low-level-disk/
+module fdd #(
+    parameter int   sysCLK,
+    parameter       ID           = 0,
+    parameter logic MFM          = 1'b1,    // 0 = FM (not used by MSX)
+    parameter int   SETTLE_MS    = 15
+)(
     input  logic              clk,
     input  logic              reset,
     FDD_if.FDD_mp             FDD_bus,
     block_device_if.device_mp block_device[2],
-    //device config
-    input logic         [1:0] speed,          // 0 - 300rpm / 1 - 360rpm
-    input logic         [1:0] mfm,            // 0 - FM     / 1 - MFM
-    input logic         [1:0] sides,          // 0 - SS     / 1 - DS
-    input logic         [1:0] density[2],     // 0 - 250kbit     / 1 - 500kbit    / 2 - 1000kbit
-    input logic         [5:0] sectors[2],     // sectors per track
-    input logic         [1:0] sector_size[2]  // 0 - 128B / 1 - 256B / 2 - 512B / 3 - 1024B
+    input  logic        [1:0] drive_ds,
+    input  logic              need_motor,
+    input  logic       [15:0] motor_off_ms
 );
 
-    
-//https://map.grauw.nl/articles/low-level-disk/
-//https://retrocmp.de/fdd/general/floppy-formats.htm
+    typedef struct packed {
+        logic       present;
+        logic       ds;             // double sided disk
+        logic [4:0] spt;
+        logic [6:0] tracks;
+    } geometry_t;
 
-    logic motor_360rmp;
-    clockEnabler #(.clkFreq(sysCLK), .targetFreq(6)) FDD_RPM360(
-        .clk(clk),
-        .en(motor_360rmp)
+    function automatic geometry_t geometry(input logic [63:0] size);
+        if (size == 64'd737280)      return '{1'b1, 1'b1, 5'd9, 7'd80};
+        else if (size == 64'd655360) return '{1'b1, 1'b1, 5'd8, 7'd80};
+        else if (size == 64'd368640) return '{1'b1, 1'b0, 5'd9, 7'd80};
+        else if (size == 64'd327680) return '{1'b1, 1'b0, 5'd8, 7'd80};
+        else                         return '{1'b0, 1'b0, 5'd9, 7'd0};
+    endfunction
+
+    geometry_t geo[2];
+    assign geo[0] = geometry(block_device[0].img_size);
+    assign geo[1] = geometry(block_device[1].img_size);
+
+    wire [1:0] ro      = {block_device[1].img_readonly, block_device[0].img_readonly};
+    wire [1:0] changed = {block_device[1].img_mounted, block_device[0].img_mounted};   // 1 clk event
+
+    wire       sel  = FDD_bus.USEL;
+    wire       side = ~FDD_bus.SIDEn;
+    geometry_t g;
+    assign g = geo[sel];
+
+    // Timing: 1 ms, MFM bit cell (500 kHz), rotation 200 ms with a 4 ms index pulse
+    logic msclk, cell_en;
+    clockEnabler #(.clkFreq(sysCLK), .targetFreq(1000))   FDD_MS   (.clk(clk), .en(msclk));
+    clockEnabler #(.clkFreq(sysCLK), .targetFreq(500000)) FDD_CELL (.clk(clk), .en(cell_en));
+
+    localparam int ROT       = sysCLK / 5;
+    localparam int INDEX_LEN = ROT / 50;
+    logic [$clog2(ROT)-1:0] angle = '0;
+    always_ff @(posedge clk) angle <= angle == ($clog2(ROT))'(ROT - 1) ? '0 : angle + 1'b1;
+    wire index_start = angle == '0;
+
+    logic [1:0] motor_run;
+    motor FDD_motor (
+        .clk(clk), .msclk(msclk), .reset(reset), .off_ms(motor_off_ms),
+        .USEL(sel), .MOTORn(FDD_bus.MOTORn), .motor_run(motor_run)
     );
-    
-    logic motor_300rmp;
-    clockEnabler #(.clkFreq(sysCLK), .targetFreq(5)) FDD_RPM300(
-        .clk(clk),
-        .en(motor_300rmp)
+
+    logic [6:0] head_track;
+    track FDD_track (
+        .clk(clk), .reset(reset),
+        .USEL(sel), .STEPn(FDD_bus.STEPn), .SDIRn(FDD_bus.SDIRn), .track(head_track)
     );
 
-    logic msclk;
-    clockEnabler #(.clkFreq(sysCLK), .targetFreq(1000)) FDD_MS(
-        .clk(clk),
-        .en(msclk)
-    );
+    wire spin      = motor_run[sel];
+    wire disk_in   = g.present && (drive_ds[sel] || !side);
+    wire rotate    = disk_in && spin;
+    wire recorded  = disk_in && head_track < g.tracks && (g.ds || !side);   // formatted track under the head
+    wire sig_ok    = !need_motor || spin;
 
-    logic bitRate_250;
-    clockEnabler #(.clkFreq(sysCLK), .targetFreq(250000*2)) FDD_BITRATE_250(
-        .clk(clk),
-        .en(bitRate_250)
-    );
-
-    logic bitRate_500;
-    clockEnabler #(.clkFreq(sysCLK), .targetFreq(500000*2)) FDD_BITRATE_500(
-        .clk(clk),
-        .en(bitRate_500)
-    );
-
-    logic bitRate_1000;
-    clockEnabler #(.clkFreq(sysCLK), .targetFreq(1000000*2))  FDD_BITRATE_1000(
-        .clk(clk),
-        .en(bitRate_1000)
-    );
-
-
-    logic       drive_motor_rpm;
-    logic       floppy_mfm;
-    logic       floppy_sides;
-    logic       floppy_bitRate;
-    logic [5:0] floppy_sectors;
-    logic [1:0] floppy_sectors_size;
-
-    always_comb begin
-        case (density[FDD_bus.USEL])
-            2'd0: floppy_bitRate = bitRate_250;    
-            2'd1: floppy_bitRate = bitRate_500;   
-            2'd2: floppy_bitRate = bitRate_1000;
-            default floppy_bitRate = bitRate_250;
-        endcase
-
-        drive_motor_rpm     = speed[FDD_bus.USEL] ? motor_360rmp : motor_300rmp;
-        floppy_mfm          = mfm[FDD_bus.USEL];
-        floppy_sectors      = sectors[FDD_bus.USEL];
-        floppy_sectors_size = sector_size[FDD_bus.USEL];
-        floppy_sides        = sides[FDD_bus.USEL];
+    // Head settle: SETTLE_MS without a step of the selected drive before its track is loaded
+    logic [6:0] track_q;
+    logic       sel_q;
+    logic [4:0] settle;
+    always_ff @(posedge clk) begin
+        track_q <= head_track;
+        sel_q   <= sel;
+        if (reset)                                      settle <= 5'd0;
+        else if (head_track != track_q && sel == sel_q) settle <= 5'(SETTLE_MS);
+        else if (msclk && settle != 5'd0)               settle <= settle - 5'd1;
     end
 
-    logic [1:0] motor_run;         // Stav motoru
-
-    motor #(.TIMEOUTms(16'd30000), .DELAYms(3'd3)) FDD_motor(
-        .clk(clk),
-        .msclk(msclk),
-        .reset(reset),
-        .USEL(FDD_bus.USEL),
-        .MOTORn(FDD_bus.MOTORn),
-        .motor_run(motor_run)
-    );
-
-    //logic sides;
-    ready FDD_ready(
-        .clk(clk),
-        .reset(reset),
-        .USEL(FDD_bus.USEL),
-        .motor_run(motor_run),
-        .READYn(FDD_bus.READYn),
-        .WPROTn(FDD_bus.WPROTn),
-        .sides(/*sides*/),
-        .img_mounted({block_device[1].img_mounted, block_device[0].img_mounted}),
-        .img_readonly({block_device[1].img_readonly, block_device[0].img_readonly}),
-        .img_size('{block_device[0].img_size, block_device[1].img_size})
-    );
-
-    logic  [6:0] track;
     logic [12:0] buffer_addr;
     logic  [7:0] buffer_q;
     logic        track_ready;
-
-    track #(.DELAYms(3'd3), .MAX_TRACKS(80), .ID(ID)) FDD_track(
-        .clk(clk),
-        .msclk(msclk),
-        .reset(reset),
-        .USEL(FDD_bus.USEL),
-        .READYn(FDD_bus.READYn),
-        .STEPn(FDD_bus.STEPn),
-        .SDIRn(FDD_bus.SDIRn),
-        .TRACK0n(FDD_bus.TRACK0n),
-        .SIDEn(FDD_bus.SIDEn),
-        
-        .track(track),
-        .block_device(block_device),
-        .disk_mounted(~FDD_bus.READYn),
-        .disk_readonly(~FDD_bus.WPROTn),
-        .disk_sides(floppy_sides),
-
-        .track_ready(track_ready),
-        .buffer_addr(buffer_addr),
-        .buffer_q(buffer_q)
+    track_buffer #(.ID(ID)) FDD_buffer (
+        .clk(clk), .reset(reset), .block_device(block_device),
+        .want(recorded && settle == 5'd0), .drive(sel), .track(head_track), .head(side),
+        .disk_ds(g.ds), .spt(g.spt), .changed(changed),
+        .buffer_addr(buffer_addr), .buffer_q(buffer_q), .ready(track_ready)
     );
 
-    transmit #(.sysCLK(sysCLK)) FDD_transmit(
-        .clk(clk),
-        .reset(reset),
-        
-        .drive_motor_rpm(drive_motor_rpm),
-        .floppy_bitRate(floppy_bitRate),
-        .floppy_mfm(floppy_mfm),
-        .floppy_sectors(floppy_sectors),
-        .floppy_sectors_size(floppy_sectors_size),
-
-        //Track buffer
-        .buffer_addr(buffer_addr),
-        .buffer_q(buffer_q),
-        .track_ready(track_ready),
-
-        .track(track),
-        .side(~FDD_bus.SIDEn),
-        
-        .INDEXn(FDD_bus.INDEXn),
-        .READ_DATAn(FDD_bus.READ_DATAn)
+    logic flux;
+    transmit #(.MFM(MFM)) FDD_transmit (
+        .clk(clk), .reset(reset), .index(index_start), .cell_en(cell_en),
+        .spt(g.spt), .cyl(head_track), .hd(side), .valid(track_ready),
+        .buffer_addr(buffer_addr), .buffer_q(buffer_q), .flux(flux)
     );
+
+    assign FDD_bus.READYn     = !disk_in;
+    assign FDD_bus.INDEXn     = !(rotate && angle < ($clog2(ROT))'(INDEX_LEN));
+    assign FDD_bus.READ_DATAn = !(rotate && flux);
+    assign FDD_bus.TRACK0n    = !(sig_ok && head_track == 7'd0);
+    assign FDD_bus.WPROTn     = !(sig_ok && (!g.present || ro[sel]));    // no disk reads as protected
+
+    logic [1:0] dskchg = 2'b11;                     // power on: changed (not touched by reset)
+    always_ff @(posedge clk)
+        for (int d = 0; d < 2; d++)
+            if (changed[d])                    dskchg[d] <= 1'b1;
+            else if (FDD_bus.DSKCHG_ACK[d])    dskchg[d] <= 1'b0;
+    assign FDD_bus.DSKCHGn = ~dskchg;
 
 endmodule

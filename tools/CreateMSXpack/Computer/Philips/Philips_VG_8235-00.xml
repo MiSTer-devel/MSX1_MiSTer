@@ -31,7 +31,7 @@
     <secondary slot="3">
       <block start="1" count="1">
         <memory SHA1="7ce255ab63ba79f81d8b83d66f1108062d0b61f1" filename="vg8235-00_disk.rom">ROM</memory>
-        <device style="Philips" fdd_count="1">WD2793</device>
+        <device style="Philips" fdd_count="1" single_sided="true">WD2793</device>
       </block>
       <block start="2" count="1">
         <ref to_block="1">DEVICE</ref>

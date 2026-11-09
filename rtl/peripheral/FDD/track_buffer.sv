@@ -1,99 +1,97 @@
-module track_buffer #(ID = 0)
+// Track buffer: keeps the sectors of the track under the head (drive, cylinder, head) and
+// reloads them from the drive's image (HPS block device) when the head moves to another
+// track or the image is (re)mounted. One load at a time; a load in progress is finished
+// and then the current track is loaded. 'ready' only when the buffer holds that track.
+module track_buffer #(parameter ID = 0)
 (
     input  logic        clk,
     input  logic        reset,
-    
+    block_device_if.device_mp block_device[2],
+    input  logic        want,           // a recorded track is under the head
+    input  logic        drive,
     input  logic  [6:0] track,
-    input  logic        USEL,
-    input  logic        side,
-    
+    input  logic        head,
+    input  logic        disk_ds,        // image geometry of the selected drive
+    input  logic  [4:0] spt,
+    input  logic  [1:0] changed,        // image of drive i (re)mounted (1 clk)
     input  logic [12:0] buffer_addr,
     output logic  [7:0] buffer_q,
-    output logic        ready,
-    
-    block_device_if.device_mp block_device[2],
-    
-    //Image info
-    input  logic        disk_mounted,
-    input  logic        disk_readonly,
-    input  logic        disk_sides
+    output logic        ready
 );
+    logic [6:0] buf_track;
+    logic       buf_drive, buf_head;
+    logic       buf_valid, stale, busy, acked;
+    logic [1:0] rd;
+    logic [31:0] rd_lba;
+    logic  [5:0] rd_cnt;
 
-    logic [6:0] reg_track;
-    logic       reg_USEL;
-    logic       reg_side;
+    wire  ack   = buf_drive ? block_device[1].ack : block_device[0].ack;
+    wire  match = buf_valid && !stale && {buf_drive, buf_track, buf_head} == {drive, track, head};
+    assign ready = want && match;
 
-    logic       load;
-    logic       sd_ack;
-
-    wire changed = {reg_track, reg_USEL, reg_side} != {track, USEL, side};
-    
-    assign block_device[0].wr = 0;     //TODO Write functionality
-    assign block_device[1].wr = 0;     //TODO Write functionality
-
-    assign sd_ack = reg_USEL ? block_device[1].ack : block_device[0].ack;
-    assign ready  = !changed && !load && !load_busy && disk_mounted;
+    wire  [7:0] trk_side = disk_ds ? {track, head} : {1'b0, track};     // track * sides + head
+    wire [12:0] lba      = {5'd0, trk_side} * {8'd0, spt};
 
     always_ff @(posedge clk) begin
         if (reset) begin
-            load <= 1;
+            buf_valid <= 1'b0;
+            stale     <= 1'b0;
+            busy      <= 1'b0;
+            acked     <= 1'b0;
+            rd        <= '0;
         end else begin
-            
-            if (!load_busy && changed) load <= 1;
-            if (load_busy && sd_ack) load <= 0;
-        end       
-    end
-
-    logic load_busy;
-    logic [4:0] sectors;
-
-    always_ff @(posedge clk) begin
-        if (reset) begin
-            load_busy <= 0;
-        end else begin
-            if (!load_busy && load && disk_mounted) begin
-                {reg_track, reg_USEL, reg_side} <= {track,  USEL, side};
-                load_busy <= 1;
-                if (USEL) begin
-                    $display("LOAD Track USEL 1  %t",  $time);
-                    block_device[1].lba <=  (track * (disk_sides ? 18 : 9)) + (side == 1'b1 ? 9 : 0);
-                    block_device[1].blk_cnt <= 8 ;
-                    block_device[1].rd <= 1;
-                end else begin
-                    $display("Load Track USEL 0  %t",  $time);
-                    block_device[0].lba <=  (track * (disk_sides ? 18 : 9)) + (side == 1'b1 ? 9 : 0);
-                    block_device[0].blk_cnt <= 8 ;
-                    block_device[0].rd <= 1;
+            if (!busy) begin
+                if (want && !match) begin
+                    {buf_drive, buf_track, buf_head} <= {drive, track, head};
+                    buf_valid <= 1'b0;
+                    stale     <= 1'b0;
+                    busy      <= 1'b1;
+                    acked     <= 1'b0;
+                    rd[drive] <= 1'b1;
+                    rd_lba    <= {19'd0, lba};
+                    rd_cnt    <= {1'b0, spt - 5'd1};
+                end
+            end else begin
+                if (ack) begin
+                    acked <= 1'b1;
+                    rd    <= '0;
+                end else if (acked) begin               // transfer finished
+                    busy      <= 1'b0;
+                    buf_valid <= 1'b1;
                 end
             end
-
-            if (~reg_USEL && block_device[0].rd && block_device[0].ack && load_busy) block_device[0].rd <= 0;
-            
-            if (reg_USEL && block_device[1].rd && block_device[1].ack && load_busy) block_device[1].rd <= 0;
-            
-            if (!load && !sd_ack ) load_busy <= 0;
+            if (changed[buf_drive]) stale <= 1'b1;     // also during a load: reload after it
         end
     end
 
-    logic [7:0] dpram_sd_buff_din;
-    always_ff @(posedge clk) begin
-        if (reg_USEL) begin
-            block_device[1].buff_din <= dpram_sd_buff_din;
-        end else begin
-            block_device[0].buff_din <= dpram_sd_buff_din;
-        end
-    end
-    
+    assign block_device[0].rd      = rd[0];
+    assign block_device[1].rd      = rd[1];
+    assign block_device[0].lba     = rd_lba;
+    assign block_device[1].lba     = rd_lba;
+    assign block_device[0].blk_cnt = rd_cnt;
+    assign block_device[1].blk_cnt = rd_cnt;
+    assign block_device[0].wr = 1'b0;   // write not implemented yet
+    assign block_device[1].wr = 1'b0;
+
+    // HPS writes the sectors through port A; buff_wr is shared by all virtual disks,
+    // only the transfer acknowledged for this drive may write.
+    wire [13:0] sd_addr = buf_drive ? block_device[1].buff_addr : block_device[0].buff_addr;
+    wire  [7:0] sd_data = buf_drive ? block_device[1].buff_dout : block_device[0].buff_dout;
+    wire        sd_wr   = buf_drive ? block_device[1].buff_wr && block_device[1].ack
+                                    : block_device[0].buff_wr && block_device[0].ack;
+    wire  [7:0] q_a;
+    assign block_device[0].buff_din = q_a;
+    assign block_device[1].buff_din = q_a;
+
     dpram #(.addr_width(13), .mem_name(ID)) track_dpram (
         .clock(clk),
-        .address_a(reg_USEL ? block_device[1].buff_addr[12:0] : block_device[0].buff_addr[12:0]),
-        .data_a(reg_USEL ? block_device[1].buff_dout : block_device[0].buff_dout),
-        .wren_a(reg_USEL ? block_device[1].buff_wr : block_device[0].buff_wr),
-        .q_a(dpram_sd_buff_din),
-
+        .address_a(sd_addr[12:0]),
+        .data_a(sd_data),
+        .wren_a(sd_wr),
+        .q_a(q_a),
         .address_b(buffer_addr),
-        .wren_b(0),
-        .data_b(0),
+        .wren_b(1'b0),
+        .data_b(8'h00),
         .q_b(buffer_q)
     );
 

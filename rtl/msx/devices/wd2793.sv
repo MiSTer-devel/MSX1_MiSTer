@@ -50,7 +50,8 @@ typedef enum logic [1:0] {DRIVE_NONE, DRIVE_A, DRIVE_B} drive_t;
 
 logic [7:0] philips_sideReg, philips_driveReg;
 
-wire area_philips   = (cpu_bus.addr[13:3] == 11'b11111111111) && model == 2'h0;
+// model (XML style): 0 Philips, 1 National, 2 Sony (Philips registers, openMSX PhilipsFDC)
+wire area_philips   = (cpu_bus.addr[13:3] == 11'b11111111111) && (model == 2'h0 || model == 2'h2);
 wire area_national  = (cpu_bus.addr[13:7] ==  7'b1111111) && model == 2'h1;
 wire area_device    = area_philips || area_national;
 wire device_cs      = cs && area_device && cpu_bus.mreq;
@@ -61,9 +62,22 @@ logic motor, side;
 drive_t drive;
 
 
-assign FDD_bus.USEL   = 0;                //TODO zatim jeden image
-assign FDD_bus.MOTORn = ~(motor && drive == DRIVE_A);
+assign FDD_bus.USEL   = drive == DRIVE_B;
+assign FDD_bus.MOTORn = ~(motor && drive != DRIVE_NONE);       // no drive selected: no motor, not ready
 assign FDD_bus.SIDEn  = ~side;
+
+// Philips 7FFDh bit 2 = 0 iff the disk of the selected drive changed (openMSX PhilipsFDC; read
+// by the Sony disk ROMs, the Philips ROMs ignore it). The read clears it: acknowledged at the
+// end of the read cycle, after the CPU took the value.
+wire       dskchg_n  = drive == DRIVE_NONE ? 1'b1 : FDD_bus.DSKCHGn[drive == DRIVE_B];
+wire       rd_7ffd   = cpu_bus.rd && device_cs && area_philips && cpu_bus.addr[2:0] == 3'd5;
+logic       rd_7ffd_q = 1'b0;
+logic [1:0] ack_mask  = 2'b00;                  // drive read: A 01, B 10, none 00
+always_ff @(posedge cpu_bus.clk) begin
+   rd_7ffd_q <= rd_7ffd;
+   if (rd_7ffd) ack_mask <= {drive == DRIVE_B, drive == DRIVE_A};
+end
+assign FDD_bus.DSKCHG_ACK = rd_7ffd_q && !rd_7ffd ? ack_mask : 2'b00;
 
 //wire [1:0] dbg_status = {drq, intrq};
 
@@ -121,7 +135,7 @@ always_comb begin
          if (area_philips) begin
             case(cpu_bus.addr[1:0])
                0: begin data = philips_sideReg; data_oe_rq = 1; end
-               1: begin data = philips_driveReg & 8'hFB; data_oe_rq = 1; end
+               1: begin data = {philips_driveReg[7:3], dskchg_n, philips_driveReg[1:0]}; data_oe_rq = 1; end
                2: ;
                3: begin data = {~drq, ~intrq, 6'b111111}; data_oe_rq = 1; end
             endcase

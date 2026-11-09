@@ -136,6 +136,8 @@ interface FDD_if();
     wire       TRACK0n;
     wire       WPROTn;
     wire       READ_DATAn;
+    wire [1:0] DSKCHGn;     // per drive: 0 = disk changed since DSKCHG_ACK (turbo R FDCHG1/2)
+    wire [1:0] DSKCHG_ACK;  // per drive: the controller has read the change (openMSX: read clears)
 
     modport FDD_mp (
         input   USEL,
@@ -147,7 +149,9 @@ interface FDD_if();
         output  INDEXn,
         output  TRACK0n,
         output  WPROTn,
-        output  READ_DATAn
+        output  READ_DATAn,
+        output  DSKCHGn,
+        input   DSKCHG_ACK
     );
 
     modport FDC_mp (
@@ -160,7 +164,9 @@ interface FDD_if();
         input   INDEXn,
         input   TRACK0n,
         input   WPROTn,
-        input   READ_DATAn
+        input   READ_DATAn,
+        input   DSKCHGn,
+        output  DSKCHG_ACK
     );
 
 endinterface

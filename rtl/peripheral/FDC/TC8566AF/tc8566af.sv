@@ -1,14 +1,19 @@
 // TC8566AF floppy controller core
 //
 // SystemVerilog port of rtl/FDC/FDCs.vhd of PC88_MiSTer revision 1d4de0f (2025-02-25)
-// (https://github.com/MiSTer-devel/PC88_MiSTer). The same FDC code is published under the
-// GNU General Public License version 3 in X68000_MiSTer. Port: Molekula.
+// (https://github.com/MiSTer-devel/PC88_MiSTer), with the FDC fixes of PC88_MiSTer by Yoshiaki
+// Okuyama up to a55ba46 (2026-11-05): end at EOT without TC, seek and Sense Interrupt results per
+// drive, uPD765 step timing, head load time, result phase delay, SK / deleted data mark, long
+// sectors, write bit cell in 1/256 clocks. The same FDC code is published under the GNU General
+// Public License version 3 in X68000_MiSTer. Port: Molekula.
 //
 // SPDX-License-Identifier: GPL-3.0-only
 
 module tc8566af #(
     parameter int   maxtrack	= 85,
 	parameter int   maxbwidth	= 88,
+	parameter int   maxfwidth	= 88*256,              // bit cells in 1/256 clocks
+	parameter bit   fracin      = 0,                   // 1: intf* / intm* time the writes
 	parameter int   rdytout     = 800,
 	parameter logic preseek	    = 0,
 	parameter int   sysclk		= 20
@@ -24,6 +29,7 @@ module tc8566af #(
 	output logic                            DRQ,
 	input  logic                            TC,
 	output logic                            INTn,
+	output logic                            INTEV,                      // events that set INTn
 	input  logic                            WAITIN,
 
 	output logic                            WREN,                       // pin24
@@ -37,12 +43,16 @@ module tc8566af #(
 	output logic                            side,                       // pin32
 	output logic                     [1:0]  usel,
 	input  logic                            READY,	                    // pin34
-	input  logic                            TWOSIDE,
+	input  logic                     [3:0]  readyv,                     // per drive, 1 = not ready
+	input  logic                     [3:0]  TWOSIDE,                    // per drive, ST3 TS
 	
     input  logic [$clog2(maxbwidth+1)-1:0]  int0,
     input  logic [$clog2(maxbwidth+1)-1:0]  int1,
     input  logic [$clog2(maxbwidth+1)-1:0]  int2,
 	input  logic [$clog2(maxbwidth+1)-1:0]  int3,
+	// the same bit cells in 1/256 clocks for FM and MFM, time the writes with fracin
+	input  logic [$clog2(maxfwidth+1)-1:0]  intf0, intf1, intf2, intf3,
+	input  logic [$clog2(maxfwidth+1)-1:0]  intm0, intm1, intm2, intm3,
 	
 	input  logic                            td0,
 	input  logic                            td1,
@@ -53,8 +63,6 @@ module tc8566af #(
 	
 	output logic                            busy,
 	output logic                            mfm,
-	
-	input  logic                            ismode,
 	
 	input  logic                            sclk,
 	input  logic                            fclk,
@@ -84,7 +92,41 @@ module tc8566af #(
     logic               RD_CMD;
     logic               sDIOc;
     logic               DxBclr;
+    logic               DxBclrd;
+    logic         [1:0] SISUS;                  // drive of the Sense Interrupt result
     logic               SISclr;
+    logic               SISclrd;
+    logic         [6:0] HLT;                    // head load time (Specify)
+    logic         [3:0] HUT;                    // head unload time (Specify)
+    logic               hdld;                   // head loaded
+    logic               hlrun;
+    logic        [10:0] hlcnt;                  // 0..128*8 half ms
+    logic        [10:0] hucnt;                  // 0..16*64 half ms
+    logic               skipsect;               // SK = 1: sector with the other data mark skipped
+    // seek completions waiting to be reported, oldest first
+    logic         [1:0] sqdrv [4];
+    logic         [3:0] sqerr;
+    logic         [3:0] sqnr;
+    logic         [2:0] sqcnt;
+    // Sense Interrupt result per drive
+    logic         [7:0] sisst0 [4];
+    logic         [7:0] sispcn [4];
+    logic         [3:0] sisvld;
+    logic         [1:0] sisdrv;                 // drive reported next, lowest number first
+    logic               sisany;
+    logic         [7:0] sisPCNl;                // PCN latched with the first result byte
+    logic         [1:0] sCBq;
+    // result phase of a read 93 us after the end (PC-8801FH)
+    localparam int      resdly = sysclk*93;
+    localparam int      RW = $clog2(resdly+1);
+    logic      [RW-1:0] resdcnt;
+    logic               resdrd;
+    logic               resdstart;
+    logic               resdhold;
+    logic               resdint;
+    logic               end_EXECd;
+    logic               end_EXECo;
+    logic               INTd;
     logic               CPURD_DATf;
     logic               CPUWR_DATf;
     logic               DMARDxf;
@@ -142,7 +184,6 @@ module tc8566af #(
     logic               sSE;                    // Seek End 
     wire                sSN = 1'b0;             // Scan Not Satisfied (never set, as FDCs.vhd)
     wire                sBC = 1'b0;             // Bad Cylinder (never set, as FDCs.vhd)
-    logic               sREADY;
     logic               lindex;
     logic               indexb;
     logic               NOTRDY;
@@ -164,7 +205,6 @@ module tc8566af #(
     logic               mfmtxend;
     logic               crcbusy;
     logic               modsft;
-    logic               SISen;
     logic               sTC;
     logic               seek_busy;
     logic               wrbitex;
@@ -251,7 +291,6 @@ module tc8566af #(
     logic         [7:0] ST2;
     logic         [7:0] ST3;
     logic         [7:0] crcin;
-    logic         [7:0] PCN;
     logic         [7:0] cntR;
     logic         [7:0] rxH;
     logic         [7:0] txdat;
@@ -278,7 +317,8 @@ module tc8566af #(
     int                 nturns;
     int                 iUS;
     int                 bytecount;
-    int                 sftwidth;
+    localparam int      FW = $clog2(maxfwidth+1);
+    logic      [FW-1:0] sftwidth;               // write bit cell in 1/256 clocks
     int                 bitwidth;
     int                 seek_cur0;
     int                 seek_cur1;
@@ -459,6 +499,10 @@ module tc8566af #(
             sDIOc      <= 0;
             DxBclr     <= 0;
             SISclr     <= 0;
+            HLT        <= '0;
+            HUT        <= '0;
+            SISUS      <= '0;
+            sisPCNl    <= '0;
         end else begin
             EXEC    <= 0;
             DxBclr  <= 0;
@@ -575,7 +619,7 @@ module tc8566af #(
                                 EXEC   <= 1;
                                 datnum <= datnum + 5'd1;
                             end
-                            10: if (end_EXEC) begin
+                            10: if (end_EXECo) begin
                                 RD_CMD <= 1;
                                 RDDAT_CMD <= ST0;
                                 datnum <= datnum + 5'd1;
@@ -629,7 +673,7 @@ module tc8566af #(
                                 end
                             end
                             3: begin
-                                if (end_EXEC) begin
+                                if (end_EXECo) begin
                                     RD_CMD <= 1'b1;
                                     RDDAT_CMD <= ST0;
                                     datnum <= datnum + 5'd1;
@@ -710,7 +754,7 @@ module tc8566af #(
                                 EXEC <= 1;
                                 datnum <= datnum + 5'd1;
                             end
-                            7: if (end_EXEC) begin
+                            7: if (end_EXECo) begin
                                 RD_CMD <= 1;
                                 RDDAT_CMD <= ST0;
                                 datnum <= datnum + 5'd1;
@@ -764,7 +808,7 @@ module tc8566af #(
                                 end
                             end
                             3: begin
-                                if (end_EXEC == 1) begin
+                                if (end_EXECo == 1) begin
                                     RD_CMD <= 1;
                                     datnum <= 0;
                                 end
@@ -777,8 +821,11 @@ module tc8566af #(
                             1: begin
                                 RD_CMD <= 1;
                                 sDIOc <= 1;
-                                if (SISen) begin
-                                    RDDAT_CMD <= ST0 & 8'hFB;
+                                // the lowest-numbered drive with a pending result (a9ab3e6)
+                                if (sisany) begin
+                                    RDDAT_CMD <= sisst0[sisdrv] & 8'hFB;
+                                    sisPCNl   <= sispcn[sisdrv];
+                                    SISUS     <= sisdrv;
                                     datnum <= datnum + 5'd1;
                                 end else begin
                                     RDDAT_CMD <= 8'h80;
@@ -788,7 +835,7 @@ module tc8566af #(
 
                             2: begin
                                 if (CPURD_DAT) begin
-                                    RDDAT_CMD <= PCN;
+                                    RDDAT_CMD <= sisPCNl;
                                     datnum <= datnum + 5'd1;
                                 end
                             end
@@ -816,12 +863,14 @@ module tc8566af #(
                         case (datnum)
                             1: begin
                                 if (CPUWR_DAT) begin
+                                    HUT <= CPUWRDAT[3:0];
                                     SRT <= CPUWRDAT[7:4];
                                     datnum <= datnum + 5'd1;
                                 end
                             end
                             2: begin
                                 if (CPUWR_DAT) begin
+                                    HLT <= CPUWRDAT[7:1];
                                     ND <= CPUWRDAT[0];
                                     RD_CMD <= 1;
                                     datnum <= 0;
@@ -879,7 +928,7 @@ module tc8566af #(
                                 end
                             end
                             4: begin
-                                if (end_EXEC == 1'b1) begin
+                                if (end_EXECo == 1'b1) begin
                                     RD_CMD <= 1'b1;
                                     datnum <= 0;
                                 end
@@ -943,6 +992,35 @@ module tc8566af #(
         end
     end
 
+    // Seek completions are queued, also while a transfer runs, and moved one by one into the
+    // per-drive Sense Interrupt result in the command phase (PC88_MiSTer a9ab3e6). The VHDL
+    // process variables are combinational here.
+    logic       seekpush, pusherr, dopop;
+    logic [1:0] pushdrv;
+    logic [2:0] qn_pop, qn_next;
+    logic [3:0] visv;
+    always_comb begin
+        seekpush = 1'b0;
+        pushdrv  = 2'd0;
+        pusherr  = 1'b0;
+        for (int i = 0; i < 4; i++) begin
+            if (seek_end[i]) begin
+                seekpush = 1'b1; pushdrv = 2'(i); pusherr = 1'b0;
+            end else if (seek_err[i]) begin
+                seekpush = 1'b1; pushdrv = 2'(i); pusherr = 1'b1;
+            end
+        end
+        dopop   = execstate == es_idle && !sCB && sCBq == 2'b00 && sqcnt != 3'd0;
+        qn_pop  = dopop ? sqcnt - 3'd1 : sqcnt;
+        qn_next = seekpush && qn_pop < 3'd4 ? qn_pop + 3'd1 : qn_pop;
+        visv    = sisvld;
+        if (SISclr && !SISclrd) visv[SISUS] = 1'b0;
+        if (dopop) visv[sqdrv[0]] = 1'b1;
+    end
+
+    // the sector just finished is the last one (EOT): R = EOT and not the first side of MT
+    wire lastsect = R == EOT && (!MT || HD);
+
     always_ff @(posedge fclk or negedge rstn) begin
         if (!rstn) begin
             execstate <= es_idle;
@@ -954,7 +1032,6 @@ module tc8566af #(
             crcwr     <= 1'b0;
             deminit   <= 1'b0;
             dembreak  <= 1'b0;
-            PCN       <= '0;
             cntR      <= '0;
             rxC       <= '0;
             rxH       <= '0;
@@ -1004,6 +1081,19 @@ module tc8566af #(
             ecommand  <= '0;
             COMPDAT   <= '0;
             scancomp  <= 1'b0;
+            skipsect  <= 1'b0;
+            sUS       <= 2'b00;
+            for (int i = 0; i < 4; i++) begin
+                sqdrv[i]  <= 2'b00;
+                sisst0[i] <= '0;
+                sispcn[i] <= '0;
+            end
+            sqerr     <= '0;
+            sqnr      <= '0;
+            sqcnt     <= '0;
+            sisvld    <= '0;
+            SISclrd   <= 1'b0;
+            sCBq      <= 2'b11;
         end else begin
             end_EXEC  <= 1'b0;
             seek_bgn  <= 1'b0;
@@ -1036,40 +1126,41 @@ module tc8566af #(
             setHD     <= 1'b0;
             resHD     <= 1'b0;
             NRDSTART  <= 1'b0;
+            sCBq      <= {sCBq[0], sCB};
+            if (dopop) begin
+                for (int i = 0; i < 3; i++) begin
+                    sqdrv[i] <= sqdrv[i+1];
+                    sqerr[i] <= sqerr[i+1];
+                    sqnr[i]  <= sqnr[i+1];
+                end
+            end
+            if (seekpush && qn_pop < 3'd4) begin
+                sqdrv[qn_pop[1:0]] <= pushdrv;
+                sqerr[qn_pop[1:0]] <= pusherr;
+                sqnr[qn_pop[1:0]]  <= readyv[pushdrv];
+            end
+            sqcnt   <= qn_next;
+            SISclrd <= SISclr;
+            sisvld  <= visv;
+            if (SISclr && !SISclrd && visv != 4'b0000) INTs <= 1'b1;   // the next pending result
+
             if (execstate == es_idle) begin
                 sRQM <= 1'b1;
-                if (seek_end != 4'b0000) begin
-                    sHD <= HD;
-                    case (seek_end)
-                        4'b0001: begin sUS <= 2'b00; PCN <= mPCN0; end
-                        4'b0010: begin sUS <= 2'b01; PCN <= mPCN1; end
-                        4'b0100: begin sUS <= 2'b10; PCN <= mPCN2; end
-                        4'b1000: begin sUS <= 2'b11; PCN <= mPCN3; end
-                        default: ;
+                if (dopop) begin
+                    case (sqdrv[0])
+                        2'b00:   sispcn[sqdrv[0]] <= mPCN0;
+                        2'b01:   sispcn[sqdrv[0]] <= mPCN1;
+                        2'b10:   sispcn[sqdrv[0]] <= mPCN2;
+                        default: sispcn[sqdrv[0]] <= mPCN3;
                     endcase
-                    sIC  <= 2'b00;
-                    sEC  <= 1'b0;
-                    sSE  <= 1'b1;
-                    sNR  <= sREADY;
+                    // IC, SE, EC, NR at completion, HD, US; SE also on an error (uPD765), disk ROMs
+                    // wait for it (FS-A1F 7970h)
+                    sisst0[sqdrv[0]] <= {sqerr[0] ? 2'b01 : 2'b00, 1'b1, sqerr[0], sqnr[0], HD, sqdrv[0]};
                     INTs <= 1'b1;
-                end else if (seek_err != 4'b0000) begin
-                    sIC <= 2'b01;
-                    sHD <= HD;
-                    case (seek_err)
-                        4'b0001: begin sUS <= 2'b00; PCN <= mPCN0; end
-                        4'b0010: begin sUS <= 2'b01; PCN <= mPCN1; end
-                        4'b0100: begin sUS <= 2'b10; PCN <= mPCN2; end
-                        4'b1000: begin sUS <= 2'b11; PCN <= mPCN3; end
-                        default: ;
-                    endcase
-                    sNR  <= sREADY;
-                    sEC  <= 1'b1;
-                    sSE  <= 1'b1;      // SE also on a failed seek (uPD765; PC88_MiSTer a9ab3e6),
-                    INTs <= 1'b1;      // disk ROMs wait for SE (FS-A1F 7970h)
                 end
                 if (EXEC) begin
                     sIC  <= 2'b00;
-                    sNR  <= READY;
+                    sNR  <= readyv[iUS];
                     sHD  <= HD;
                     sUS  <= US;
                     sOR  <= 1'b0;
@@ -1085,6 +1176,8 @@ module tc8566af #(
                     sMD  <= 1'b0;
                     sRQM <= 1'b0;
                     sCM  <= 1'b0;
+                    skipsect <= 1'b0;
+                    TCclr    <= 1'b1;   // a TC of the previous command does not carry over (f2d6a8f)
                     DETSECT  <= 1'b0;
                     NRDSTART <= 1'b1;
                     ecommand <= command;
@@ -1126,10 +1219,7 @@ module tc8566af #(
                             end
                             nturns <= 0;
                         end
-                        cmd_RECALIBRATE: begin
-                            seek_init <= 1'b1;
-                            execstate <= es_seek;
-                        end
+                        cmd_RECALIBRATE,                       // ready check first (a9ab3e6)
                         cmd_SEEK:
                             execstate <= es_readychk;
                         default: begin
@@ -1143,21 +1233,22 @@ module tc8566af #(
                     cmd_READDATA,
                     cmd_READDELETEDDATA,
                     cmd_READATRACK: begin
-                        if (execstate != es_seek && lindex && ~indexb) begin
+                        if (execstate != es_seek && !(execstate == es_wseek && !hdld) && lindex && ~indexb &&
+                            !(execstate == es_DATA || execstate == es_DATAw || execstate == es_CRCd0 ||
+                              execstate == es_CRCd1 || execstate == es_CRCdc)) begin
                             if (nturns == 0) begin
                                 nturns    <= 1;
                             end else begin
                                 sHD <= HD;
                                 sUS <= US;
                                 sIC <= 2'b01;
-                                sNR <= READY;
+                                sNR <= readyv[iUS];
                                 sEC <= '0;
                                 sSE <= '0;
                                 if (DETSECT) 
                                     sND <= '1;
                                 else
                                     sMA <= '1;
-                                PCN <= cPCN;
                                 INT <= '1;
                                 end_EXEC <= '1;
                                 execstate <= es_idle;
@@ -1166,12 +1257,11 @@ module tc8566af #(
                             sHD <= HD;
                             sUS <= US;
                             sIC <= 2'b11;
-                            sNR <= READY;
+                            sNR <= readyv[iUS];
                             sEC <= '0;
                             sSE <= '0;
                             sND <= '0;
                             sMA <= '0;
-                            PCN <= cPCN;
                             INT <= '1;
                             end_EXEC <= '1;
                             execstate <= es_idle;
@@ -1184,18 +1274,17 @@ module tc8566af #(
                                     deminit <= 1;
                                 end else if (seek_err[iUS]) begin
                                     sIC <= 2'b01;
-                                    sNR <= READY;
+                                    sNR <= readyv[iUS];
                                     sEC <= 1;
                                     sSE <= 0;
                                     sHD <= HD;
                                     sUS <= US;
-                                    PCN <= cPCN;
                                     INT <= 1;
                                     execstate <= es_idle;
                                 end
                             end
                             es_wseek: begin
-                                if (!seekbusy) begin
+                                if (!seekbusy && hdld) begin
                                     if (ecommand == cmd_READATRACK) begin
                                         execstate <= es_windex;
                                     end else begin
@@ -1421,9 +1510,8 @@ module tc8566af #(
                                         end else begin
                                             sHD <= HD;
                                             sUS <= US;
-                                            PCN <= cPCN;
                                             sIC <= 2'b01;
-                                            sNR <= READY;
+                                            sNR <= readyv[iUS];
                                             sEC <= 0;
                                             sSE <= 0;
                                             sWC <= 1;
@@ -1458,6 +1546,13 @@ module tc8566af #(
                                         TCclr <= 1;
                                         sMD <= 0;
                                         execstate <= es_DATA;
+                                    end else if ((ecommand == cmd_READDATA || ecommand == cmd_READDELETEDDATA) && SK &&
+                                                 (fmmf8det || fmmfbdet)) begin
+                                        // SK = 1: skip the sector, go on as if read (CM set above; f2d6a8f)
+                                        dembreak <= 1;
+                                        sMD <= 0;
+                                        skipsect <= 1;
+                                        execstate <= es_CRCdc;
                                     end else if (fmmf8det || fmmfbdet || fmmfcdet || fmmfedet || fmrxed) begin
                                         dembreak <= 1;
                                         crcclr <= 1;
@@ -1534,6 +1629,13 @@ module tc8566af #(
                                     TCclr <= 1;
                                     sMD <= 0;
                                     execstate <= es_DATA;
+                                end else if (mfmrxed && (ecommand == cmd_READDATA || ecommand == cmd_READDELETEDDATA) && SK &&
+                                             (mfmrxdat == 8'hF8 || mfmrxdat == 8'hFB)) begin
+                                    // SK = 1: skip the sector, go on as if read (CM set above; f2d6a8f)
+                                    dembreak <= 1;
+                                    sMD <= 0;
+                                    skipsect <= 1;
+                                    execstate <= es_CRCdc;
                                 end else if (mfmma1det || mfmmc2det || mfmrxed ) begin
                                     dembreak <= 1;
                                     crcclr <= 1;
@@ -1553,9 +1655,8 @@ module tc8566af #(
                                             end else begin
                                                 sHD <= HD;
                                                 sUS <= US;
-                                                PCN <= cPCN;
                                                 sIC <= 2'b00;
-                                                sNR <= READY;
+                                                sNR <= readyv[iUS];
                                                 sEC <= 0;
                                                 sSE <= 0;
                                                 INT <= 1;
@@ -1576,9 +1677,8 @@ module tc8566af #(
                                             end else begin
                                                 sHD <= HD;
                                                 sUS <= US;
-                                                PCN <= cPCN;
                                                 sIC <= 2'b00;
-                                                sNR <= READY;
+                                                sNR <= readyv[iUS];
                                                 sEC <= 0;
                                                 sSE <= 0;
                                                 INT <= 1;
@@ -1654,8 +1754,9 @@ module tc8566af #(
                             end
 
                             es_CRCdc: begin
-                                if (crcdone) begin
-                                    if (crczero || ecommand == cmd_READATRACK) begin
+                                if (crcdone || skipsect) begin
+                                    if (crczero || ecommand == cmd_READATRACK || skipsect) begin
+                                        skipsect <= 0;
                                         if (R != EOT) begin
                                             incR <= 1;
                                         end else if (MT) begin
@@ -1673,27 +1774,63 @@ module tc8566af #(
                                             resR <= 1;
                                             incC <= 1;
                                         end
-                                        sDE <= 0;
+                                        if (ecommand == cmd_READATRACK && !crczero) begin
+                                            // READ A TRACK goes on after a data CRC error, DE DD reported (a55ba46)
+                                            sDE <= 1;
+                                            sDD <= 1;
+                                        end
                                         if (sOR) begin
                                             sIC <= 2'b01;
-                                            sNR <= READY;
+                                            sNR <= readyv[iUS];
                                             sEC <= 0;
                                             sSE <= 0;
                                             sHD <= HD;
                                             sUS <= US;
-                                            PCN <= cPCN;
                                             INT <= 1;
                                             execstate <= es_idle;
+                                            end_EXEC <= 1;
+                                        end else if (!SK && sCM && (ecommand == cmd_READDATA || ecommand == cmd_READDELETEDDATA)) begin
+                                            // SK = 0: end after the sector with the other data mark, C H R kept (f2d6a8f)
+                                            incR  <= 0;
+                                            resR  <= 0;
+                                            setH  <= 0;
+                                            setHD <= 0;
+                                            resH  <= 0;
+                                            resHD <= 0;
+                                            incC  <= 0;
+                                            execstate <= es_idle;
+                                            sIC <= 2'b00;
+                                            sNR <= readyv[iUS];
+                                            sEC <= 0;
+                                            sSE <= 0;
+                                            sHD <= HD;
+                                            sUS <= US;
+                                            INT <= 1;
                                             end_EXEC <= 1;
                                         end else if (TCen) begin
                                             execstate <= es_idle;
                                             sIC <= 2'b00;
-                                            sNR <= READY;
+                                            sNR <= readyv[iUS];
                                             sEC <= 0;
                                             sSE <= 0;
                                             sHD <= HD;
                                             sUS <= US;
-                                            PCN <= cPCN;
+                                            INT <= 1;
+                                            end_EXEC <= 1;
+                                        end else if (lastsect) begin
+                                            // EOT without TC: end here, IC 01 and EN, C H R kept (PC-8801FH;
+                                            // 2620836, f2d6a8f). It looked for R = EOT + 1 two turns (ND).
+                                            resR <= 0;
+                                            resH <= 0;
+                                            incC <= 0;
+                                            execstate <= es_idle;
+                                            sIC <= 2'b01;
+                                            sEN <= 1;
+                                            sNR <= readyv[iUS];
+                                            sEC <= 0;
+                                            sSE <= 0;
+                                            sHD <= HD;
+                                            sUS <= US;
                                             INT <= 1;
                                             end_EXEC <= 1;
                                         end else begin
@@ -1704,13 +1841,12 @@ module tc8566af #(
                                     end else begin
                                         sDE <= 1;
                                         sIC <= 2'b01;
-                                        sNR <= READY;
+                                        sNR <= readyv[iUS];
                                         sEC <= 0;
                                         sSE <= 0;
                                         sHD <= HD;
                                         sUS <= US;
                                         sDD <= 1;
-                                        PCN <= cPCN;
                                         INT <= 1;
                                         execstate <= es_idle;
                                         end_EXEC <= 1;
@@ -1726,26 +1862,24 @@ module tc8566af #(
                     cmd_WRITEDELETEDDATA: begin
                         if (!WPRT) begin
                             sIC <= 2'b01;
-                            sNR <= READY;
+                            sNR <= readyv[iUS];
                             sEC <= 1'b0;
                             sSE <= 1'b0;
                             sNW <= 1'b1;
                             sHD <= HD;
                             sUS <= US;
-                            PCN <= cPCN;
                             INT <= 1'b1;
                             end_EXEC <= 1'b1;
                             execstate <= es_idle;
-                        end else if (execstate != es_seek && lindex && !indexb) begin
+                        end else if (execstate != es_seek && !(execstate == es_wseek && !hdld) && lindex && !indexb) begin
                             if (nturns == 0) begin
                                 nturns <= 1;
                             end else begin
                                 sHD <= HD;
                                 sUS <= US;
-                                PCN <= cPCN;
                                 INT <= 1'b1;
                                 sIC <= 2'b01;
-                                sNR <= READY;
+                                sNR <= readyv[iUS];
                                 sEC <= 1'b0;
                                 sSE <= 1'b0;
                                 if (!DETSECT) begin
@@ -1760,12 +1894,11 @@ module tc8566af #(
                             sHD <= HD;
                             sUS <= US;
                             sIC <= 2'b11;
-                            sNR <= READY;
+                            sNR <= readyv[iUS];
                             sEC <= 1'b0;
                             sSE <= 1'b0;
                             sND <= 1'b0;
                             sMA <= 1'b0;
-                            PCN <= cPCN;
                             INT <= 1'b1;
                             end_EXEC <= 1'b1;
                             execstate <= es_idle;
@@ -1778,19 +1911,18 @@ module tc8566af #(
                                     deminit <= 1;
                                 end else if (seek_err[iUS]) begin
                                     sIC <= 2'b01;
-                                    sNR <= READY;
+                                    sNR <= readyv[iUS];
                                     sEC <= 1;
                                     sSE <= 0;
                                     sHD <= HD;
                                     sUS <= US;
-                                    PCN <= cPCN;
                                     INT <= 1;
                                     execstate <= es_idle;
                                 end
                             end
 
                             es_wseek: begin
-                                if (!seekbusy) begin
+                                if (!seekbusy && hdld) begin
                                     execstate <= es_IAM0;
                                 end
                             end
@@ -2024,9 +2156,8 @@ module tc8566af #(
                                         end else begin
                                             sHD <= HD;
                                             sUS <= US;
-                                            PCN <= cPCN;
                                             sIC <= 2'b01;
-                                            sNR <= READY;
+                                            sNR <= readyv[iUS];
                                             sEC <= 0;
                                             sSE <= 0;
                                             sWC <= 1;
@@ -2099,9 +2230,8 @@ module tc8566af #(
                                         end else begin
                                             sHD <= HD;
                                             sUS <= US;
-                                            PCN <= cPCN;
                                             sIC <= 2'b00;
-                                            sNR <= READY;
+                                            sNR <= readyv[iUS];
                                             sEC <= 1'b0;
                                             sSE <= 1'b0;
                                             INT <= 1'b1;
@@ -2165,9 +2295,8 @@ module tc8566af #(
                                     end else begin
                                         sHD <= HD;
                                         sUS <= US;
-                                        PCN <= cPCN;
                                         sIC <= 2'b00;
-                                        sNR <= READY;
+                                        sNR <= readyv[iUS];
                                         sEC <= 1'b0;
                                         sSE <= 1'b0;
                                         INT <= 1'b1;
@@ -2209,9 +2338,8 @@ module tc8566af #(
                                         end else begin
                                             sHD <= HD;
                                             sUS <= US;
-                                            PCN <= cPCN;
                                             sIC <= 2'b00;
-                                            sNR <= READY;
+                                            sNR <= readyv[iUS];
                                             sEC <= 1'b0;
                                             sSE <= 1'b0;
                                             INT <= 1'b1;
@@ -2312,9 +2440,8 @@ module tc8566af #(
                                         if (sOR) begin
                                             sHD <= HD;
                                             sUS <= US;
-                                            PCN <= cPCN;
                                             sIC <= 2'b01;
-                                            sNR <= READY;
+                                            sNR <= readyv[iUS];
                                             sEC <= 1'b0;
                                             sSE <= 1'b0;
                                             INT <= 1'b1;
@@ -2325,10 +2452,24 @@ module tc8566af #(
                                             sIC <= 2'b00;
                                             sHD <= HD;
                                             sUS <= US;
-                                            sNR <= READY;
+                                            sNR <= readyv[iUS];
                                             sEC <= 1'b0;
                                             sSE <= 1'b0;
-                                            PCN <= cPCN;
+                                            INT <= 1'b1;
+                                            end_EXEC <= 1'b1;
+                                        end else if (lastsect) begin
+                                            // EOT without TC: end here, IC 01 and EN, C H R kept, as the reads (e71ad21)
+                                            resR <= 1'b0;
+                                            resH <= 1'b0;
+                                            incC <= 1'b0;
+                                            execstate <= es_idle;
+                                            sIC <= 2'b01;
+                                            sEN <= 1'b1;
+                                            sHD <= HD;
+                                            sUS <= US;
+                                            sNR <= readyv[iUS];
+                                            sEC <= 1'b0;
+                                            sSE <= 1'b0;
                                             INT <= 1'b1;
                                             end_EXEC <= 1'b1;
                                         end else begin
@@ -2347,7 +2488,7 @@ module tc8566af #(
                         endcase
                     end
                     cmd_READID: begin
-                        if (execstate != es_seek && lindex && !indexb) begin
+                        if (execstate != es_seek && !(execstate == es_wseek && !hdld) && lindex && !indexb) begin
                             if (nturns == 0) begin
                                 nturns <= 1;
                             end else begin
@@ -2357,7 +2498,7 @@ module tc8566af #(
                                     sHD <= HD;
                                     sUS <= US;
                                     sIC <= 2'b01;
-                                    sNR <= READY;
+                                    sNR <= readyv[iUS];
                                     sEC <= 1'b0;
                                     sSE <= 1'b0;
                                     if (!DETSECT) begin
@@ -2365,7 +2506,6 @@ module tc8566af #(
                                     end else begin
                                         sND <= 1'b1;
                                     end
-                                    PCN <= cPCN;
                                     INT <= 1'b1;
                                     end_EXEC <= 1'b1;
                                     execstate <= es_idle;
@@ -2375,19 +2515,18 @@ module tc8566af #(
                             sHD <= HD;
                             sUS <= US;
                             sIC <= 2'b11;
-                            sNR <= READY;
+                            sNR <= readyv[iUS];
                             sEC <= 1'b0;
                             sSE <= 1'b0;
                             sND <= 1'b0;
                             sMA <= 1'b0;
-                            PCN <= cPCN;
                             INT <= 1'b1;
                             end_EXEC <= 1'b1;
                             execstate <= es_idle;
                         end
                         case (execstate)
                             es_wseek: begin
-                                if (!seekbusy) begin
+                                if (!seekbusy && hdld) begin
                                     execstate <= es_IAM0;
                                 end
                             end
@@ -2607,12 +2746,11 @@ module tc8566af #(
                                     if (crczero) begin
                                         execstate <= es_idle;
                                         sIC <= 2'b00;
-                                        sNR <= READY;
+                                        sNR <= readyv[iUS];
                                         sEC <= 0;
                                         sSE <= 0;
                                         sHD <= HD;
                                         sUS <= US;
-                                        PCN <= cPCN;
                                         INT <= 1;
                                         setC <= 1;
                                         if (rxH == 8'h00) begin
@@ -2640,14 +2778,14 @@ module tc8566af #(
                     cmd_SCANEQUAL,
                     cmd_SCANLOWEQUAL,
                     cmd_SCANHIGHEQUAL: begin
-                        if (execstate != es_seek && lindex && !indexb) begin
+                        if (execstate != es_seek && !(execstate == es_wseek && !hdld) && lindex && !indexb) begin
                             if (nturns == 0) begin
                                 nturns <= 1;
                             end else begin
                                 sHD <= HD;
                                 sUS <= US;
                                 sIC <= 2'b01;
-                                sNR <= READY;
+                                sNR <= readyv[iUS];
                                 sEC <= '0;
                                 sSE <= '0;
                                 if (!DETSECT) begin
@@ -2655,7 +2793,6 @@ module tc8566af #(
                                 end else begin
                                     sND <= '1;
                                 end
-                                PCN <= cPCN;
                                 INT <= '1;
                                 end_EXEC <= '1;
                                 execstate <= es_idle;
@@ -2664,12 +2801,11 @@ module tc8566af #(
                             sHD <= HD;
                             sUS <= US;
                             sIC <= 2'b11;
-                            sNR <= READY;
+                            sNR <= readyv[iUS];
                             sEC <= '0;
                             sSE <= '0;
                             sND <= '0;
                             sMA <= '0;
-                            PCN <= cPCN;
                             INT <= '1;
                             end_EXEC <= '1;
                             execstate <= es_idle;
@@ -2682,19 +2818,18 @@ module tc8566af #(
                                     deminit <= 1;
                                 end else if (seek_err[iUS]) begin
                                     sIC <= 2'b01;
-                                    sNR <= READY;
+                                    sNR <= readyv[iUS];
                                     sEC <= 1;
                                     sSE <= 0;
                                     sHD <= HD;
                                     sUS <= US;
-                                    PCN <= cPCN;
                                     INT <= 1;
                                     execstate <= es_idle;
                                 end
                             end
 
                             es_wseek: begin
-                                if (!seekbusy) begin
+                                if (!seekbusy && hdld) begin
                                     execstate <= es_IAM0;
                                 end
                             end
@@ -2927,9 +3062,8 @@ module tc8566af #(
                                         end else begin
                                             sHD <= HD;
                                             sUS <= US;
-                                            PCN <= cPCN;
                                             sIC <= 2'b01;
-                                            sNR <= READY;
+                                            sNR <= readyv[iUS];
                                             sEC <= 0;
                                             sSE <= 0;
                                             sWC <= 1;
@@ -3053,9 +3187,8 @@ module tc8566af #(
                                         end else begin
                                             sHD <= HD;
                                             sUS <= US;
-                                            PCN <= cPCN;
                                             sIC <= 2'b00;
-                                            sNR <= READY;
+                                            sNR <= readyv[iUS];
                                             sEC <= 1'b0;
                                             sSE <= 1'b0;
                                             INT <= 1'b1;
@@ -3074,9 +3207,8 @@ module tc8566af #(
                                         end else begin
                                             sHD <= HD;
                                             sUS <= US;
-                                            PCN <= cPCN;
                                             sIC <= 2'b00;
-                                            sNR <= READY;
+                                            sNR <= readyv[iUS];
                                             sEC <= 1'b0;
                                             sSE <= 1'b0;
                                             INT <= 1'b1;
@@ -3118,12 +3250,11 @@ module tc8566af #(
                                     end else begin
                                         sOR <= 1'b0;
                                         sIC <= 2'b01;
-                                        sNR <= READY;
+                                        sNR <= readyv[iUS];
                                         sEC <= 1'b0;
                                         sSE <= 1'b0;
                                         sHD <= HD;
                                         sUS <= US;
-                                        PCN <= cPCN;
                                         INT <= 1'b1;
                                         end_EXEC <= 1'b1;
                                         execstate <= es_idle;
@@ -3131,12 +3262,11 @@ module tc8566af #(
                                 end else if ((!MF && fmrxed) || (MF && mfmrxed)) begin
                                     sOR <= 1'b1;
                                     sIC <= 2'b01;
-                                    sNR <= READY;
+                                    sNR <= readyv[iUS];
                                     sEC <= 1'b0;
                                     sSE <= 1'b0;
                                     sHD <= HD;
                                     sUS <= US;
-                                    PCN <= cPCN;
                                     INT <= 1'b1;
                                     end_EXEC <= 1'b1;
                                     execstate <= es_idle;
@@ -3204,12 +3334,23 @@ module tc8566af #(
                                         if (TCen) begin
                                             execstate <= es_idle;
                                             sIC <= 2'b00;
-                                            sNR <= READY;
+                                            sNR <= readyv[iUS];
                                             sEC <= 1'b0;
                                             sSE <= 1'b0;
                                             sHD <= HD;
                                             sUS <= US;
-                                            PCN <= cPCN;
+                                            INT <= 1'b1;
+                                            end_EXEC <= 1'b1;
+                                        end else if (lastsect) begin
+                                            // EOT without TC: end here with EN (2620836)
+                                            execstate <= es_idle;
+                                            sIC <= 2'b00;
+                                            sEN <= 1'b1;
+                                            sNR <= readyv[iUS];
+                                            sEC <= 1'b0;
+                                            sSE <= 1'b0;
+                                            sHD <= HD;
+                                            sUS <= US;
                                             INT <= 1'b1;
                                             end_EXEC <= 1'b1;
                                         end else begin
@@ -3220,13 +3361,12 @@ module tc8566af #(
                                     end else begin
                                         sDE <= 1'b1;
                                         sIC <= 2'b01;
-                                        sNR <= READY;
+                                        sNR <= readyv[iUS];
                                         sEC <= 1'b0;
                                         sSE <= 1'b0;
                                         sHD <= HD;
                                         sUS <= US;
                                         sDD <= 1'b1;
-                                        PCN <= cPCN;
                                         INT <= 1'b1;
                                         execstate <= es_idle;
                                         end_EXEC <= 1'b1;
@@ -3242,7 +3382,7 @@ module tc8566af #(
                     cmd_FORMATATRACK: begin
                         if (!WPRT) begin
                             sIC <= 2'b01;
-                            sNR <= READY;
+                            sNR <= readyv[iUS];
                             sEC <= 1'b0;
                             sSE <= 1'b0;
                             sNW <= 1'b1;
@@ -3251,14 +3391,13 @@ module tc8566af #(
                             INT <= 1'b1;
                             end_EXEC <= 1'b1;
                             execstate <= es_idle;
-                        end else if (lindex && !indexb) begin
+                        end else if (execstate != es_wseek && lindex && !indexb) begin
                             if (sOR) begin
                                 modbreak <= 1'b1;
                                 sHD <= HD;
                                 sUS <= US;
-                                PCN <= cPCN;
                                 sIC <= 2'b01;
-                                sNR <= READY;
+                                sNR <= readyv[iUS];
                                 sEC <= 1'b0;
                                 sSE <= 1'b0;
                                 INT <= 1'b1;
@@ -3268,9 +3407,8 @@ module tc8566af #(
                                 modbreak <= 1'b1;
                                 sHD <= HD;
                                 sUS <= US;
-                                PCN <= cPCN;
                                 sIC <= 2'b00;
-                                sNR <= READY;
+                                sNR <= readyv[iUS];
                                 sEC <= 1'b0;
                                 sSE <= 1'b0;
                                 INT <= 1'b1;
@@ -3281,12 +3419,11 @@ module tc8566af #(
                             sHD <= HD;
                             sUS <= US;
                             sIC <= 2'b11;
-                            sNR <= READY;
+                            sNR <= readyv[iUS];
                             sEC <= 1'b0;
                             sSE <= 1'b0;
                             sND <= 1'b0;
                             sMA <= 1'b0;
-                            PCN <= cPCN;
                             INT <= 1'b1;
                             end_EXEC <= 1'b1;
                             execstate <= es_idle;
@@ -3294,7 +3431,7 @@ module tc8566af #(
 
                         case(execstate)
                             es_wseek: begin
-                                if (!seekbusy) begin
+                                if (!seekbusy && hdld) begin
                                     execstate <= es_windex;
                                 end
                             end
@@ -3456,9 +3593,8 @@ module tc8566af #(
                                         end else begin
                                             sHD <= HD;
                                             sUS <= US;
-                                            PCN <= cPCN;
                                             sIC <= 2'b00;
-                                            sNR <= READY;
+                                            sNR <= readyv[iUS];
                                             sEC <= 0;
                                             sSE <= 0;
                                             INT <= 1;
@@ -3501,9 +3637,8 @@ module tc8566af #(
                                     end else begin
                                         sHD <= HD;
                                         sUS <= US;
-                                        PCN <= cPCN;
                                         sIC <= 2'b00;
-                                        sNR <= READY;
+                                        sNR <= readyv[iUS];
                                         sEC <= 0;
                                         sSE <= 0;
                                         INT <= 1;
@@ -3550,9 +3685,8 @@ module tc8566af #(
                                     end else begin
                                         sHD <= HD;
                                         sUS <= US;
-                                        PCN <= cPCN;
                                         sIC <= 2'b00;
-                                        sNR <= READY;
+                                        sNR <= readyv[iUS];
                                         sEC <= 1'b0;
                                         sSE <= 1'b0;
                                         INT <= 1'b1;
@@ -3822,7 +3956,7 @@ module tc8566af #(
                     cmd_SEEK: begin
                         case(execstate)
                             es_readychk: begin
-                                if (!READY) begin
+                                if (!readyv[iUS]) begin
                                     case (command)
                                         cmd_RECALIBRATE: seek_init <= 1'b1;
                                         cmd_SEEK:        seek_bgn  <= 1'b1;
@@ -3830,18 +3964,19 @@ module tc8566af #(
                                     endcase
                                     execstate <= es_seek;
                                 end else begin
-                                    // not ready: end at once, abnormal with SE, for Sense
-                                    // Interrupt (PC88_MiSTer a9ab3e6; was IC 11 after NRDET via
-                                    // INT, which Sense Interrupt does not report with ismode 0)
+                                    // not ready: end at once, abnormal with SE (a9ab3e6; it waited
+                                    // for NRDET and ended with IC 11 that Sense Interrupt missed)
                                     sHD   <= HD;
                                     sUS   <= US;
                                     sIC   <= 2'b01;
-                                    sNR   <= READY;
+                                    sNR   <= readyv[iUS];
                                     sEC   <= 1'b0;
                                     sSE   <= 1'b1;
                                     sND   <= 1'b0;
                                     sMA   <= 1'b0;
-                                    PCN   <= cPCN;
+                                    sisst0[US] <= {2'b01, 1'b1, 1'b0, readyv[iUS], HD, US};
+                                    sispcn[US] <= cPCN;
+                                    sisvld[US] <= 1'b1;
                                     INTs  <= 1'b1;
                                     end_EXEC <= 1'b1;
                                     execstate <= es_idle;
@@ -3867,27 +4002,46 @@ module tc8566af #(
         end
     end
 
-    always_ff @(posedge sclk or negedge rstn) begin
+    // A FH enters the result phase of a read about 0.09 ms after its end: the end of the
+    // execution and its interrupt wait resdly clocks with RQM low (fb70fdc)
+    always_ff @(posedge fclk or negedge rstn) begin
         if (!rstn) begin
-            INTn  <= 1'b1;
-            SISen <= 1'b0;
+            resdcnt   <= '0;
+            resdint   <= 1'b0;
+            end_EXECd <= 1'b0;
         end else begin
-            if (INTs) begin
-                INTn  <= 1'b0;
-                SISen <= 1'b1;
-            end else if (INT) begin
-                INTn <= 1'b0;
-                if (ismode) begin
-                    SISen <= 1'b1;
-                end
-            end else if (CPUWR_DAT || CPURD_DAT) begin
-                INTn <= 1'b1;
-            end
-
-            if (SISclr) begin
-                SISen <= 1'b0;
+            end_EXECd <= 1'b0;
+            if (resdstart) begin
+                resdcnt <= RW'(resdly);
+                resdint <= INT;
+            end else if (resdcnt == 1'b1) begin
+                resdcnt   <= '0;
+                end_EXECd <= 1'b1;
+            end else if (resdcnt != '0) begin
+                resdcnt <= resdcnt - 1'b1;
             end
         end
+    end
+    // only the reads were measured; the interrupt for a data byte (non-DMA) goes at once
+    assign resdrd    = ecommand == cmd_READDATA || ecommand == cmd_READDELETEDDATA ||
+                       ecommand == cmd_READID || ecommand == cmd_READATRACK;
+    assign resdstart = end_EXEC && resdrd;
+    assign end_EXECo = (end_EXEC && !resdrd) || end_EXECd;
+    assign INTd      = (INT && !resdstart) || (end_EXECd && resdint);
+    assign resdhold  = resdstart || resdcnt != '0 || end_EXECd;
+    assign INTEV     = INTs || INTd;
+
+    assign sisany = |sisvld;
+    assign sisdrv = sisvld[0] ? 2'd0 : sisvld[1] ? 2'd1 : sisvld[2] ? 2'd2 : 2'd3;
+
+    // Sense Interrupt reports the per-drive results (sisvld), not the interrupt line (a9ab3e6)
+    always_ff @(posedge sclk or negedge rstn) begin
+        if (!rstn)
+            INTn <= 1'b1;
+        else if (INTs || INTd)
+            INTn <= 1'b0;
+        else if (CPUWR_DAT || CPURD_DAT)
+            INTn <= 1'b1;
     end
 
     always_ff @(posedge sclk or negedge rstn) begin
@@ -3910,15 +4064,57 @@ module tc8566af #(
 
     always_ff @(posedge fclk or negedge rstn) begin
         if (!rstn) begin
-            sDxB <= '0;
+            sDxB    <= '0;
+            DxBclrd <= 1'b0;
         end else begin
             for (int i = 0; i < 4; i++) begin
                 if (seek_busyv[i] || seekpend[i]) begin
                     sDxB[i] <= 1'b1;
                 end
             end
-            if (DxBclr) begin
-                sDxB <= '0;
+            DxBclrd <= DxBclr;
+            if (DxBclr && !DxBclrd) begin
+                sDxB[SISUS] <= 1'b0;            // only the reported drive (a9ab3e6)
+            end
+        end
+    end
+
+    // Head load before a read or write: HLT x 4 ms (0 = 128), unload HUT x 32 ms (0 = 16) after the
+    // last read or write; the units of the uPD765 at 4 MHz = 250 kbit/s (d86e4d8, PC-8801FH)
+    always_ff @(posedge fclk or negedge rstn) begin
+        if (!rstn) begin
+            hdld  <= 1'b0;
+            hlrun <= 1'b0;
+            hlcnt <= '0;
+            hucnt <= '0;
+        end else begin
+            if (execstate == es_wseek && !hdld) begin
+                if (!hlrun) begin
+                    hlrun <= 1'b1;
+                    hlcnt <= HLT == 7'd0 ? 11'd1024 : {1'b0, HLT, 3'b000};
+                end else if (hmssft) begin
+                    if (hlcnt <= 11'd1) begin
+                        hdld  <= 1'b1;
+                        hlrun <= 1'b0;
+                    end else begin
+                        hlcnt <= hlcnt - 1'b1;
+                    end
+                end
+            end else begin
+                hlrun <= 1'b0;
+            end
+            // SEEK and RECALIBRATE do not restart the unload time
+            if (hdld && (execstate == es_idle || ecommand == cmd_SEEK || ecommand == cmd_RECALIBRATE)) begin
+                if (hmssft) begin
+                    if ((HUT == 4'd0 && hucnt >= 11'd1023) || (HUT != 4'd0 && hucnt >= {1'b0, HUT, 6'd0} - 11'd1)) begin
+                        hdld  <= 1'b0;
+                        hucnt <= '0;
+                    end else begin
+                        hucnt <= hucnt + 1'b1;
+                    end
+                end
+            end else begin
+                hucnt <= '0;
             end
         end
     end
@@ -3952,14 +4148,15 @@ module tc8566af #(
     assign side  = ~sideb;
     assign uselb = US;
     always_comb begin
-        sEXM  = execstate != es_idle && ND;
+        sEXM  = (execstate != es_idle || resdhold) && ND;
 
 	    ST0   = {sIC, sSE, sEC, sNR, sHD, sUS};
 	    ST1   = {sEN, 1'b0, sDE, sOR, 1'b0, sND, sNW, sMA};
 	    ST2   = {1'b0, sCM, sDD, sWC, sSH, sSN, sBC, sMD};
-	    ST3   = {1'b0, ~WPRT, ~READY, ~track0s, TWOSIDE, sideb, uselb};
+	    // RY per drive (a9ab3e6; PC88_MiSTer f9c38d0 ties it to 1 for the PC-8801 board, not taken)
+	    ST3   = {1'b0, ~WPRT, ~readyv[uselb], ~track0s, TWOSIDE[uselb], sideb, uselb};
 
-	    MSR   = {sRQM, sDIO, sEXM, sCB, sDxB};
+	    MSR   = {sRQM && !resdhold, sDIO, sEXM, sCB, sDxB};
 	
 	    RDAT  = !DACKn ? RDDAT_DAT :
                 !A0    ? MSR :
@@ -4010,7 +4207,7 @@ module tc8566af #(
 		
 		.seek_end(seek_end),
 		.seek_err(seek_err),
-		.readyout(sREADY),
+		.readyout(),
 
 		.seek_pend(seekpend),
 		.busy(seekbusy),
@@ -4021,10 +4218,11 @@ module tc8566af #(
     );
 
     always_comb begin
-        seek_cyl0 = tdo[0] ? iC0 : ((iC0*2)<maxtrack ? iC0*2 : maxtrack);
-        seek_cyl1 = tdo[1] ? iC1 : ((iC1*2)<maxtrack ? iC1*2 : maxtrack);
-        seek_cyl2 = tdo[2] ? iC2 : ((iC2*2)<maxtrack ? iC2*2 : maxtrack);
-        seek_cyl3 = tdo[3] ? iC3 : ((iC3*2)<maxtrack ? iC3*2 : maxtrack);
+        // 2D double steps are done by the drive, not the FDC (cb745a4)
+        seek_cyl0 = iC0;
+        seek_cyl1 = iC1;
+        seek_cyl2 = iC2;
+        seek_cyl3 = iC3;
 
         seek_sft0 = seekusel==2'b00 ? seek_sft : '0;
         seek_sft1 = seekusel==2'b01 ? seek_sft : '0;
@@ -4035,7 +4233,7 @@ module tc8566af #(
     headseek #(.maxtrack(maxtrack), .maxset(30), .initseek(0)) hds0 (
         .desttrack(seek_cyl0),
 		.destset(seek_bgnv[0]),
-		.setwait(30),
+		.setwait(0),
 	
 		.curtrack(seek_cur0),
 	
@@ -4056,7 +4254,7 @@ module tc8566af #(
     headseek #(.maxtrack(maxtrack), .maxset(30), .initseek(0)) hds1 (
         .desttrack(seek_cyl1),
 		.destset(seek_bgnv[1]),
-		.setwait(30),
+		.setwait(0),
 	
 		.curtrack(seek_cur1),
 	
@@ -4077,7 +4275,7 @@ module tc8566af #(
     headseek #(.maxtrack(maxtrack), .maxset(30), .initseek(0)) hds2 (
         .desttrack(seek_cyl2),
 		.destset(seek_bgnv[2]),
-		.setwait(30),
+		.setwait(0),
 	
 		.curtrack(seek_cur2),
 	
@@ -4098,7 +4296,7 @@ module tc8566af #(
     headseek #(.maxtrack(maxtrack), .maxset(30), .initseek(0)) hds3 (
         .desttrack(seek_cyl3),
 		.destset(seek_bgnv[3]),
-		.setwait(30),
+		.setwait(0),
 	
 		.curtrack(seek_cur3),
 	
@@ -4138,10 +4336,10 @@ module tc8566af #(
         PCN2 = seek_cur2[7:0];
         PCN3 = seek_cur3[7:0];
 
-        mPCN0 = tdo[0] ? PCN0 : {1'b0, PCN0[7:1]};
-        mPCN1 = tdo[1] ? PCN1 : {1'b0, PCN1[7:1]};
-        mPCN2 = tdo[2] ? PCN2 : {1'b0, PCN2[7:1]};
-        mPCN3 = tdo[3] ? PCN3 : {1'b0, PCN3[7:1]};
+        mPCN0 = PCN0;
+        mPCN1 = PCN1;
+        mPCN2 = PCN2;
+        mPCN3 = PCN3;
 
         case(US)
             2'b00: cPCN = mPCN0;
@@ -4205,9 +4403,20 @@ module tc8566af #(
         .rstn(rstn)
     );
 
-    assign sftwidth = MF ? bitwidth/2 : bitwidth;
+    // write bit cell in 1/256 clocks (6a42cb2): intf* / intm* with fracin, else int* x 256
+    always_comb begin
+        if (fracin)
+            case (US)
+                2'b00:   sftwidth = MF ? intm0 : intf0;
+                2'b01:   sftwidth = MF ? intm1 : intf1;
+                2'b10:   sftwidth = MF ? intm2 : intf2;
+                default: sftwidth = MF ? intm3 : intf3;
+            endcase
+        else
+            sftwidth = FW'((MF ? bitwidth/2 : bitwidth) * 256);
+    end
 
-    sftgen sgen (
+    sftfrac #(.maxlen(maxfwidth)) sgen (
         .len(sftwidth),
 		.sft(modsft),
 		
@@ -4255,7 +4464,7 @@ module tc8566af #(
     
     nrdet #(.TOms(rdytout*2)) RDET (
         .start(NRDSTART),
-        .RDY(!READY),
+        .RDY(!readyv[iUS]),
         .NOTRDY(NOTRDY),
         .mssft(hmssft),
         .clk(fclk),

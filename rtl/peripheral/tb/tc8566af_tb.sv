@@ -10,7 +10,11 @@
 // sector (ST1 ND), Recalibrate / Seek on a drive without a disk (Sense Interrupt reports the
 // end), turbo R registers (7FF4 / 7FF5, 7FF1 disk change with read clear), the
 // register window constants (7FF0, 7FFC-7FFF, unused FFh, page 2 mirror), motor of the selected
-// drive.
+// drive. Fixes of PC88_MiSTer: step time (16 - SRT) x 2 ms without settling, recalibrate at most
+// 77 steps, read at EOT without TC (IC 01, EN, C H R kept), result phase of a read 93 us after
+// the end, head load / unload (HLT, HUT; probe of the core, not with PREV).
+//
+// PREV=<rev>: core and glue of that revision (shows which checks the old core fails).
 //
 // Run: wsl.exe -- bash rtl/peripheral/tb/run_tc.sh        (OLD_GLUE=1: bugs of the TurboFDC2 glue)
 module tc8566af_tb;
@@ -221,10 +225,12 @@ task automatic result_any(output logic [7:0] r[]);
 endtask
 
 // Recalibrate / Seek end: Sense Interrupt until ST0 has SE (as the disk ROM, no INT line)
-task automatic wait_seek(input string what, input int pcn);
+task automatic wait_seek(input string what, input int pcn, output int ms);
     logic [7:0] r[], s;
-    longint unsigned t_end;
+    longint unsigned t0, t_end;
+    t0 = cyc;
     t_end = cyc + 2000 * longint'(MS);
+    ms = -1;
     while (cyc < t_end) begin
         repeat (MS) @(negedge clk);
 `ifdef SEEK_TRACE
@@ -239,6 +245,7 @@ task automatic wait_seek(input string what, input int pcn);
         if (r.size() == 2 && r[0][5]) begin
             if (r[0][7:6] != 2'b00 || r[1] != 8'(pcn))
                 fail($sformatf("%s: ST0 %02h PCN %0d (expected PCN %0d)", what, r[0], r[1], pcn));
+            ms = int'((cyc - t0) / MS);
             return;
         end
     end
@@ -247,11 +254,12 @@ endtask
 
 // Read Data (MFM) of sectors sec..eot on cylinder c, head h of drive 0; data loop as the ROM:
 // a byte while RQM and NDM, then a TC pulse after the last expected byte
+int res_us;                                             // read_data: TC to result phase, us
 task automatic read_data(input string what, input int c, input int h, input int sec, input int eot,
                          input int lba, output logic [7:0] st[]);
     logic [7:0] s, v;
     int n, bad, nbytes;
-    longint unsigned t_end;
+    longint unsigned t_end, t_tc;
     n = 0; bad = 0; nbytes = (eot - sec + 1) * 512;
     command(what, '{8'h46, 8'(h << 2), 8'(c), 8'(h), 8'(sec), 8'h02, 8'(eot), 8'h2A, 8'hFF});
     t_end = cyc + 3000 * longint'(MS);
@@ -264,7 +272,10 @@ task automatic read_data(input string what, input int c, input int h, input int 
         n++;
     end
     mem_wr(r_ctl1, 8'h03);                              // TC
+    t_tc = cyc;
     mem_wr(r_ctl1, 8'h02);
+    do mem_rd(r_msr, s); while (s[7:6] != 2'b11 && cyc < t_tc + 10 * longint'(MS));
+    res_us = int'((cyc - t_tc) * 1_000_000 / SYS);
     result(what, 7, st);
     if (n != nbytes) fail($sformatf("%s: %0d of %0d bytes (ST0 %02h ST1 %02h ST2 %02h)", what, n, nbytes, st[0], st[1], st[2]));
     if (bad) fail($sformatf("%s: %0d bytes differ (expected image %0d LBA %0d)", what, bad, img_seed[0], lba));
@@ -278,6 +289,7 @@ endtask
 // ------------------------------------------------------------------ test sequence
 initial begin
     logic [7:0] v, r[];
+    int ms;
     msx_config.wait_count    = '0;
     msx_config.cpu_clock_sel = '0;
     msx_config.fdd           = 6'b000011;              // FDC unit 0: drives on VD 1, 2
@@ -322,6 +334,9 @@ initial begin
                 $display("init recalibrate (motor off): ST0 %02h PCN %0d after %0d ms", r[0], r[1], (cyc - t0) / MS);
                 if (r[0] != 8'h70)                      // IC 01, SE (the ROM waits for it), EC
                     fail($sformatf("init recalibrate (motor off): ST0 %02h (expected 70h)", r[0]));
+                // uPD765: at most 77 step pulses of (16 - SRT) * 2 ms = 6 ms, the error one step later
+                if ((cyc - t0) / MS < 460 || (cyc - t0) / MS > 485)
+                    fail($sformatf("init recalibrate (motor off): %0d ms (expected 78 x 6 ms)", (cyc - t0) / MS));
             end
         end
         if (!done) fail("init recalibrate (motor off): Sense Interrupt never reports the end (80h only)");
@@ -354,7 +369,7 @@ initial begin
     end
 `endif
     command("recalibrate", '{8'h07, 8'h00});
-    wait_seek("recalibrate", 0);
+    wait_seek("recalibrate", 0, ms);
     command("sense drive", '{8'h04, 8'h00});
     result("sense drive", 1, r);
     if (r[0][4] != 1'b1 || r[0][3] != 1'b1 || r[0][5] != 1'b1 || r[0][1:0] != 2'b00)
@@ -362,11 +377,47 @@ initial begin
 
     // --- read: T0 H0 S1, T0 H1 S9, seek to 5, T5 H0 S1-3, T5 H1 S9
     read_data("T0 H0 S1", 0, 0, 1, 1, 0, r);
+    // the result phase of a read starts 93 x 1 us after the end (PC-8801FH, PC88_MiSTer fb70fdc);
+    // TC comes after the last byte, the end is after the data CRC (2 bytes, 64 us)
+    $display("T0 H0 S1: TC to result phase %0d us", res_us);
+    if (res_us < 130 || res_us > 200) fail($sformatf("TC to result phase %0d us (expected CRC + 93 us)", res_us));
     read_data("T0 H1 S9", 0, 1, 9, 9, 17, r);
     command("seek 5", '{8'h0F, 8'h00, 8'h05});
-    wait_seek("seek 5", 5);
+    wait_seek("seek 5", 5, ms);
+    // uPD765 step (16 - SRT) * 2 ms = 6 ms, no settling time: 5 steps 30 ms (+ Sense Interrupt poll)
+    $display("seek 0 -> 5: %0d ms", ms);
+    if (ms < 28 || ms > 36) fail($sformatf("seek 0 -> 5: %0d ms (expected 5 x 6 ms)", ms));
     read_data("T5 H0 S1-3", 5, 0, 1, 3, 90, r);
     read_data("T5 H1 S9", 5, 1, 9, 9, 107, r);
+
+    // --- EOT without TC: the read ends after the EOT sector with IC 01 and EN, C H R kept
+    // (uPD765; PC88_MiSTer 2620836, f2d6a8f). It used to look for R = EOT + 1 two turns (ND).
+    begin
+        logic [7:0] s, v;
+        int n = 0;
+        longint unsigned t_last;
+        command("read T5 S3 no TC", '{8'h46, 8'h00, 8'h05, 8'h00, 8'h03, 8'h02, 8'h03, 8'h2A, 8'hFF});
+        while (n < 512) begin
+            mem_rd(r_msr, s);
+            if (!s[7]) continue;
+            if (!s[5]) break;
+            mem_rd(r_dat, v);
+            n++;
+        end
+        t_last = cyc;
+        result("read T5 S3 no TC", 7, r);
+        $display("read without TC: %0d bytes, result %p after %0d ms", n, r, (cyc - t_last) / MS);
+        if (n != 512 || r[0] != 8'h40 || r[1] != 8'h80 || r[2] != 8'h00 || r[3] != 8'd5 || r[4] != 8'd0 ||
+            r[5] != 8'd3 || r[6] != 8'd2)
+            fail($sformatf("read without TC: %0d bytes, result %p (expected 40 80 00 05 00 03 02)", n, r));
+        if ((cyc - t_last) / MS > 5) fail($sformatf("read without TC: result after %0d ms", (cyc - t_last) / MS));
+    end
+`ifndef PREV_CORE
+    // --- head load: loaded after a read, unloaded HUT (Specify F: 15 x 32 ms) after the last one
+    if (tc.fdc.hdld !== 1'b1) fail("head not loaded after a read");
+    repeat (500 * MS) @(negedge clk);
+    if (tc.fdc.hdld !== 1'b0) fail("head still loaded 500 ms after the last read (HUT 480 ms)");
+`endif
 
     // --- Read ID (MFM) on T5 H0: any sector header of the track
     command("read id", '{8'h4A, 8'h00});
@@ -380,9 +431,8 @@ initial begin
     if (r[0][7:6] != 2'b01 || r[1] != 8'h04)
         fail($sformatf("read T5 S10: ST0 %02h ST1 %02h ST2 %02h (expected 4x 04 xx)", r[0], r[1], r[2]));
 
-    // --- drive 1 has no disk (not ready): Sense Interrupt must report the Recalibrate end (the
-    // ROM polls it). ST0 differs between models: this core 29h (SE, NR), upstream PC88_MiSTer
-    // 69h (IC 01), openMSX 21h (SE only); checked: SE, US = 1, IC 00 or 01
+    // --- drive 1 has no disk (not ready): Recalibrate ends at once, IC 01 + SE + NR (69h), as
+    // PC88_MiSTer a9ab3e6 (PC-8801FH); openMSX gives 21h (SE only)
     mem_wr(r_ctl0, 8'h21);                              // motor 1, drive 1
     command("recalibrate (no disk)", '{8'h07, 8'h01});
     begin
@@ -394,8 +444,8 @@ initial begin
             result_any(r);
             if (r.size() == 2) begin
                 done = 1;
-                if (!r[0][5] || r[0][1:0] != 2'b01 || r[0][7])
-                    fail($sformatf("recalibrate (no disk): ST0 %02h (expected SE, US 1)", r[0]));
+                if (r[0] != 8'h69)
+                    fail($sformatf("recalibrate (no disk): ST0 %02h (expected 69h)", r[0]));
                 else $display("recalibrate (no disk): ST0 %02h after %0d ms", r[0], (cyc - (t_end - 2000 * longint'(MS))) / MS);
             end
         end
@@ -431,7 +481,9 @@ initial begin
     if (v != 8'h23) fail($sformatf("7FF1 after drive 0 change = %02h (expected 23)", v));
     mem_wr(r_ctl0, 8'h14);
     command("recalibrate (turbo R)", '{8'h07, 8'h00});
-    wait_seek("recalibrate (turbo R)", 0);
+    wait_seek("recalibrate (turbo R)", 0, ms);
+    $display("recalibrate 5 -> 0: %0d ms", ms);
+    if (ms < 28 || ms > 36) fail($sformatf("recalibrate 5 -> 0: %0d ms (expected 5 x 6 ms)", ms));
     read_data("turbo R T0 H0 S2", 0, 0, 2, 2, 1, r);
 
     $display("tc8566af_tb done at %0d ms", cyc / MS);

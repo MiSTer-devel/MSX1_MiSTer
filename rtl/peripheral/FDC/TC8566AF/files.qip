@@ -4,6 +4,6 @@ set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) h
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) nrdet.sv       ]
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) seekcont.sv    ]
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) sftdiv.sv      ]
-set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) sftgen.sv      ]
+set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) sftfrac.sv     ]
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) signext.sv     ]
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) tc8566af.sv    ]

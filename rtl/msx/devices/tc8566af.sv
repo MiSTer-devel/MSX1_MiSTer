@@ -86,14 +86,17 @@ module dev_TC8566AF #(parameter sysCLK)
    always_ff @(posedge cpu_bus.clk) hms_cnt <= hms_cnt == ($clog2(HMS))'(HMS - 1) ? '0 : hms_cnt + 1'b1;
    wire hmssft = hms_cnt == '0;
 
-   // Bit cell of 250 kbit/s media as the drive makes it (fdd: 500 kHz enable)
+   // Bit cell of 250 kbit/s media as the drive makes it (fdd: 500 kHz enable); for the writes
+   // also in 1/256 clocks: 4 us FM, 2 us MFM (sftfrac)
    localparam int BITLEN = 2 * (sysCLK / 500_000);
+   localparam int CELLF  = (sysCLK / 1000) * 1024 / 1000;
+   localparam int CELLM  = CELLF / 2;
 
    wire sdir, side;
    assign FDD_bus.SDIRn = !sdir;              // core: 0 = step in; fdd: SDIRn 1 = in
    assign FDD_bus.SIDEn = side;               // core: side = ~HD
 
-   tc8566af #(.sysclk(sysCLK / 1_000_000)) fdc (
+   tc8566af #(.sysclk(sysCLK / 1_000_000), .fracin(1)) fdc (
       .RDn(!(dev_cs && cpu_bus.rd && fdc_reg)),
       .WRn(!(dev_cs && cpu_bus.wr && fdc_reg)),
       .CSn(!(dev_cs && fdc_reg)),
@@ -105,6 +108,7 @@ module dev_TC8566AF #(parameter sysCLK)
       .DRQ(),
       .TC(tc),
       .INTn(),
+      .INTEV(),
       .WAITIN(1'b0),
       .WREN(),
       .WRBIT(),
@@ -117,11 +121,14 @@ module dev_TC8566AF #(parameter sysCLK)
       .side(side),
       .usel(),
       .READY(FDD_bus.READYn),
-      .TWOSIDE(twoside),
+      .readyv({4{FDD_bus.READYn}}),     // drives selected by control 0, not by US
+      .TWOSIDE({4{twoside}}),
       .int0(7'(BITLEN)),
       .int1(7'(BITLEN)),
       .int2(7'(BITLEN)),
       .int3(7'(BITLEN)),
+      .intf0(15'(CELLF)), .intf1(15'(CELLF)), .intf2(15'(CELLF)), .intf3(15'(CELLF)),
+      .intm0(15'(CELLM)), .intm1(15'(CELLM)), .intm2(15'(CELLM)), .intm3(15'(CELLM)),
       .td0(1'b1),
       .td1(1'b1),
       .td2(1'b1),
@@ -129,7 +136,6 @@ module dev_TC8566AF #(parameter sysCLK)
       .hmssft(hmssft),
       .busy(),
       .mfm(),
-      .ismode(1'b0),
       .sclk(cpu_bus.clk),
       .fclk(cpu_bus.clk),
       .rstn(!cpu_bus.reset)

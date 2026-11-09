@@ -43,9 +43,6 @@ module wd279x_demodulator #(parameter sysCLK)
     logic [2:0]  sec_id_cnt;
     logic        crc_calc, crcwr;
 
-    // CRC výstup
-    logic [15:0] crc_out;
-
     // FM a MFM dekodér
     logic [7:0]  fm_data, mfm_data;
     logic        fm_rx, mfm_rx;
@@ -58,14 +55,18 @@ module wd279x_demodulator #(parameter sysCLK)
     // Validace CRC pro DAM
     assign DAM_CRC_valid = crc_out == {DAM_crc[0], DAM_crc[1]};
 
-    // --- CRC modul ---
-    wd279x_crc #(.POLYNOM(16'h1021)) crc (
-        .clk(clk),
-        .valid(crc_calc),
-        .we(fdd_rx | crcwr),
-        .data_in(fdd_data),
-        .crc(crc_out)
-    );
+    // CRC of the field: runs while crc_calc, the result is held in crc_out when it drops
+    logic [15:0] crc_reg = FDC::CRC_INIT, crc_out;
+    logic        crc_calc_q;
+    always_ff @(posedge clk) begin
+        crc_calc_q <= crc_calc;
+        if (crc_calc) begin
+            if (fdd_rx | crcwr) crc_reg <= FDC::crc16(crc_reg, fdd_data);
+        end else if (crc_calc_q) begin
+            crc_reg <= FDC::CRC_INIT;
+            crc_out <= crc_reg;
+        end
+    end
 
     // --- FM dekodér ---
     fmdem fmdem_i (

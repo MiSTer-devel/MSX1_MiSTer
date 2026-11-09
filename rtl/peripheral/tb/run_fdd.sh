@@ -25,7 +25,7 @@ fi
 [ -n "$NO_MOTOR_OFF" ] && DEF="$DEF +define+NO_MOTOR_OFF"
 verilator --binary --timing -O3 -Wno-fatal -Wno-lint -Wno-style -Wno-MULTIDRIVEN $DEF \
     --top-module fdd_tb -Mdir "$OUT" \
-    "$ROOT/rtl/package.sv" $SRC \
+    "$ROOT/rtl/package.sv" "$ROOT/rtl/peripheral/FDC/package.sv" $SRC \
     "$ROOT/rtl/tb/dpram_stub.sv" fdd_tb.sv > "$OUT/build.log" 2>&1 \
     || { grep -E "%Error" "$OUT/build.log" | head -30; exit 1; }
 grep -E '%Error' "$OUT/build.log" || true

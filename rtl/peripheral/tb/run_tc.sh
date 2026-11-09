@@ -41,7 +41,8 @@ if [ -n "$NO_WRITE_GLUE" ]; then
 fi
 verilator --binary --timing -O3 -Wno-fatal -Wno-lint -Wno-style -Wno-MULTIDRIVEN $DEFS \
     --top-module tc8566af_tb -Mdir "$OUT" \
-    "$ROOT/rtl/package.sv" "$ROOT"/rtl/peripheral/FDD/*.sv "$ROOT"/rtl/peripheral/FDC/modem/*.sv \
+    "$ROOT/rtl/package.sv" "$ROOT/rtl/peripheral/FDC/package.sv" \
+    "$ROOT"/rtl/peripheral/FDD/*.sv "$ROOT"/rtl/peripheral/FDC/modem/*.sv \
     "${CORE[@]}" "$ROOT/rtl/blockDevMux.sv" "$GLUE" \
     "$ROOT/rtl/tb/dpram_stub.sv" tc8566af_tb.sv > "$OUT/build.log" 2>&1 \
     || { grep -E "%Error" "$OUT/build.log" | head -30; exit 1; }

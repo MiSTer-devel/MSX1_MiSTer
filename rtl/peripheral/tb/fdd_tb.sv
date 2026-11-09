@@ -440,20 +440,13 @@ mfmmod tb_mod (
 );
 assign wr_bus.WRITE_DATAn = ~tb_bit;
 
-function automatic logic [15:0] crc_upd(input logic [15:0] c, input logic [7:0] d);
-    logic [15:0] r;
-    r = c ^ {d, 8'h00};
-    for (int i = 0; i < 8; i++) r = r[15] ? {r[14:0], 1'b0} ^ 16'h1021 : {r[14:0], 1'b0};
-    return r;
-endfunction
-
 logic [15:0] tb_crc;
 task automatic tb_byte(input logic [7:0] b, input bit a1 = 0, input bit c2 = 0);
     while (!tb_txemp) @(negedge clk);
     tb_txdat = b; tb_txwr = !(a1 || c2); tb_txa1 = a1; tb_txc2 = c2;
     @(negedge clk);
     tb_txwr = 0; tb_txa1 = 0; tb_txc2 = 0;
-    tb_crc = crc_upd(tb_crc, b);
+    tb_crc = FDC::crc16(tb_crc, b);
 endtask
 
 task automatic tb_bytes(input logic [7:0] b, input int n);
@@ -875,8 +868,8 @@ initial begin
         if (data.size() != 6 || (st & 8'hFC) != 0)
             fail($sformatf("read address: %0d bytes, status %02h", data.size(), st));
         else begin
-            c = crc_upd(16'hCDB4, 8'hFE);
-            for (int k = 0; k < 4; k++) c = crc_upd(c, data[k]);
+            c = FDC::crc16(FDC::CRC_A1x3, 8'hFE);
+            for (int k = 0; k < 4; k++) c = FDC::crc16(c, data[k]);
             if (data[0] != 8'd3 || data[1] != 8'd0 || data[2] < 8'd1 || data[2] > 8'd9 || data[3] != 8'd2 || {data[4], data[5]} != c)
                 fail($sformatf("read address: %p (expected 03 00 1-9 02 and the CRC %04h)", data, c));
             mem_rd(16'h7FFA, st);

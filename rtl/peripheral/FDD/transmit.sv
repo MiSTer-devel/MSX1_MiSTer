@@ -82,13 +82,6 @@ module transmit #(parameter logic MFM = 1'b1)
         endcase
     endfunction
 
-    function automatic logic [15:0] crc_upd(input logic [15:0] c, input logic [7:0] d);
-        logic [15:0] r;
-        r = c ^ {d, 8'h00};
-        for (int i = 0; i < 8; i++) r = r[15] ? {r[14:0], 1'b0} ^ 16'h1021 : {r[14:0], 1'b0};
-        return r;
-    endfunction
-
     field_t      field;
     logic  [9:0] cnt;
     logic  [3:0] sector;
@@ -160,7 +153,7 @@ module transmit #(parameter logic MFM = 1'b1)
                 mark   <= b_kind;
                 txmark <= b_mark;
                 txwr   <= !b_mark;
-                if (b_crc_upd) crc <= crc_upd(b_crc_init ? 16'hFFFF : crc, b);
+                if (b_crc_upd) crc <= FDC::crc16(b_crc_init ? FDC::CRC_INIT : crc, b);
                 if (field != F_GAP4B) begin
                     if (cnt == field_len(field) - 10'd1) begin
                         field <= next_field(field, {1'b0, sector} == spt_l - 5'd1);

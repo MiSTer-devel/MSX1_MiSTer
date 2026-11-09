@@ -40,13 +40,6 @@ module receive #(parameter logic MFM = 1'b1)
     output logic        wr_bad
 );
 
-    function automatic logic [15:0] crc_upd(input logic [15:0] c, input logic [7:0] d);
-        logic [15:0] r;
-        r = c ^ {d, 8'h00};
-        for (int i = 0; i < 8; i++) r = r[15] ? {r[14:0], 1'b0} ^ 16'h1021 : {r[14:0], 1'b0};
-        return r;
-    endfunction
-
     // Demodulator restarted with every gate opening, held in break while the gate is closed
     logic wg_q;
     always_ff @(posedge clk) wg_q <= wg;
@@ -88,7 +81,7 @@ module receive #(parameter logic MFM = 1'b1)
     wire        byte_ev  = rx_ed && !a1 && !mark_id && !mark_data;
     wire        ev_id    = MFM ? (byte_ev && after_a1 && rx_data == 8'hFE) : mark_id;
     wire        ev_data  = MFM ? (byte_ev && after_a1 && (rx_data == 8'hFB || rx_data == 8'hF8)) : mark_data;
-    wire [15:0] crc_mark = crc_upd(MFM ? 16'hCDB4 : 16'hFFFF, rx_data);
+    wire [15:0] crc_mark = FDC::crc16(MFM ? FDC::CRC_A1x3 : FDC::CRC_INIT, rx_data);
 
     always_ff @(posedge clk) begin
         {wr_en, wr_done, wr_bad} <= '0;
@@ -120,8 +113,8 @@ module receive #(parameter logic MFM = 1'b1)
                     if (byte_ev) begin
                         cnt <= cnt + 10'd1;
                         case (cnt)
-                            10'd0, 10'd1, 10'd3: crc <= crc_upd(crc, rx_data);
-                            10'd2: begin crc <= crc_upd(crc, rx_data); id_r <= rx_data; end
+                            10'd0, 10'd1, 10'd3: crc <= FDC::crc16(crc, rx_data);
+                            10'd2: begin crc <= FDC::crc16(crc, rx_data); id_r <= rx_data; end
                             10'd4: crc_hi_ok <= crc[15:8] == rx_data;
                             default: begin
                                 state <= R_IDLE;
@@ -134,7 +127,7 @@ module receive #(parameter logic MFM = 1'b1)
                     if (byte_ev) begin
                         cnt <= cnt + 10'd1;
                         if (cnt < 10'd512) begin
-                            crc     <= crc_upd(crc, rx_data);
+                            crc     <= FDC::crc16(crc, rx_data);
                             wr_en   <= slot_ok;
                             wr_addr <= {wr_sector, cnt[8:0]};
                             wr_data <= rx_data;

@@ -4,6 +4,5 @@ set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) w
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) wd279x_command_IV.sv  ]
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) wd279x_demodulator.sv ]
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) wd279x_modulator.sv   ]
-set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) wd279x_crc.sv         ]
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) wd279x.sv             ]
 

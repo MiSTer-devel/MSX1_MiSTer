@@ -41,13 +41,6 @@ module wd279x_modulator #(parameter sysCLK)
     output logic        WD              // 1 clk pulse per flux transition
 );
 
-    function automatic logic [15:0] crc_upd(input logic [15:0] c, input logic [7:0] d);
-        logic [15:0] r;
-        r = c ^ {d, 8'h00};
-        for (int i = 0; i < 8; i++) r = r[15] ? {r[14:0], 1'b0} ^ 16'h1021 : {r[14:0], 1'b0};
-        return r;
-    endfunction
-
     // Bit cell 500 kHz (250 kbit/s MFM); FM uses every second cell
     logic cell_en, half = 1'b0;
     clockEnabler #(.clkFreq(sysCLK), .targetFreq(500000)) CELL (.clk(clk), .en(cell_en));
@@ -71,13 +64,13 @@ module wd279x_modulator #(parameter sysCLK)
     always_ff @(posedge clk) begin
         crc_lo_wr <= 1'b0;
         if (!MRn || !wg) begin
-            crc    <= 16'hFFFF;
+            crc    <= FDC::CRC_INIT;
             a1_run <= 1'b0;
             crc_lo <= 1'b0;
         end else begin
-            if (tx_a1)     begin crc <= crc_upd(a1_run ? crc : 16'hFFFF, 8'hA1); a1_run <= 1'b1; end
-            if (tx_mark)   begin crc <= crc_upd(DDENn ? 16'hFFFF : crc, tx_data); a1_run <= 1'b0; end
-            if (tx_wr)     begin crc <= crc_upd(crc, tx_data); a1_run <= 1'b0; end
+            if (tx_a1)     begin crc <= FDC::crc16(a1_run ? crc : FDC::CRC_INIT, 8'hA1); a1_run <= 1'b1; end
+            if (tx_mark)   begin crc <= FDC::crc16(DDENn ? FDC::CRC_INIT : crc, tx_data); a1_run <= 1'b0; end
+            if (tx_wr)     begin crc <= FDC::crc16(crc, tx_data); a1_run <= 1'b0; end
             if (tx_c2)     a1_run <= 1'b0;
             if (tx_crc)    begin crc_lo <= 1'b1; a1_run <= 1'b0; end
             if (crc_lo && txemp_raw && !crc_lo_wr) crc_lo_wr <= 1'b1;

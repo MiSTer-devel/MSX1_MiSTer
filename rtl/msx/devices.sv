@@ -167,6 +167,7 @@ module devices  #(parameter sysCLK)
     dev_FDC #(.sysCLK(sysCLK)) FDC (
         .cpu_bus(cpu_bus),
         .device_bus(device_bus),
+        .block_info(block_info),
         .io_device(io_device),
         .FDD_bus(FDD_bus),
         .data(fdc_data),

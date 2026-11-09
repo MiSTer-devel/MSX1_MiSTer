@@ -47,8 +47,14 @@ FDD_if      FDD_bus();
 wire  [7:0] tc_data;
 wire        tc_oe;
 logic [1:0] model = 2'd2;               // 7FF8 registers (MSX2, FS-A1F)
+MSX::block_info_t blk = '0;                             // block of the controller: ROM size
+initial blk.rom_size = 25'h4000;                        // FS-A1F: 16 KB disk ROM, one bank
 dev_TC8566AF #(.sysCLK(SYS)) tc (
-    .cpu_bus(cpu_bus), .model(model), .twoside(1'b1), .FDD_bus(FDD_bus),
+    .cpu_bus(cpu_bus),
+`ifndef PREV_CORE
+    .block_info(blk),
+`endif
+    .model(model), .twoside(1'b1), .FDD_bus(FDD_bus),
     .cs(1'b1), .data(tc_data), .data_oe_rq(tc_oe)
 );
 
@@ -306,6 +312,8 @@ initial begin
     mem_rd(16'h7FF3, v); if (v != 8'hFF) fail($sformatf("7FF3 = %02h", v));
     mem_rd(16'h7FEF, v); if (v != 8'hEE) fail($sformatf("7FEF = %02h (expected no answer, ROM)", v));
     mem_rd(16'hBFFF, v); if (v != 8'h3F) fail($sformatf("BFFF = %02h (page 2 window)", v));
+    mem_wr(16'h7FF0, 8'h03);                            // one 16 KB bank: stays 0
+    mem_rd(16'h7FF0, v); if (v != 8'h00) fail($sformatf("7FF0 = %02h after writing 03 (16 KB ROM)", v));
 
     // --- motor of the selected drive, control 0 bits 7:4
     mem_wr(r_ctl0, 8'h04);
@@ -472,6 +480,17 @@ initial begin
 
     // --- turbo R registers: 7FF4 / 7FF5, 7FF1 disk change (bits 4 / 5 = 0, read clears)
     use_turbo_r_regs(1);
+`ifndef PREV_CORE
+    // ROM bank of the turbo R disk ROM (64 KB, 4 banks): written at 7FF0 only, read back in the
+    // register window of every page (openMSX TurboRFDC)
+    blk.rom_size = 25'h10000;
+    mem_wr(16'h7FF0, 8'h06);
+    mem_rd(16'h7FF0, v); if (v != 8'h02) fail($sformatf("bank 7FF0 = %02h after writing 06 (expected 02)", v));
+    mem_rd(16'hBFF0, v); if (v != 8'h02) fail($sformatf("bank BFF0 = %02h (expected 02)", v));
+    mem_wr(16'hBFF0, 8'h01);
+    mem_rd(16'h7FF0, v); if (v != 8'h02) fail($sformatf("bank = %02h after writing BFF0 (expected 02)", v));
+    mem_wr(16'h7FF0, 8'h00);
+`endif
     mem_rd(16'h7FF1, v);
     if (v != 8'h03) fail($sformatf("7FF1 after mount = %02h (expected 03: both changed)", v));
     mem_rd(16'h7FF1, v);

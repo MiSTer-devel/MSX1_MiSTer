@@ -21,13 +21,16 @@
 //   7FF8 (MSX2):    write 8 control 0, 9 control 1, B data; read A status (MSR), B data
 //   7FF2 (turbo R): write 2 control 0, 3 control 1, 5 data; read 4 status, 5 data,
 //                   1 = 33h with bit 4 / 5 = 0 when the disk of drive 0 / 1 changed (read clears)
-//   both types:     read 0 ROM bank (00h, no banking yet), C FCh, D FCh, E FFh, F 3Fh, rest FFh
+//   both types:     read 0 ROM bank, C FCh, D FCh, E FFh, F 3Fh, rest FFh
+// The ROM bank (turbo R disk ROM, 16 KB banks) is written at 7FF0 exactly and masked by the ROM
+// size of the block; mapper_turbor_fdc maps it, this copy only reads it back (openMSX).
 // Control 0: bits 1:0 drive select, bits 7:4 motor of drive 0..3 (bit 2 reset not used, as
 // openMSX). Control 1: bit 0 TC (terminal count, ends a read / write).
 // The FDD unit has drives 0 and 1; drives 2 and 3 are not connected.
 module dev_TC8566AF #(parameter sysCLK)
 (
    cpu_bus_if.device_mp    cpu_bus,
+   input  MSX::block_info_t block_info,    // ROM size of the block: bank mask
    input             [1:0] model,       // ioRegs: 0 both, 1 7FF2 (turbo R), 2 7FF8 (MSX2)
    input                   twoside,     // double sided drives (ST3 TS)
    FDD_if.FDC_mp           FDD_bus,
@@ -43,15 +46,18 @@ module dev_TC8566AF #(parameter sysCLK)
    wire        fdc_reg = (r7ff2 && (a == 4'h4 || a == 4'h5)) || (r7ff8 && (a == 4'hA || a == 4'hB));
    wire        wr_req  = dev_cs && cpu_bus.wr && cpu_bus.req;
 
-   logic [7:0] ctl0;
+   logic [7:0] ctl0, bank;
    logic       tc;
+   wire  [7:0] bank_mask = 8'(block_info.rom_size[22:14] - 1'b1);
    always_ff @(posedge cpu_bus.clk) begin
       if (cpu_bus.reset) begin
          ctl0 <= 8'h00;
          tc   <= 1'b0;
+         bank <= 8'h00;
       end else begin
          if (wr_req && ((r7ff2 && a == 4'h2) || (r7ff8 && a == 4'h8))) ctl0 <= cpu_bus.data;
          if (wr_req && ((r7ff2 && a == 4'h3) || (r7ff8 && a == 4'h9))) tc   <= cpu_bus.data[0];
+         if (wr_req && cpu_bus.addr == 16'h7FF0)                       bank <= cpu_bus.data & bank_mask;
       end
    end
 
@@ -63,7 +69,7 @@ module dev_TC8566AF #(parameter sysCLK)
          data_oe_rq = 1'b1;
          if (fdc_reg)                  data = fdc_dout;
          else if (r7ff2 && a == 4'h1)  data = {2'b00, FDD_bus.DSKCHGn, 4'b0011};
-         else if (a == 4'h0)           data = 8'h00;
+         else if (a == 4'h0)           data = bank;
          else if (a == 4'hC)           data = 8'hFC;
          else if (a == 4'hD)           data = 8'hFC;
          else if (a == 4'hF)           data = 8'h3F;

@@ -23,6 +23,7 @@ module dev_FDC #(parameter sysCLK)
 (
    cpu_bus_if.device_mp    cpu_bus,
    input  MSX::device_bus_t device_bus,
+   input  MSX::block_info_t block_info,
    input MSX::io_device_t  io_device[32][3],
    FDD_if.FDC_mp           FDD_bus[3],
    output            [7:0] data,
@@ -65,6 +66,7 @@ module dev_FDC #(parameter sysCLK)
             wire cs_dev = (io_device[DEV_TC8566AF][i].device_ref == device_bus.device_ref && io_device[DEV_TC8566AF][i].enable);
             dev_TC8566AF #(.sysCLK(sysCLK)) TC8566AF (
                .cpu_bus(cpu_bus),
+               .block_info(block_info),
                .model(io_device[DEV_TC8566AF][i].param[1:0]),
                .twoside(!io_device[DEV_TC8566AF][i].param[4]),
                .FDD_bus(tc_bus),

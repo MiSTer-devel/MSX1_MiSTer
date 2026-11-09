@@ -102,7 +102,7 @@ module wd279x_command_I
 						if (!command[7]) begin
 							reg_CRC_ERROR <= 0;
 							reg_SEEK_ERROR <= 0;
-							HLD <= ~command[3];
+							HLD <= command[3];				// h = 1: load the head
 							state <= STATE_STEP_BC;
 							$display("Command I Track %X Command %x dataReg %X %t", track, command, reg_data, $time);
 							case(command[6:5])

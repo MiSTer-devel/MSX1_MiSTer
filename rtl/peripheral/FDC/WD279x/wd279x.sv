@@ -1,6 +1,6 @@
 // WD279x FDC
 //
-// Copyright (c) 2024-2025 Molekula
+// Copyright (c) 2024-2026 Molekula
 //
 // This program is free software: you can redistribute it and/or modify it under the terms of
 // the GNU General Public License as published by the Free Software Foundation, either version 3
@@ -16,7 +16,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 
-module wd279x #(parameter WD279_57=1, parameter sysCLK) 
+module wd279x #(parameter WD279_57=1, parameter sysCLK)
 (
 	input  logic        clk,         // sys clock
 	input  logic        MRn,	      // master reset
@@ -38,7 +38,9 @@ module wd279x #(parameter WD279_57=1, parameter sysCLK)
 	output logic        HLD,
 	output logic        SSO,
 	input  logic        RAWRDn,
-	input  logic        DDENn
+	input  logic        DDENn,
+	output logic        WG,          // write gate
+	output logic        WD           // write data (1 clk pulse per flux transition)
 );
 
 	localparam A_COMMAND         = 0;
@@ -76,8 +78,8 @@ module wd279x #(parameter WD279_57=1, parameter sysCLK)
 
 	assign write_rq = ~CSn && last_WEn && ~WEn;
 	assign read_rq  = ~CSn && last_REn && ~REn;
-	
-	
+
+
 	//Command register
 	always_ff @(posedge clk) begin
 		command_start <= 0;
@@ -104,7 +106,7 @@ module wd279x #(parameter WD279_57=1, parameter sysCLK)
 				reg_track <= DIN;
 				//$display("SET TRACK %X", DIN);
 			end
-			if (reg_track_write) 
+			if (reg_track_write)
 				reg_track <= reg_track_out;
 		end
 	end
@@ -118,38 +120,35 @@ module wd279x #(parameter WD279_57=1, parameter sysCLK)
 				reg_sector <= DIN;
 				//$display("SET SECTOR %X", DIN);
 			end
-			if (reg_sector_write) 
+			if (reg_sector_write)
 				reg_sector <= reg_sector_out;
 		end
 	end
 
-	//Data register Používá třeba seek
-	//logic reg_lost_data;		//TODO: Implement lost data
+	// Data register and DRQ: any CPU access of the data register clears DRQ, so does a new
+	// command (openMSX; a command ended by Lost Data or Force Interrupt leaves it set); a read
+	// command sets it with every byte from the disk, a write command when it can take the next byte
 	always_ff @(posedge clk) begin
 		if (~MRn)	begin
 			reg_data <= 0;
-	//		reg_lost_data <= 0;
+			DRQ <= 0;
 		end	else begin
 			if (write_rq && A == A_DATA) begin
-				//$display("SET DATA  %X", DIN);
 				reg_data <= DIN;
+				DRQ <= 0;
 			end
-			
+			if (read_rq && A == A_DATA) DRQ <= 0;
+			if (command_start) DRQ <= 0;
+
 			if (reg_data_write_I) begin
 				reg_data <= reg_data_out_I;
 			end
 
 			if (enable_write_reg_data_II && fdd_rx) begin
-	//			if (DRQ) begin
-	//				reg_lost_data <= 1;
-	//			end
 				reg_data <= fdd_data;
 				DRQ <= 1;
 			end
-			
-			if (read_rq && A == A_DATA) begin
-				DRQ <= 0;
-			end
+			if (drq_set_II) DRQ <= 1;
 		end
 	end
 
@@ -192,7 +191,10 @@ logic       reg_sector_write;
 logic [7:0] status_command_type_II;
 logic       INTRQ_II;
 logic       enable_write_reg_data_II;
+logic       drq_set_II;
 logic       HLD_II;
+logic       wg_II, tx_wr_II, tx_a1_II, tx_mark_II, tx_crc_II;
+logic [7:0] tx_data_II;
 wd279x_command_II #(.WD279_57(WD279_57)) command_II (
 	.clk(clk),
 	.msclk(msclk),
@@ -208,18 +210,30 @@ wd279x_command_II #(.WD279_57(WD279_57)) command_II (
 	.INDEXn(INDEXn),
 	.READYn(READYn),
 	.WPROTn(WPROTn),
+	.DDENn(DDENn),
 	.SSO(SSO),
 	.HLD(HLD_II),
 	.INTRQ(INTRQ_II),
 	.INTRQ_ACK(INTRQ_ACK),
 	.DRQ(DRQ),
+	.drq_set(drq_set_II),
 	.enable_write_reg_data(enable_write_reg_data_II),
 	.IDAM_valid(IDAM_valid),
 	.IDAM_data(IDAM_data),
 	.DAM_valid(DAM_valid),
 	.DAM_deleted(DAM_deleted),
 	.DAM_CRC_valid(DAM_CRC_valid),
-	.data_rx(fdd_rx)
+	.data_rx(fdd_rx),
+	.reg_data(reg_data),
+	.tx_req(tx_req),
+	.tx_idle(tx_idle),
+	.byte_tick(byte_tick),
+	.wg(wg_II),
+	.tx_wr(tx_wr_II),
+	.tx_a1(tx_a1_II),
+	.tx_mark(tx_mark_II),
+	.tx_crc(tx_crc_II),
+	.tx_data(tx_data_II)
 );
 
 logic       INTRQ_IV;
@@ -241,7 +255,7 @@ wd279x_command_IV  command_IV (
 	.HLD(HLD)
 );
 
-	
+
 logic  [7:0] IDAM_data[6];
 logic  [7:0] fdd_data;
 logic        fdd_rx;
@@ -250,7 +264,7 @@ logic        DAM_valid;
 logic        DAM_deleted;
 logic        DAM_CRC_valid;
 
-wd279x_demodulator #(.sysCLK(sysCLK)) modulator (
+wd279x_demodulator #(.sysCLK(sysCLK)) demodulator (
 	.clk(clk),
 	.MRn(MRn),
 	.INDEXn(INDEXn),
@@ -263,6 +277,25 @@ wd279x_demodulator #(.sysCLK(sysCLK)) modulator (
 	.DAM_valid(DAM_valid),
 	.DAM_deleted(DAM_deleted),
     .DAM_CRC_valid(DAM_CRC_valid)
+);
+
+logic tx_req, tx_idle, byte_tick;
+wd279x_modulator #(.sysCLK(sysCLK)) modulator (
+	.clk(clk),
+	.MRn(MRn),
+	.DDENn(DDENn),
+	.wg(wg_II),
+	.tx_wr(tx_wr_II),
+	.tx_a1(tx_a1_II),
+	.tx_c2(1'b0),
+	.tx_mark(tx_mark_II),
+	.tx_crc(tx_crc_II),
+	.tx_data(tx_data_II),
+	.tx_req(tx_req),
+	.tx_idle(tx_idle),
+	.byte_tick(byte_tick),
+	.WG(WG),
+	.WD(WD)
 );
 
 logic msclk;

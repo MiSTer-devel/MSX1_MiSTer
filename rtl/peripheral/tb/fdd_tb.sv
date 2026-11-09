@@ -15,6 +15,9 @@
 // intact, bad CRC rejected and the track reloaded, write protected image ignores the gate,
 // format of a track (IDs of the stream choose the slots), write followed by a step with a slow
 // HPS still reaches the written track, READ DATA silent while the gate is open.
+// WD2793 writes (drive A): Write Sector A0h into the image and read back, deleted mark A1h,
+// multi-sector B0h ended by D0h, Lost Data when DRQ is not serviced (write and read), write
+// protected disk (status bit 6, nothing taken), head load flag of type I (h).
 //
 // Run: wsl.exe -- bash rtl/peripheral/tb/run_fdd.sh          (OLD=<git rev>: old FDD code)
 module fdd_tb;
@@ -249,7 +252,7 @@ task automatic read_cmd(input int trk, input int sec, input int nsec, output log
     mem_rd(16'h7FF8, st);
 endtask
 
-// Read one sector and compare with image d, LBA lba
+// Read one sector and compare with image d, LBA lba (the image array holds the writes too)
 task automatic read_ok(input string what, input int trk, input int sec, input int d, input int lba,
                        input int nsec = 1);
     logic [7:0] st;
@@ -260,9 +263,53 @@ task automatic read_ok(input string what, input int trk, input int sec, input in
     if (data.size() != nsec * 512) begin
         fail($sformatf("%s: %0d bytes (status %02h)", what, data.size(), st)); return;
     end
-    foreach (data[i]) if (data[i] !== pat(img_seed[d], lba + i / 512, i % 512)) bad++;
+    foreach (data[i]) if (data[i] !== img[d][lba * 512 + i]) bad++;
     if (bad) fail($sformatf("%s: %0d bytes differ, got image %0d LBA %0d (expected image %0d LBA %0d)",
                             what, bad, data[1][7:4], {data[1][3:0], data[0]}, img_seed[d], lba));
+endtask
+
+// Read one sector with a CPU that polls only every 40 us (a byte is 32 us): Lost Data
+task automatic read_slow(input int trk, input int sec, output logic [7:0] st);
+    logic [7:0] s, b;
+    longint unsigned t_end = cyc + longint'(1500) * MS;
+    mem_wr(16'h7FF9, 8'(trk));
+    mem_wr(16'h7FFA, 8'(sec));
+    mem_wr(16'h7FF8, 8'h80);
+    forever begin
+        repeat (40 * (SYS / 1_000_000)) @(negedge clk);
+        mem_rd(16'h7FFF, s);
+        if (!s[7]) mem_rd(16'h7FFB, b);
+        if (!s[6]) break;
+        if (cyc > t_end) begin fail($sformatf("slow read T%0d S%0d: timeout", trk, sec)); break; end
+    end
+    mem_rd(16'h7FF8, st);
+endtask
+
+// Write sector(s): A0h (B0h multi, ended by D0h at the DRQ for the sector after the last one;
+// +1 deleted data mark). feed = 0 leaves DRQ unserviced. Returns the status and the bytes taken.
+task automatic write_cmd(input int trk, input int sec, input int nsec, input logic [7:0] data[1024],
+                         input bit deleted, input bit feed, output logic [7:0] st, output int n);
+    logic [7:0] s;
+    longint unsigned t_end = cyc + longint'(600) * MS;
+    n = 0;
+    mem_wr(16'h7FF9, 8'(trk));
+    mem_wr(16'h7FFA, 8'(sec));
+    mem_wr(16'h7FF8, 8'hA0 | (nsec > 1 ? 8'h10 : 8'h00) | (deleted ? 8'h01 : 8'h00));
+    forever begin
+        mem_rd(16'h7FFF, s);
+        if (!s[7]) begin                                        // DRQ
+            if (n == nsec * 512) begin mem_wr(16'h7FF8, 8'hD0); break; end
+            if (feed) begin mem_wr(16'h7FFB, data[n]); n++; end
+        end
+        if (!s[6]) break;                                       // INTRQ
+        if (cyc > t_end) begin
+            fail($sformatf("write T%0d S%0d: timeout (%0d bytes taken)", trk, sec, n));
+            mem_wr(16'h7FF8, 8'hD0);                            // recover the controller
+            break;
+        end
+    end
+    repeat (10) @(negedge clk);
+    mem_rd(16'h7FF8, st);
 endtask
 
 task automatic read_rnf(input string what, input int trk, input int sec);
@@ -503,11 +550,15 @@ initial begin
     dskchg("drive A after remount A", 2'b10, 1);
     dskchg("drive A after the read", 2'b00, 0);
 
-    // --- drive A, 720K
+    // --- drive A, 720K; type I status bit 5 = head loaded follows h (before any type II command)
     select_drive(0, 0, 1);
     type1("restore", 8'h00);
     mem_rd(16'h7FF8, st);
     if (!st[2]) fail($sformatf("restore: no TRACK00 in status %02h", st));
+    if (st[5])  fail($sformatf("restore h = 0: head loaded, status %02h", st));
+    type1("restore h", 8'h08);
+    mem_rd(16'h7FF8, st);
+    if (!st[5]) fail($sformatf("restore h = 1: head not loaded, status %02h", st));
     read_ok("720K T0 S1", 0, 1, 0, 0);
     seek(5);
     select_drive(0, 1, 1);
@@ -682,6 +733,75 @@ initial begin
         if (!wr_dut.track_ready) fail("write then step: track 2 not loaded after the flush");
 
         if (rd_during_wg != 0) fail($sformatf("READ DATA while the gate is open: %0d pulses", rd_during_wg));
+    end
+
+    // ================================================================ WD2793 writes (drive A)
+    begin
+        logic [7:0] w1[512], w2[512], w3[512];                  // sector contents to compare
+        logic [7:0] b1[1024], b2[1024], b23[1024];              // bytes given to the controller
+        logic [7:0] st;
+        int s0, n;
+        foreach (w1[i])  w1[i]  = 8'(i * 7 + 3);
+        foreach (w2[i])  w2[i]  = 8'(i * 5 + 1);
+        foreach (w3[i])  w3[i]  = 8'(255 - i);
+        foreach (b1[i])  b1[i]  = i < 512 ? w1[i] : 8'h00;
+        foreach (b2[i])  b2[i]  = i < 512 ? w2[i] : 8'h00;
+        foreach (b23[i]) b23[i] = i < 512 ? w2[i] : w3[i - 512];
+        mount(0, 737280, 10);
+        select_drive(0, 0, 1);
+        type1("restore for the writes", 8'h00);
+        seek(2);
+        repeat (20 * MS) @(negedge clk);
+
+        // --- Write Sector T2 S3: status, image, read back, neighbour intact
+        s0 = stores[0];
+        write_cmd(2, 3, 1, b1, 0, 1, st, n);
+        if (n != 512 || (st & 8'hFC) != 0) fail($sformatf("write T2 S3: %0d bytes taken, status %02h", n, st));
+        if (n == 512) begin
+            wait_stores("write T2 S3", 0, s0 + 1, 50);
+            check_img("write T2 S3", 0, 2 * 18 + 2, w1);
+            read_ok("read back T2 S3", 2, 3, 0, 2 * 18 + 2);
+            read_ok("neighbour T2 S4", 2, 4, 0, 2 * 18 + 3);
+
+            // --- deleted data mark (A1h): the data land, the DSK image keeps no mark
+            s0 = stores[0];
+            write_cmd(2, 5, 1, b2, 1, 1, st, n);
+            if (n != 512 || (st & 8'hFC) != 0) fail($sformatf("write deleted T2 S5: %0d bytes taken, status %02h", n, st));
+            wait_stores("write deleted T2 S5", 0, s0 + 1, 50);
+            check_img("write deleted T2 S5", 0, 2 * 18 + 4, w2);
+
+            // --- multi-sector write B0h: T2 S7 and S8, D0h at the DRQ of S9
+            s0 = stores[0];
+            write_cmd(2, 7, 2, b23, 0, 1, st, n);
+            if (n != 1024 || st[0]) fail($sformatf("multi write T2 S7-S8: %0d bytes taken, status %02h", n, st));
+            wait_stores("multi write T2 S7-S8", 0, s0 + 2, 100);
+            check_img("multi write T2 S7", 0, 2 * 18 + 6, w2);
+            check_img("multi write T2 S8", 0, 2 * 18 + 7, w3);
+            read_ok("read back T2 S7-S9 multi", 2, 7, 0, 2 * 18 + 6, 3);
+
+            // --- Lost Data: DRQ not serviced within 11 byte times, no write
+            s0 = stores[0];
+            write_cmd(2, 1, 1, b1, 0, 0, st, n);
+            if (!st[2] || st[0] || n != 0) fail($sformatf("lost data on write: status %02h, %0d bytes (expected bit 2)", st, n));
+            repeat (30 * MS) @(negedge clk);
+            if (stores[0] != s0) fail("lost data on write: sector stored");
+            read_ok("lost data on write: T2 S1 unchanged", 2, 1, 0, 2 * 18);
+
+            // --- Lost Data on a read: the CPU polls slower than the bytes come
+            read_slow(2, 2, st);
+            if (!st[2] || st[0]) fail($sformatf("lost data on read: status %02h (expected bit 2)", st));
+
+            // --- write protected disk: status bit 6, no DRQ, nothing written
+            mount(0, 737280, 11, 1);
+            repeat (25 * MS) @(negedge clk);
+            s0 = stores[0];
+            write_cmd(2, 3, 1, b1, 0, 1, st, n);
+            if (!st[6] || n != 0) fail($sformatf("write protected: status %02h, %0d bytes taken (expected bit 6, none)", st, n));
+            repeat (30 * MS) @(negedge clk);
+            if (stores[0] != s0) fail("write protected: sector stored");
+            read_ok("write protected: T2 S3 unchanged", 2, 3, 0, 2 * 18 + 2);
+        end else
+            $display("WD2793 write: no write path, the remaining write checks are skipped");
     end
 `endif
 

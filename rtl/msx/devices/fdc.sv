@@ -74,6 +74,7 @@ module dev_FDC #(parameter sysCLK)
             assign FDD_bus[i].STEPn     = 1'b1;
             assign FDD_bus[i].SDIRn     = 1'b1;
             assign FDD_bus[i].SIDEn     = 1'b1;
+            assign FDD_bus[i].DSKCHG_ACK = 2'b00;
          end
       end
    endgenerate

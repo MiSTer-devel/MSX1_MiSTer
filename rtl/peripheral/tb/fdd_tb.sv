@@ -6,7 +6,8 @@
 // disk change, slow SD (no stale track data), a transfer of another virtual disk does not
 // touch the track buffer, second drive, track beyond the image,
 // unformatted 2nd side of a single-sided disk, index only with motor, IAM C2 C2 C2 FC,
-// FM cell rate; new configuration: single-sided drive, TRACK0 needs motor (Philips).
+// FM cell rate; new configuration: single-sided drive, TRACK0 needs motor (Philips);
+// disk change: Philips 7FFDh bit 2 per selected drive, cleared by the read, DSKCHGn per drive.
 //
 // Run: wsl.exe -- bash rtl/peripheral/tb/run_fdd.sh          (OLD=<git rev>: old FDD code)
 module fdd_tb;
@@ -173,6 +174,15 @@ task automatic select_drive(input bit drv, input bit side, input bit motor);
     if (motor) repeat (5 * MS) @(negedge clk);
 endtask
 
+// 7FFDh read with drive select sel (bits 1:0): bit 2 = 0 iff the disk changed (read clears it)
+task automatic dskchg(input string what, input logic [1:0] sel, input bit exp_changed);
+    logic [7:0] v;
+    mem_wr(16'h7FFD, {6'b0, sel});
+    mem_rd(16'h7FFD, v);
+    if (v[2] !== !exp_changed || v[1:0] !== sel)
+        fail($sformatf("%s: 7FFD = %02h, expected bit 2 = %0d", what, v, !exp_changed));
+endtask
+
 task automatic wait_intrq(input int ms, output bit ok);
     logic [7:0] s;
     longint unsigned t_end = cyc + longint'(ms) * MS;
@@ -279,7 +289,7 @@ end
 FDD_if          fm_bus();
 block_device_if fm_bd[2]();
 assign fm_bus.USEL = 1'b0;  assign fm_bus.MOTORn = 1'b0;  assign fm_bus.STEPn = 1'b1;
-assign fm_bus.SDIRn = 1'b1; assign fm_bus.SIDEn  = 1'b1;
+assign fm_bus.SDIRn = 1'b1; assign fm_bus.SIDEn  = 1'b1; assign fm_bus.DSKCHG_ACK = 2'b00;
 generate
     for (gi = 0; gi < 2; gi++) begin : fm_hps
         assign fm_bd[gi].ack = 1'b0;          assign fm_bd[gi].buff_addr = '0;
@@ -326,6 +336,21 @@ initial begin
     repeat (10) @(negedge clk);
     mount(0, 737280, 1);                                // drive A: 720K
     mount(1, 368640, 2);                                // drive B: 360K (single sided disk)
+
+    // --- disk change: both drives changed after power on / mount, the read clears it per drive
+    if (FDD_bus.DSKCHGn !== 2'b00) fail($sformatf("DSKCHGn after mount = %b, expected 00", FDD_bus.DSKCHGn));
+    dskchg("drive A after mount", 2'b00, 1);
+    dskchg("drive A read again", 2'b00, 0);
+    if (FDD_bus.DSKCHGn !== 2'b01) fail($sformatf("DSKCHGn {B,A} after A read = %b, expected 01", FDD_bus.DSKCHGn));
+    dskchg("drive B after mount", 2'b01, 1);
+    dskchg("drive B read again", 2'b01, 0);
+    dskchg("drive A select 10", 2'b10, 0);
+    dskchg("no drive", 2'b11, 0);
+    mount(0, 737280, 1);                                // new disk in drive A only
+    if (FDD_bus.DSKCHGn !== 2'b10) fail($sformatf("DSKCHGn {B,A} after remount A = %b, expected 10", FDD_bus.DSKCHGn));
+    dskchg("drive B after remount A", 2'b01, 0);
+    dskchg("drive A after remount A", 2'b10, 1);
+    dskchg("drive A after the read", 2'b00, 0);
 
     // --- drive A, 720K
     select_drive(0, 0, 1);

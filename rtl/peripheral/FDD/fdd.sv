@@ -7,6 +7,9 @@
 //   drive_ds    0 = single sided drive: side 1 is not ready (openMSX RealDrive::isDiskInserted)
 //   need_motor  TRACK0 and WPROT only while the motor runs (openMSX signalsNeedMotorOn: Philips)
 // Index and data only while the disk turns (motor on, disk in); READY = disk in and motor on.
+// Disk change per drive (DSKCHGn[i] = 0): set at power on and when the image of drive i is
+// mounted or removed, cleared by the controller with DSKCHG_ACK[i] (openMSX DiskChanger: read
+// clears). Used by the Philips glue 7FFDh bit 2 (Sony disk ROMs) and turbo R 7FF1h bits 4/5.
 //
 // https://map.grauw.nl/articles/low-level-disk/
 module fdd #(
@@ -101,5 +104,12 @@ module fdd #(
     assign FDD_bus.READ_DATAn = !(rotate && flux);
     assign FDD_bus.TRACK0n    = !(sig_ok && head_track == 7'd0);
     assign FDD_bus.WPROTn     = !(sig_ok && (!g.present || ro[sel]));    // no disk reads as protected
+
+    logic [1:0] dskchg = 2'b11;                     // power on: changed (not touched by reset)
+    always_ff @(posedge clk)
+        for (int d = 0; d < 2; d++)
+            if (changed[d])                    dskchg[d] <= 1'b1;
+            else if (FDD_bus.DSKCHG_ACK[d])    dskchg[d] <= 1'b0;
+    assign FDD_bus.DSKCHGn = ~dskchg;
 
 endmodule

@@ -1,3 +1,11 @@
+// FM modulator
+//
+// SystemVerilog port of rtl/FDC/fmmod.vhd of X68000_MiSTer
+// (https://github.com/MiSTer-devel/X68000_MiSTer), licensed under the GNU General Public
+// License version 3. Port: Molekula.
+//
+// SPDX-License-Identifier: GPL-3.0-only
+
 module fmmod (
     input  logic [7:0]  txdat,
     input  logic        txwr,

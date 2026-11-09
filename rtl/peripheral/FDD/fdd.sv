@@ -1,3 +1,20 @@
+// fdd
+//
+// Copyright (c) 2025-2026 Molekula
+//
+// This program is free software: you can redistribute it and/or modify it under the terms of
+// the GNU General Public License as published by the Free Software Foundation, either version 3
+// of the License, or (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+// without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+// See the GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along with this program.
+// If not, see <https://www.gnu.org/licenses/>.
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 // Floppy disk drive unit: two 3.5" DD drives (300 rpm, 250 kbit/s) on one Shugart style bus
 // (FDD_if), disks are DSK images of the HPS block devices block_device[0..1]. Read only.
 //

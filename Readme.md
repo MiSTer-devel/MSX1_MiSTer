@@ -77,3 +77,10 @@ To generate configurations for MSX models and expansion modules, follow these st
 Use `python3 createComp.py --help` to see options for specifying custom paths.
 5. To create a configuration for expansion modules, run: ```python3 createDev.py```  
 6. Place the resulting .MSX configuration files into your MiSTer at: `/media/fat/games/MSX1/`
+
+## License
+This core is licensed under the GNU General Public License, version 3 or later
+(see `LICENSE`, `SPDX-License-Identifier: GPL-3.0-or-later` in the source headers).
+Parts taken from other projects keep their own licenses, as stated in their file headers
+(e.g. the MiSTer framework in `sys/`, the X68000_MiSTer FDC modules under GPL-3.0, the
+ESE / OCM-PLD derived files, the T80 / TV80 CPU and VDP cores).

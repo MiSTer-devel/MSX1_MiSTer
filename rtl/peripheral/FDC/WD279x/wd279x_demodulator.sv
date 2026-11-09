@@ -23,6 +23,7 @@ module wd279x_demodulator #(parameter sysCLK)
     input  logic        INDEXn,
     input  logic        DDENn,
     input  logic        RAWRDn,
+    input  logic [1:0]  len_add,        // added to N of the ID for the data length (WD2795/7 L = 0: 1)
     output logic [7:0]  IDAM_data[6],
     output logic [7:0]  fdd_data,
     output logic        fdd_rx,
@@ -37,7 +38,7 @@ module wd279x_demodulator #(parameter sysCLK)
     // Interní signály
     logic        IDAM;
     logic [7:0]  DAM_crc[2];
-    logic [9:0]  DATA_counter;
+    logic [10:0] DATA_counter;          // up to 1024 bytes (N = 3)
     logic [1:0]  check_crc;
     logic [1:0]  a1_cnt;
     logic [2:0]  sec_id_cnt;
@@ -113,11 +114,11 @@ module wd279x_demodulator #(parameter sysCLK)
                 a1_cnt     <= 0;
             end
 
-            if (!DDENn && mfm_a1) begin
+            // Marks are not looked for inside a data field: the chip counts 128 << N bytes
+            if (!DDENn && mfm_a1 && !DAM_valid) begin
                 a1_cnt     <= a1_cnt + 2'd1;
                 crc_calc   <= 1;
                 crcwr      <= (a1_cnt == 0);
-                DAM_valid  <= 0;
             end else if (fdd_rx || mfm_c2) begin
                 a1_cnt <= 0;
             end
@@ -130,7 +131,7 @@ module wd279x_demodulator #(parameter sysCLK)
                     sec_id_cnt <= 0;
                     IDAM       <= 1;
                 end else if (IDAM_valid && (mfm_data == 8'hFB || mfm_data == 8'hF8)) begin
-                    DATA_counter <= 10'd128 << IDAM_data[3][1:0];
+                    DATA_counter <= 11'd128 << 2'(IDAM_data[3][1:0] + len_add);
                     DAM_valid    <= 1;
                     DAM_deleted  <= (mfm_data == 8'hF8);
                 end else begin
@@ -139,16 +140,15 @@ module wd279x_demodulator #(parameter sysCLK)
             end
 
             // FM: the marks carry their missing clocks; the CRC starts at the mark (crcwr)
-            if (DDENn && fm_fe) begin
+            if (DDENn && fm_fe && !DAM_valid) begin
                 IDAM_valid <= 0;
-                DAM_valid  <= 0;
                 sec_id_cnt <= 0;
                 IDAM       <= 1;
                 crc_calc   <= 1;
                 crcwr      <= 1;
             end
-            if (DDENn && (fm_fb || fm_f8) && IDAM_valid) begin
-                DATA_counter <= 10'd128 << IDAM_data[3][1:0];
+            if (DDENn && (fm_fb || fm_f8) && IDAM_valid && !DAM_valid) begin
+                DATA_counter <= 11'd128 << 2'(IDAM_data[3][1:0] + len_add);
                 DAM_valid    <= 1;
                 DAM_deleted  <= fm_f8;
                 crc_calc     <= 1;
@@ -175,7 +175,7 @@ module wd279x_demodulator #(parameter sysCLK)
 
             // Přenos datového sektoru
             if (DAM_valid && DATA_counter > 0 && fdd_rx) begin
-                DATA_counter <= DATA_counter - 10'd1;
+                DATA_counter <= DATA_counter - 11'd1;
                 if (DATA_counter == 1) begin
                     DAM_valid <= 0;
                     crc_calc <= 0;

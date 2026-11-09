@@ -58,6 +58,16 @@ module wd279x #(parameter WD279_57=1, parameter sysCLK)
 	assign INTRQ = INTRQ_I | INTRQ_II | INTRQ_III | INTRQ_IV;
 	assign status = status_command_type_I | status_command_type_II | status_command_type_III | status_command_type_IV;
 	assign HLD = HLD_I | HLD_II | HLD_III;
+
+	// WD2795/7: bit 1 of the type II and III commands is U, the side select output SSO (the 2793
+	// compares the side instead and has no SSO), bit 3 is L, the sector length flag: L = 0 makes
+	// N 0..3 = 256, 512, 1024, 128 bytes instead of 128 << N
+	wire type_II_III = reg_cmd[7:6] == 2'b10 || (reg_cmd[7:6] == 2'b11 && reg_cmd[5:4] != 2'b01);
+	always_ff @(posedge clk) begin
+		if (~MRn)                                               SSO <= 1'b0;
+		else if (WD279_57 != 0 && command_start && type_II_III) SSO <= reg_cmd[1];
+	end
+	wire [1:0] len_add = (WD279_57 != 0 && !reg_cmd[3]) ? 2'd1 : 2'd0;
 	always_comb begin
 		DOUT = '1;
 		INTRQ_ACK = 0;
@@ -217,7 +227,7 @@ wd279x_command_II #(.WD279_57(WD279_57)) command_II (
 	.READYn(READYn),
 	.WPROTn(WPROTn),
 	.DDENn(DDENn),
-	.SSO(SSO),
+	.len_add(len_add),
 	.HLD(HLD_II),
 	.INTRQ(INTRQ_II),
 	.INTRQ_ACK(INTRQ_ACK),
@@ -321,6 +331,7 @@ wd279x_demodulator #(.sysCLK(sysCLK)) demodulator (
 	.INDEXn(INDEXn),
 	.DDENn(DDENn),
 	.RAWRDn(RAWRDn),
+	.len_add(len_add),
 	.IDAM_data(IDAM_data),
     .fdd_data(fdd_data),
     .fdd_rx(fdd_rx),

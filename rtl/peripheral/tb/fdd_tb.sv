@@ -21,6 +21,9 @@
 // WD2793 type III: Read Address C0h (6 bytes with the CRC of the disk, sector register), Write
 // Track F0h with the MSX-DOS layout (9 sectors of E5 in the image), Read Track E0h (the ID of
 // sector 1 in the raw bytes), Write Track Lost Data before the index and on a protected disk.
+// FM through the WD2793 (density = FM): read, write, Read Address, back to MFM.
+// WD2795/7 (bare wd279x with WD279_57 on VD 5, 6, SSO wired to SIDE): U selects the side for a
+// read and for Read Address, L = 0 makes N = 2 a 1024 byte sector.
 //
 // Run: wsl.exe -- bash rtl/peripheral/tb/run_fdd.sh          (OLD=<git rev>: old FDD code)
 module fdd_tb;
@@ -107,14 +110,6 @@ blockDevMux #(.VDNUM(VDNUM)) mux (
 
 assign block_device_SD.rd = 1'b0;  assign block_device_SD.wr = 1'b0;  assign block_device_SD.lba = '0;
 assign block_device_SD.blk_cnt = '0;  assign block_device_SD.buff_din = '0;
-genvar gi;
-generate
-    for (gi = 4; gi < 6; gi++) begin : idle_bd
-        assign block_device_FDD[gi].rd = 1'b0;  assign block_device_FDD[gi].wr = 1'b0;
-        assign block_device_FDD[gi].lba = '0;   assign block_device_FDD[gi].blk_cnt = '0;
-        assign block_device_FDD[gi].buff_din = '0;
-    end
-endgenerate
 
 logic [1:0] drive_ds   = 2'b11;     // drives are double sided
 logic       need_motor = 1'b0;      // TRACK0 / WPROT without motor (National style)
@@ -135,13 +130,14 @@ fdd #(.sysCLK(SYS), .ID("FDDT")) dut (
 );
 `endif
 
-// Disk images of the drives (VD 1, 2 of the controller unit, VD 3, 4 of the write unit)
-logic [7:0] img[4][737280];
-int         img_bytes[4] = '{0, 0, 0, 0};
-int         img_seed[4]  = '{0, 0, 0, 0};
+// Disk images of the drives (VD 1, 2 of the controller unit, VD 3, 4 of the write unit, VD 5, 6
+// of the WD2795 unit)
+logic [7:0] img[6][737280];
+int         img_bytes[6] = '{default: 0};
+int         img_seed[6]  = '{default: 0};
 int         hps_lat      = MS;      // HPS answer latency
-int         loads[4]     = '{0, 0, 0, 0};
-int         stores[4]    = '{0, 0, 0, 0};
+int         loads[6]     = '{default: 0};
+int         stores[6]    = '{default: 0};
 
 function automatic logic [7:0] pat(input int seed, input int lba, input int off);
     if (off == 0) return 8'(lba);
@@ -161,7 +157,7 @@ initial forever begin                                   // HPS: one request at a
     int n;
     @(posedge clk);
     n = 0;
-    for (int k = 1; k <= 4; k++) if (n == 0 && (sd_rd[k] || sd_wr[k])) n = k;
+    for (int k = 1; k <= 6; k++) if (n == 0 && (sd_rd[k] || sd_wr[k])) n = k;
     if (n != 0) begin
         int d, lba, cnt;
         bit is_wr;
@@ -531,6 +527,70 @@ endtask
 
 int rd_during_wg = 0;
 always @(posedge clk) if (!wr_bus.WRITE_GATEn && !wr_bus.READ_DATAn) rd_during_wg++;
+
+// ------------------------------------------------------------------ WD2795/7: bare wd279x, SSO selects the side (VD 5, 6)
+FDD_if      u57_bus();
+logic       u57_csn = 1'b1, u57_ren = 1'b1, u57_wen = 1'b1;
+logic [1:0] u57_a   = '0;
+logic [7:0] u57_din = '0;
+wire  [7:0] u57_dout;
+wire        u57_drq, u57_intrq, u57_sso, u57_wg, u57_wd;
+wd279x #(.WD279_57(1), .sysCLK(SYS)) wd57 (
+    .clk(clk), .MRn(~reset), .CSn(u57_csn), .REn(u57_ren), .WEn(u57_wen), .A(u57_a), .DIN(u57_din), .DOUT(u57_dout),
+    .DRQ(u57_drq), .INTRQ(u57_intrq),
+    .STEPn(u57_bus.STEPn), .SDIRn(u57_bus.SDIRn), .INDEXn(u57_bus.INDEXn), .TRK00n(u57_bus.TRACK0n),
+    .READYn(u57_bus.READYn), .WPROTn(u57_bus.WPROTn), .HLD(), .SSO(u57_sso), .RAWRDn(u57_bus.READ_DATAn),
+    .DDENn(1'b0), .WG(u57_wg), .WD(u57_wd)
+);
+assign u57_bus.USEL = 1'b0;          assign u57_bus.MOTORn = 1'b0;       assign u57_bus.SIDEn = ~u57_sso;
+assign u57_bus.WRITE_GATEn = ~u57_wg; assign u57_bus.WRITE_DATAn = ~u57_wd; assign u57_bus.MFM = 1'b1;
+assign u57_bus.DSKCHG_ACK = 2'b00;
+fdd #(.sysCLK(SYS), .ID("FDD5")) u57_dut (
+    .clk(clk), .reset(reset), .FDD_bus(u57_bus), .block_device(block_device_FDD[4:5]),
+    .drive_ds(2'b11), .need_motor(1'b0)
+`ifndef NO_MOTOR_OFF
+    , .motor_off_ms(16'd0)
+`endif
+);
+
+task automatic u57_wr(input logic [1:0] a, input logic [7:0] d);
+    @(negedge clk); u57_a = a; u57_din = d; u57_csn = 1'b0;
+    @(negedge clk); u57_wen = 1'b0;
+    repeat (3) @(negedge clk); u57_wen = 1'b1; u57_csn = 1'b1;
+    repeat (2) @(negedge clk);
+endtask
+
+task automatic u57_rd(input logic [1:0] a, output logic [7:0] d);
+    @(negedge clk); u57_a = a; u57_csn = 1'b0;
+    @(negedge clk); u57_ren = 1'b0;
+    repeat (2) @(negedge clk); d = u57_dout; u57_ren = 1'b1; u57_csn = 1'b1;
+    repeat (2) @(negedge clk);
+endtask
+
+// Command; data bytes taken while DRQ, until INTRQ. Returns the status and the bytes.
+task automatic u57_cmd(input logic [7:0] cmd, output logic [7:0] st, output logic [7:0] data[$]);
+    logic [7:0] b;
+    longint unsigned t_end = cyc + longint'(1500) * MS;
+    data = {};
+    u57_wr(2'd0, cmd);
+    forever begin
+        if (u57_drq) begin u57_rd(2'd3, b); data.push_back(b); end
+        if (u57_intrq) break;
+        if (cyc > t_end) begin fail($sformatf("WD2795 command %02h: timeout", cmd)); u57_wr(2'd0, 8'hD0); break; end
+        @(negedge clk);
+    end
+    u57_rd(2'd0, st);
+endtask
+
+task automatic u57_check(input string what, input logic [7:0] data[$], input int lba, input logic [7:0] st);
+    int bad = 0;
+    if (data.size() != 512 || (st & 8'h9C) != 0) begin
+        fail($sformatf("%s: %0d bytes, status %02h", what, data.size(), st));
+        return;
+    end
+    foreach (data[i]) if (data[i] !== img[4][lba * 512 + i]) bad++;
+    if (bad) fail($sformatf("%s: %0d bytes differ (expected LBA %0d)", what, bad, lba));
+endtask
 `endif
 
 // ------------------------------------------------------------------ cell rate monitor (drive A while measure_cells)
@@ -551,7 +611,7 @@ initial begin
     int e0;
     msx_config.wait_count    = '0;
     msx_config.cpu_clock_sel = '0;
-    msx_config.fdd           = 6'b001111;                         // FDC in cartridge A: drives VD 1, 2; write unit VD 3, 4
+    msx_config.fdd           = 6'b111111;                         // VD 1, 2 WD2793; VD 3, 4 write unit; VD 5, 6 WD2795
     repeat (10) @(negedge clk);
     reset = 0;
     repeat (10) @(negedge clk);
@@ -946,6 +1006,42 @@ initial begin
         read_ok("MFM again T1 S4", 1, 4, 0, 1 * 18 + 3);
     end
 `endif
+
+    // ================================================================ WD2795/7: SSO from U, sector length from L
+    begin
+        logic [7:0] st, data[$];
+        mount(4, 737280, 15);
+        repeat (25 * MS) @(negedge clk);                // the motor runs from the start: spin up, track 0
+        u57_cmd(8'h00, st, data);                       // restore
+        if (st[0] || !st[2]) fail($sformatf("WD2795 restore: status %02h", st));
+        if (u57_sso !== 1'b0) fail("WD2795: SSO not 0 after reset and a type I command");
+
+        // --- Read Sector with U = 1, L = 1 (8Ah): side 1 through SSO, 512 bytes; sector 2 of
+        //     track 0 side 1 is LBA 10
+        u57_wr(2'd2, 8'd2);
+        u57_cmd(8'h8A, st, data);
+        if (u57_sso !== 1'b1) fail("WD2795: SSO not 1 after a read with U = 1");
+        u57_check("WD2795 read U = 1 (side 1)", data, 10, st);
+
+        // --- Read Address with U = 1 (C2h) keeps side 1 (the side 1 track is loaded; right after a
+        //     side switch the drive reloads the track and a truncated ID would come with a CRC error)
+        u57_cmd(8'hC2, st, data);
+        if (u57_sso !== 1'b1 || data.size() != 6 || data[1] !== 8'd1 || (st & 8'h9C) != 0)
+            fail($sformatf("WD2795 read address U = 1: SSO %b, %0d bytes, side byte %0d, status %02h", u57_sso, data.size(), data.size() > 1 ? int'(data[1]) : -1, st));
+
+        // --- U = 0 (88h): side 0, LBA 1 (Read Address left the track number in the sector register)
+        u57_wr(2'd2, 8'd2);
+        u57_cmd(8'h88, st, data);
+        if (u57_sso !== 1'b0) fail("WD2795: SSO not 0 after a read with U = 0");
+        u57_check("WD2795 read U = 0 (side 0)", data, 1, st);
+
+        // --- L = 0 (80h) with N = 2 in the ID: the controller counts 1024 bytes through the next
+        //     sector's marks (the chip does not look for marks inside a data field), the CRC fails
+        u57_wr(2'd2, 8'd2);
+        u57_cmd(8'h80, st, data);
+        if (data.size() != 1024 || !st[3])
+            fail($sformatf("WD2795 read L = 0: %0d bytes, status %02h (expected 1024 and a CRC error)", data.size(), st));
+    end
 `endif
 
     $display("track loads: A %0d, B %0d, W %0d; stores A %0d, W %0d", loads[0], loads[1], loads[2], stores[0], stores[2]);

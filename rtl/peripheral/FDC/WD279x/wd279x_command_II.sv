@@ -22,6 +22,8 @@
 // sync bytes, A1 A1 A1 (MFM) and the data mark FB (F8 with a0), the data bytes (a byte the CPU
 // did not supply in time goes out as 00 with Lost Data), the CRC and one gap byte, then the
 // gate closes. With m the next sector follows.
+// WD2795/7 (WD279_57): no side compare (bit 1 is U, the SSO output of wd279x), the sector length
+// follows L through len_add.
 module wd279x_command_II  #(parameter WD279_57=1)
 (
 	input  logic        clk,         // sys clock
@@ -42,7 +44,7 @@ module wd279x_command_II  #(parameter WD279_57=1)
 	input  logic        READYn,
 	input  logic		WPROTn,
 	input  logic        DDENn,
-	output logic        SSO,
+	input  logic  [1:0] len_add,     // added to N of the ID for the data length (WD2795/7 L = 0: 1)
 	output logic        HLD,
 
 	output logic  [7:0] status,
@@ -112,8 +114,6 @@ module wd279x_command_II  #(parameter WD279_57=1)
 	logic [10:0] wr_cnt;                // data bytes left (128 << N)
 	logic        gap_sent;
 
-	assign SSO = 0; //TODO: Implement SSO for WD2795/7
-
 	assign busy = state != STATE_IDLE;
 	// bit 6: write protect (writes), bit 5: record type (reads) / write fault 0 (writes)
 	assign status = command[7:6] != 2'b10 ? 8'h00 :
@@ -135,7 +135,6 @@ module wd279x_command_II  #(parameter WD279_57=1)
 			INTRQ <= 0;
 			wg <= 0;
 			gap_sent <= 0;
-			if (WD279_57) SSO <= 0;
 		end else begin
 			last_index <= INDEXn;
 			if (last_index && !INDEXn) index_count <= index_count + 3'd1;
@@ -160,9 +159,6 @@ module wd279x_command_II  #(parameter WD279_57=1)
 						state <= STATE_IDLE;
 						INTRQ <= 1;
 					end else begin
-						if (WD279_57) begin
-							SSO <= command[1];
-						end
 						HLD <= 1;
 						state <= STATE_CHECK;
 						wait_count <= command[2] ? 5'd15 : 5'd0 ;		//WAIT 15ms or 0ms
@@ -191,7 +187,7 @@ module wd279x_command_II  #(parameter WD279_57=1)
 									if (WD279_57 == 1 ||  command[1] == 0 || IDAM_data[ID_SIDE][0] == command[3]) begin
 										state   <= command[5] ? STATE_WR_GAP : STATE_WAIT_DAM;
 										gap_cnt <= '0;
-										wr_cnt  <= 11'd128 << IDAM_data[ID_LENGHT][1:0];
+										wr_cnt  <= 11'd128 << 2'(IDAM_data[ID_LENGHT][1:0] + len_add);
 									end
 				end
 				STATE_WAIT_DAM: begin

@@ -65,6 +65,8 @@
 //  +m02 : Single clock CLK with clock enables CE_p (former posedge) / CE_n (former negedge)
 //  +m03 : Savestate REG / DIRSet / DIR (MiSTer T80 layout) and MC / TS / IntCycle_n outputs
 //         for the Z80 / R800 context switch in msx_cpu
+//  +m04 : Interrupt acknowledge IORQ ends with M1; I/O cycle IORQ, RD and WR go active together
+//         (Sord M5 core, doc/sordm5-opravy.md Z4 / Z5)
 
 module TV80a#(
     parameter       Mode      = 0, // 0 => Z80, 1 => Fast Z80, 2 => 8080, 3 => GB
@@ -127,9 +129,14 @@ module TV80a#(
     assign WR_n_j  = WR_n_i;
 
     assign MREQ_n  = MREQ_n_i;
-    assign IORQ_n  = IORQ_n_i || (IReq_Inhibit && IntCycle_n);
-    assign RD_n    = RD_n_i;
-    assign WR_n    = WR_n_j;
+    // Interrupt acknowledge: IORQ ends together with M1, as on the Z80 (IORQ_n_i alone stays
+    // low until CE_n in T3, which looks like an I/O write to peripherals without a WR pin).
+    assign IORQ_n  = IORQ_n_i || (IReq_Inhibit && IntCycle_n) || (~IntCycle_n && M1_n);
+    // I/O cycle: IORQ, RD and WR are latched together on CE_n in T1 and held off by
+    // IReq_Inhibit until CE_p, so all go active on the rising edge of T2 as on the Z80.
+    wire   io_hold = ~IORQ_n_i && IReq_Inhibit && IntCycle_n;
+    assign RD_n    = RD_n_i || io_hold;
+    assign WR_n    = WR_n_j || io_hold;
     assign RFSH_n  = RFSH_n_i;
     assign A       = A_i;
     assign MC      = MCycle;
@@ -204,7 +211,7 @@ module TV80a#(
                 endcase
             end else begin
                 case (TState)
-                    3'd1: if (~IORQ_n_i) WR_n_i <= ~Write;
+                    3'd1: WR_n_i <= ~Write;         // with IORQ_n_i (io_hold)
                     3'd3: WR_n_i <= '1;
                     default: ;
                 endcase
@@ -253,11 +260,7 @@ module TV80a#(
                 if (TState == 3'd1 && ~NoRead) begin
                     IORQ_n_i <= ~IORQ;
                     MREQ <= ~IORQ;
-                    if (~IORQ) begin
-                        RD <= ~Write;
-                    end else if (~IORQ_n_i) begin
-                        RD <= ~Write;
-                    end
+                    RD <= ~Write;                   // I/O: with IORQ_n_i (io_hold)
                 end
                 if (TState == 3'd3) begin
                     RD <= '0;

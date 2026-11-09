@@ -49,6 +49,7 @@ module vdp18_pattern (
   input  logic        clk_en_acc_i,
   input  logic        reset_i,
   input  opmode_t     opmode_i,
+  input  logic        illegal_i,    // M1+M2: fixed 4 fg + 2 bg pixels per column
   input  access_t     access_type_i,
   input  hv_t         num_line_i,
   input  logic [7:0]  vram_d_i,
@@ -102,7 +103,7 @@ module vdp18_pattern (
             end else begin
               // all other modes:
               // store pattern line in shift register
-              pat_shift_q <= vram_d_i;
+              pat_shift_q <= illegal_i ? 8'hF0 : vram_d_i;
               // move pattern color from temporary register to color register
               pat_col_q <= pat_tmp_q;
             end

@@ -73,6 +73,7 @@ module vdp18_sprite (
   sprite_numbers_t sprite_numbers_q;
 
   logic [4:0] sprite_num_q;
+  logic [4:0] stat_num_q;   // status bits 4-0: sprite where the last scan stopped (real chip)
   logic [2:0] sprite_idx_q;
   logic [7:0] sprite_name_q;
 
@@ -104,6 +105,7 @@ module vdp18_sprite (
     if (reset_i) begin
       sprite_numbers_q <= '{default: '0};
       sprite_num_q     <= '0;
+      stat_num_q       <= '0;
       sprite_idx_q     <= '0;
       sprite_line_q    <= '0;
       sprite_name_q    <= '0;
@@ -144,6 +146,7 @@ module vdp18_sprite (
         case (access_type_i)
           AC_STST: begin
             sprite_num_q <= sprite_num_q + 1'd1;
+            stat_num_q   <= sprite_num_q;
             if (sprite_visible_s && sprite_idx_q < 4) begin
               sprite_numbers_q[sprite_idx_q[1:0]] <= sprite_num_q; // Adjusting to index properly
               sprite_idx_q <= sprite_idx_q + 1'd1;
@@ -222,7 +225,7 @@ module vdp18_sprite (
 
   always_comb begin
     spr_5th_o = 0;
-    spr_5th_num_o = sprite_num_q;
+    spr_5th_num_o = (clk_en_acc_i && access_type_i == AC_STST) ? sprite_num_q : stat_num_q;
 
     if (clk_en_acc_i && access_type_i == AC_STST && sprite_visible_s && sprite_idx_q == 4) begin
       spr_5th_o = 1;

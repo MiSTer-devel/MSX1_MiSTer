@@ -110,6 +110,7 @@ module vdp18_core #(
   logic reset_s;
 
   logic clk_en_10m7_s, clk_en_5m37_s, clk_en_acc_s;
+  logic bitmap_s, illegal_s;
 
   opmode_t opmode_s;
   access_t access_type_s;
@@ -224,13 +225,15 @@ module vdp18_core #(
     .cd_i          (cd_i),
     .cd_o          (cd_o),
     .cd_oe_o       (),
+    .bitmap_o      (bitmap_s),
+    .illegal_o     (illegal_s),
     .access_type_i (access_type_s),
     .opmode_o      (opmode_s),
     .vram_we_o     (vram_we_o),
     .vram_a_o      (cpu_vram_a_s),
     .vram_d_o      (vram_d_o),
     .vram_d_i      (vram_d_i),
-    .spr_coll_i    (spr_coll_s),
+    .spr_coll_i    (spr_coll_s & vert_active_s & hor_active_s),   // displayed pixels only
     .spr_5th_i     (spr_5th_s),
     .spr_5th_num_i (spr_5th_num_s),
     .reg_ev_o      (),
@@ -253,6 +256,7 @@ module vdp18_core #(
   vdp18_addr_mux addr_mux_b (
     .access_type_i (access_type_s),
     .opmode_i      (opmode_s),
+    .bitmap_i      (bitmap_s),
     .num_line_i    (num_line_s),
     .reg_ntb_i     (reg_ntb_s),
     .reg_ctb_i     (reg_ctb_s),
@@ -276,6 +280,7 @@ module vdp18_core #(
     .clk_en_acc_i  (clk_en_acc_s),
     .reset_i       (reset_s),
     .opmode_i      (opmode_s),
+    .illegal_i     (illegal_s),
     .access_type_i (access_type_s),
     .num_line_i    (num_line_s),
     .vram_d_i      (vram_d_i),

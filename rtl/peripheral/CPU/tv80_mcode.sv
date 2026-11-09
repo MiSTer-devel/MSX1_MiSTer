@@ -764,20 +764,22 @@ module TV80_MCode #(
                     end
                     8'b00000000: begin                                  // NMI || INT (IM2) || NOP
                         if (NMICycle) begin
-                            MCycles = 3'd5;
+                            // NMI: M1 + two 3 T writes of PC = 11 T (Zilog); 5 cycles made it 17 T
+                            MCycles = 3'd3;
                             case (MCycle)                               // NMI
                                 3'd1: begin TStates = 3'd5; IncDec_16 = 4'b1111; Set_Addr_To = aSP; Set_BusB_To = 4'b1101; end
-                                3'd2: begin TStates = 3'd4; Write = '1; IncDec_16 = 4'b1111; Set_Addr_To = aSP;  Set_BusB_To = 4'b1100; end
-                                3'd3: begin TStates = 3'd4; Write = '1; end
+                                3'd2: begin Write = '1; IncDec_16 = 4'b1111; Set_Addr_To = aSP;  Set_BusB_To = 4'b1100; end
+                                3'd3: begin Write = '1; end
                                 default: ;
                             endcase
                         end else begin
                             if (IntCycle) begin
                                 MCycles = 3'd5;
-                                case (MCycle)                               // NMI
+                                // IM2: M1 (5 T + 2 wait) + 3 + 3 (push PC) + 3 + 3 (vector) = 19 T (Zilog)
+                                case (MCycle)
                                     3'd1: begin TStates = 3'd5; LDZ = '1; IncDec_16 = 4'b1111; Set_Addr_To = aSP; Set_BusB_To = 4'b1101; end
-                                    3'd2: begin TStates = 3'd4; Write = '1; IncDec_16 = 4'b1111; Set_Addr_To = aSP;  Set_BusB_To = 4'b1100; end
-                                    3'd3: begin TStates = 3'd4; Write = '1; end
+                                    3'd2: begin Write = '1; IncDec_16 = 4'b1111; Set_Addr_To = aSP;  Set_BusB_To = 4'b1100; end
+                                    3'd3: begin Write = '1; end
                                     3'd4: begin Inc_PC = '1; LDZ = '1; end
                                     3'd5: Jump = '1;
                                     default: ;

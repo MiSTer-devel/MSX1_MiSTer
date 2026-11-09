@@ -56,6 +56,8 @@ module vdp18_cpuio (
   output logic        cd_oe_o,
   input  access_t     access_type_i,
   output opmode_t     opmode_o,
+  output logic        bitmap_o,     // M3: bitmap addressing, also in text/multicolor
+  output logic        illegal_o,    // M1+M2: fixed image
   output logic        vram_we_o,
   output logic [13:0] vram_a_o,
   output logic [7:0]  vram_d_o,
@@ -216,7 +218,7 @@ module vdp18_cpuio (
       end
 
       if (!sprite_5th_q) begin
-        sprite_5th_q <= spr_5th_i;
+        sprite_5th_q <= spr_5th_i && int_n_q;   // only while F = 0 (TI 2.3.3)
         sprite_5th_num_q <= spr_5th_num_i;
       end else if (destr_rd_status_s) begin
         sprite_5th_q <= 0;
@@ -342,18 +344,21 @@ module vdp18_cpuio (
     endcase
   end
 
-  always_comb begin
-    logic [2:0] mode_v;
-    mode_v = {ctrl_reg_q[1][4], ctrl_reg_q[1][3], ctrl_reg_q[0][1]};
+  // M3 only changes addressing, so the undocumented modes reuse the text and
+  // multicolor engines (doc/sordm5-opravy.md, V2).
+  wire m1 = ctrl_reg_q[1][4];
+  wire m2 = ctrl_reg_q[1][3];
+  wire m3 = ctrl_reg_q[0][1];
 
-    case (mode_v)
-      3'b000: opmode_o = OPMODE_GRAPH1;
-      3'b001: opmode_o = OPMODE_GRAPH2;
-      3'b010: opmode_o = OPMODE_MULTIC;
-      3'b100: opmode_o = OPMODE_TEXTM;
-      default: opmode_o = OPMODE_TEXTM;
-    endcase
+  always_comb begin
+    if (m1)      opmode_o = OPMODE_TEXTM;    // text, bitmap text, illegal
+    else if (m2) opmode_o = OPMODE_MULTIC;   // multicolor, bitmap multicolor
+    else if (m3) opmode_o = OPMODE_GRAPH2;
+    else         opmode_o = OPMODE_GRAPH1;
   end
+
+  assign bitmap_o  = m3;
+  assign illegal_o = m1 & m2;
 
   assign status_reg_s = {!int_n_q, sprite_5th_q, sprite_coll_q, sprite_5th_num_q};
   assign vram_a_o = addr_q;

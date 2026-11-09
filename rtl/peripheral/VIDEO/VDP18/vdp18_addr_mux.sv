@@ -48,6 +48,7 @@ import vdp18_pack::*;
 module vdp18_addr_mux (
   input  access_t access_type_i,
   input  opmode_t opmode_i,
+  input  logic bitmap_i,          // M3 with text or multicolor
   input  hv_t num_line_i,
   input  logic [3:0] reg_ntb_i,
   input  logic [7:0] reg_ctb_i,
@@ -92,9 +93,10 @@ module vdp18_addr_mux (
           end
 
           OPMODE_GRAPH2: begin
+            // Mask = VR3[6:0] over address bits 12..6 (third, name[7:3]).
             vram_a_o[13] = reg_ctb_i[7];
-            vram_a_o[12:11] = num_line_v[7:6] & {reg_ctb_i[5], reg_ctb_i[6]};
-            vram_a_o[10:3] = pat_name_i & {3'b111, reg_ctb_i[4:0]};
+            vram_a_o[12:11] = num_line_v[7:6] & reg_ctb_i[6:5];
+            vram_a_o[10:3] = pat_name_i & {reg_ctb_i[4:0], 3'b111};
             vram_a_o[2:0] = num_line_v[2:0];
           end
 
@@ -105,22 +107,24 @@ module vdp18_addr_mux (
       // Pattern Generator Table Access
       AC_PGT: begin
         case (opmode_i)
-          OPMODE_TEXTM, OPMODE_GRAPH1: begin
-            vram_a_o[13:11] = reg_pgb_i;
+          OPMODE_TEXTM, OPMODE_GRAPH1, OPMODE_MULTIC: begin
+            // Bitmap text / multicolor: one table per third like Graphic II,
+            // but the name is never masked (mask 7FF, reference).
+            if (bitmap_i && opmode_i != OPMODE_GRAPH1) begin
+              vram_a_o[13] = reg_pgb_i[2];
+              vram_a_o[12:11] = num_line_v[7:6] & reg_pgb_i[1:0];
+            end else begin
+              vram_a_o[13:11] = reg_pgb_i;
+            end
             vram_a_o[10:3] = pat_name_i;
-            vram_a_o[2:0] = num_line_v[2:0];
-          end
-
-          OPMODE_MULTIC: begin
-            vram_a_o[13:11] = reg_pgb_i;
-            vram_a_o[10:3] = pat_name_i;
-            vram_a_o[2:0] = num_line_v[4:2];
+            vram_a_o[2:0] = (opmode_i == OPMODE_MULTIC) ? num_line_v[4:2] : num_line_v[2:0];
           end
 
           OPMODE_GRAPH2: begin
+            // Thirds masked by VR4[1:0], name by the colour table mask (VR3).
             vram_a_o[13] = reg_pgb_i[2];
-            vram_a_o[12:11] = num_line_v[7:6] & {reg_pgb_i[0], reg_pgb_i[1]};
-            vram_a_o[10:3] = pat_name_i & {3'b111, reg_ctb_i[4:0]};
+            vram_a_o[12:11] = num_line_v[7:6] & reg_pgb_i[1:0];
+            vram_a_o[10:3] = pat_name_i & {reg_ctb_i[4:0], 3'b111};
             vram_a_o[2:0] = num_line_v[2:0];
           end
 

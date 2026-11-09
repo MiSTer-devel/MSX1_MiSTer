@@ -28,8 +28,9 @@ package vdp18_pack;
   parameter hv_t hv_first_pix_graph_c = -9'sd86;
   parameter hv_t hv_last_pix_graph_c = 9'sd255;
 
-  parameter hv_t hv_first_line_pal_c = -9'sd65;
-  parameter hv_t hv_last_line_pal_c = 9'sd248;
+  // PAL: 13 blanking + 51 border above, 51 border + 3 + 3 below (TI, MAME)
+  parameter hv_t hv_first_line_pal_c = -9'sd64;
+  parameter hv_t hv_last_line_pal_c = 9'sd249;
   parameter hv_t hv_first_line_ntsc_c = -9'sd40;
   parameter hv_t hv_last_line_ntsc_c = 9'sd222;
   parameter hv_t hv_vertical_inc_c = -9'sd32;

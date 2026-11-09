@@ -130,7 +130,7 @@ module vdp18_hor_vert (
             end
             if (cnt_vert_q == last_line_s - 9'sd6) begin
                 vblank_q <= 1'b1;
-            end else if (cnt_vert_q == first_line_s + 9'sd14) begin
+            end else if (cnt_vert_q == first_line_s + 9'sd13) begin   // 13 lines top blanking (TI)
                 vblank_q <= 1'b0;
             end
         end

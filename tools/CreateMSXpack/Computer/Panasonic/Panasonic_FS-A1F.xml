@@ -35,10 +35,10 @@
     <secondary slot="2">
       <block start="1" count="1"> <!--Memory Mapped FDC -->
         <memory SHA1="9a62d7a5ccda974261f7c0600476d85e10deb99b" filename="DA1024D0365R.rom" skip="49152" size="16384">ROM</memory>
-        <device>TC8566AF</device>
+        <device ioRegs="7FF8" fdd_count="1">TC8566AF</device>
       </block>
-      <block start="2" count="1"> <!--Mirror Memory Mapped FDC -->
-        <ref to_block="1">MEMORY</ref>
+      <block start="2" count="1"> <!--FDC registers also at BFF8-BFFF, no ROM (openMSX mem 4000-BFFF) -->
+        <ref to_block="1">DEVICE</ref>
       </block>
     </secondary>
     <secondary slot="3">

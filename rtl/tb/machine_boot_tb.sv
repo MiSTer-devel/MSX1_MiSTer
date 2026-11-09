@@ -1,0 +1,391 @@
+// Machine boot from a floppy: msx_system with a machine pack, blockDevMux and an HPS model
+// serving a DSK image on the internal drive (VD 5, msx_config.fdd[4]). Logs the floppy
+// controller traffic (TC8566AF: command and result bytes, the sectors the drive loads) and
+// the text screen (VDP registers and VRAM).
+// Checks: the pack loads, the drive loads the boot sector (LBA 0); with a TC8566AF the disk ROM
+// runs (M1 fetches in the controller's block) and Read Data ends normally (ST0 IC = 00); with
+// +expect=<text> that the text appears on the screen (e.g. printed by AUTOEXEC.BAS).
+// +dsk=none: no disk in the drive (the boot must not hang on the empty drive).
+// +key=<hex>: a key held down from the start until +key_ms (default 8000), PS/2 code with bit 8
+// = extended, e.g. 171 = Delete (Panasonic FS-A1F: skips the A1 Cockpit firmware).
+// Run: wsl.exe -- bash rtl/tb/run_machine_boot.sh <machine.msx> <image.dsk> [expected text]
+module machine_boot_tb;
+
+// clk_sdram = 4x clk_core, phase aligned (as the PLL)
+logic clk_sdram = 0, clk_core = 0;
+always #1 clk_sdram = ~clk_sdram;
+always #4 clk_core  = ~clk_core;
+
+clock_bus_if clock_bus(clk_core, clk_sdram);
+clock #(.sysCLK(MSX::CLK_CORE_HZ)) clock_i (.clock_bus(clock_bus));
+
+// ------------------------------------------------------------------ files
+byte unsigned pack[$];
+byte unsigned dsk[];
+int unsigned  dsk_bytes = 0;
+
+// ------------------------------------------------------------------ msx_system
+logic         rst_core_async = 1;
+wire          reset;
+logic [127:0] status = '0;
+logic         ioctl_download = 0;
+logic  [15:0] ioctl_index = '0;
+logic  [26:0] ioctl_addr = '0;
+logic   [5:0] joy[2] = '{6'd0, 6'd0};
+wire   [15:0] status_menumask;
+wire          info_req;
+wire    [7:0] info;
+MSX::msx_config_t msx_config;
+MSX::video_t  video_bus;
+wire   [15:0] audio_L, audio_R;
+wire   [27:0] ddr3_addr;
+wire          ddr3_rd, ddr3_ready;
+wire    [7:0] ddr3_dout;
+wire   [63:0] ddr3_dout64;
+
+block_device_if block_device_FDD[6]();
+block_device_if block_device_SD();
+logic    [10:0] ps2_key = '0;                           // +key: {toggle, down, extended, code}
+ext_sd_card_if  ext_SD_card_bus();
+memory_bus_if   sd_ch1(), sd_ch2(), sd_ch3();
+
+msx_system sys (
+    .clock_bus(clock_bus), .rst_core_async(rst_core_async), .reset(reset),
+    .status(status), .status_menumask(status_menumask), .info_req(info_req), .info(info),
+    .ps2_key(ps2_key), .ps2_mouse(25'd0), .joy(joy), .ioctl_download(ioctl_download), .ioctl_index(ioctl_index),
+    .ioctl_addr(ioctl_addr), .rtc(65'd0), .sdram_sz(16'h8002), .uart_speed(32'd115200),
+    .img_readonly(1'b0), .img_size(64'd0), .sd_img_mounted(1'b0),
+    .block_device_FDD(block_device_FDD), .msx_config(msx_config),
+    .video_bus(video_bus), .audio_L(audio_L), .audio_R(audio_R), .uart_rxd(1'b1), .tape_adc(1'b0),
+    .ext_SD_card_bus(ext_SD_card_bus),
+    .memory_bus_sdram_ch1(sd_ch1), .memory_bus_sdram_ch2(sd_ch2), .memory_bus_sdram_ch3(sd_ch3),
+    .ddr3_addr(ddr3_addr), .ddr3_rd(ddr3_rd), .ddr3_dout(ddr3_dout), .ddr3_dout64(ddr3_dout64),
+    .ddr3_ready(ddr3_ready)
+);
+assign ext_SD_card_bus.data_from_SD = 8'hFF;  assign ext_SD_card_bus.busy = 1'b0;
+
+// ------------------------------------------------------------------ DDR3 (pack) via ddram
+logic  [7:0] DDRAM_BURSTCNT, DDRAM_BE;
+logic [28:0] DDRAM_ADDR;
+logic [63:0] DDRAM_DOUT, DDRAM_DIN;
+logic        DDRAM_DOUT_READY = 0, DDRAM_RD, DDRAM_WE;
+
+ddram ddr (
+    .reset(reset), .DDRAM_CLK(clk_core), .DDRAM_BUSY(1'b0), .DDRAM_BURSTCNT(DDRAM_BURSTCNT),
+    .DDRAM_ADDR(DDRAM_ADDR), .DDRAM_DOUT(DDRAM_DOUT), .DDRAM_DOUT_READY(DDRAM_DOUT_READY),
+    .DDRAM_RD(DDRAM_RD), .DDRAM_DIN(DDRAM_DIN), .DDRAM_BE(DDRAM_BE), .DDRAM_WE(DDRAM_WE),
+    .addr(ddr3_addr), .dout(ddr3_dout), .din(8'h00), .we(1'b0), .rd(ddr3_rd), .ready(ddr3_ready),
+    .dout64(ddr3_dout64)
+);
+
+logic [28:0] ddr_rd_addr;
+int          ddr_wait = -1;
+always_ff @(posedge clk_core) begin
+    DDRAM_DOUT_READY <= 1'b0;
+    if (DDRAM_RD) begin ddr_rd_addr <= DDRAM_ADDR; ddr_wait <= 5; end
+    else if (ddr_wait > 0) ddr_wait <= ddr_wait - 1;
+    else if (ddr_wait == 0) begin
+        for (int b = 0; b < 8; b++) begin
+            int unsigned a = {ddr_rd_addr[24:0], 3'(b)};
+            DDRAM_DOUT[8*b +: 8] <= (a < pack.size()) ? pack[a] : 8'hFF;
+        end
+        DDRAM_DOUT_READY <= 1'b1;
+        ddr_wait <= -1;
+    end
+end
+
+// ------------------------------------------------------------------ SDRAM channels
+logic [7:0] sdram [0:(1<<25)-1];
+logic ch1_q = 0; logic [7:0] ch1_data = 0;
+always @(posedge clk_core) begin
+    ch1_q <= sd_ch1.ram_cs;
+    if (sd_ch1.ram_cs && !ch1_q && !sd_ch1.rnw) sdram[sd_ch1.addr[24:0]] = sd_ch1.data;
+    ch1_data <= sdram[sd_ch1.addr[24:0]];
+end
+assign sd_ch1.q = ch1_data; assign sd_ch1.sdram_ready = 1'b1; assign sd_ch1.sdram_done = 1'b0;
+
+typedef struct { logic q; int busy; logic done; logic ready; logic [7:0] data; } chan_t;
+chan_t c2 = '{0, 0, 0, 1, 0}, c3 = '{0, 0, 0, 1, 0};
+always @(posedge clk_core) begin
+    c2.q <= sd_ch2.ram_cs;
+    if (!sd_ch2.ram_cs) c2.done <= 0;
+    if (sd_ch2.ram_cs && !c2.q) begin c2.busy <= 3; c2.ready <= 0; end
+    else if (c2.busy == 1) begin
+        if (!sd_ch2.rnw) begin sdram[sd_ch2.addr[24:0]] = sd_ch2.data; c2.done <= 1; end
+        c2.data <= sdram[sd_ch2.addr[24:0]]; c2.ready <= 1; c2.busy <= 0;
+    end else if (c2.busy > 1) c2.busy <= c2.busy - 1;
+    c3.q <= sd_ch3.ram_cs;
+    if (sd_ch3.ram_cs && !c3.q) begin c3.busy <= 3; c3.ready <= 0; end
+    else if (c3.busy == 1) begin
+        if (!sd_ch3.rnw) sdram[sd_ch3.addr[24:0]] = sd_ch3.data;
+        c3.data <= sdram[sd_ch3.addr[24:0]]; c3.ready <= 1; c3.busy <= 0;
+    end else if (c3.busy > 1) c3.busy <= c3.busy - 1;
+end
+assign sd_ch2.q = c2.data; assign sd_ch2.sdram_ready = c2.ready; assign sd_ch2.sdram_done = c2.done;
+assign sd_ch3.q = c3.data; assign sd_ch3.sdram_ready = c3.ready; assign sd_ch3.sdram_done = 1'b0;
+
+// ------------------------------------------------------------------ floppy images: blockDevMux + HPS
+localparam int VDNUM = 7;
+localparam int VD    = 5;                               // internal drive A (msx_config.fdd[4])
+wire [31:0] sd_lba[VDNUM];
+wire  [5:0] sd_blk_cnt[VDNUM];
+wire [VDNUM-1:0] sd_rd, sd_wr;
+logic [VDNUM-1:0] sd_ack = '0;
+logic [13:0] sd_buff_addr = '0;
+logic  [7:0] sd_buff_dout = '0;
+wire   [7:0] sd_buff_din[VDNUM];
+logic        sd_buff_wr = 0;
+logic [VDNUM-1:0] img_mounted = '0;
+logic [63:0] img_size = '0;
+
+blockDevMux #(.VDNUM(VDNUM)) bdmux (
+    .clk(clk_core), .reset(reset), .msx_config(msx_config),
+    .sd_lba(sd_lba), .sd_blk_cnt(sd_blk_cnt), .sd_rd(sd_rd), .sd_wr(sd_wr), .sd_ack(sd_ack),
+    .sd_buff_addr(sd_buff_addr), .sd_buff_dout(sd_buff_dout), .sd_buff_din(sd_buff_din),
+    .sd_buff_wr(sd_buff_wr), .img_mounted(img_mounted), .img_size(img_size),
+    .img_readonly(1'b0), .block_device_FDD(block_device_FDD), .block_device_SD(block_device_SD)
+);
+assign block_device_SD.rd = 1'b0;  assign block_device_SD.wr = 1'b0;  assign block_device_SD.lba = '0;
+assign block_device_SD.blk_cnt = '0;  assign block_device_SD.buff_din = '0;
+
+int lba_reads = 0, lba0_reads = 0;
+initial forever begin                                   // HPS: one request at a time
+    @(posedge clk_core);
+    if (sd_rd[VD]) begin
+        int lba, cnt;
+        lba = int'(sd_lba[VD]);
+        cnt = (int'(sd_blk_cnt[VD]) + 1) * 512;
+        if (lba_reads < 40) $display("%0t HPS read VD%0d LBA %0d, %0d sectors", $time, VD, lba, cnt / 512);
+        lba_reads++;
+        if (lba == 0) lba0_reads++;
+        repeat (2000) @(posedge clk_core);
+        sd_ack[VD] <= 1'b1;
+        for (int i = 0; i < cnt; i++) begin
+            int a = lba * 512 + i;
+            @(posedge clk_core);
+            sd_buff_addr <= 14'(i);
+            sd_buff_dout <= a < dsk_bytes ? dsk[a] : 8'hFF;
+            sd_buff_wr   <= 1'b1;
+            @(posedge clk_core);
+            sd_buff_wr   <= 1'b0;
+        end
+        @(posedge clk_core); sd_ack[VD] <= 1'b0;
+    end
+end
+
+// ------------------------------------------------------------------ monitors
+logic req_q = 0;
+always @(posedge clk_core) req_q <= sys.MSX.cpu_bus.req;
+wire  access = sys.MSX.cpu_bus.req && !req_q && !reset;
+
+// Floppy controller (TC8566AF at its fixed position): bytes written to / read from the data
+// register; M1 fetches in its block (the disk ROM runs)
+wire        tc_cs   = sys.MSX.devices.FDC.FDC_INSTANCES[MSX::TC8566AF_POS].tc.cs_dev;
+wire [3:0]  tc_a    = sys.MSX.cpu_bus.addr[3:0];
+wire        tc_win  = tc_cs && sys.MSX.cpu_bus.mreq && sys.MSX.cpu_bus.addr[13:4] == 10'h3FF;
+int         disk_m1 = 0, fdc_log = 0, fdc_lines = 0, fdc_rep = 0, reads_ok = 0, reads_bad = 0;
+string      fdc_last = "";
+logic [7:0] cmd[$], res[$];
+always @(posedge clk_core) begin
+    if (access && tc_cs && sys.MSX.cpu_bus.mreq && sys.MSX.cpu_bus.m1) disk_m1++;
+    // command byte (7FFB / 7FF5 write)
+    if (access && tc_win && sys.MSX.cpu_bus.wr && (tc_a == 4'hB || tc_a == 4'h5))
+        cmd.push_back(sys.MSX.cpu_bus.data);
+end
+// data register reads: sampled at the end of the read (data valid then)
+logic rd_dat_q = 0;
+wire  rd_dat = tc_win && sys.MSX.cpu_bus.rd && (tc_a == 4'hB || tc_a == 4'h5);
+wire  [7:0] tc_dout = sys.MSX.devices.FDC.FDC_INSTANCES[MSX::TC8566AF_POS].tc_data;
+logic [7:0] dat_q;
+always @(posedge clk_core) begin
+    rd_dat_q <= rd_dat;
+    if (rd_dat) dat_q <= tc_dout;
+    // result bytes (RD_CMD); sector data of the execution phase is not logged
+    if (rd_dat_q && !rd_dat && sys.MSX.devices.FDC.FDC_INSTANCES[MSX::TC8566AF_POS].tc.TC8566AF.fdc.RD_CMD)
+        res.push_back(dat_q);
+end
+// log a command with its result once the controller is idle again (MSR = 80h)
+wire idle = sys.MSX.devices.FDC.FDC_INSTANCES[MSX::TC8566AF_POS].tc.TC8566AF.fdc.datnum == 0;
+logic idle_q = 1;
+always @(posedge clk_core) begin
+    idle_q <= idle;
+    if (!idle_q && idle && cmd.size() > 0) begin
+        string s = "";
+        foreach (cmd[i]) s = {s, $sformatf(" %02h", cmd[i])};
+        s = {s, " ->"};
+        foreach (res[i]) s = {s, $sformatf(" %02h", res[i])};
+        // a repeated line (Sense Interrupt polling) is only counted
+        if (s == fdc_last) fdc_rep++;
+        else begin
+            if (fdc_rep > 0) $display("%0t FDC (previous line %0d times more)", $time, fdc_rep);
+            if (fdc_lines < 400) $display("%0t FDC%s", $time, s);
+            fdc_lines++;
+            fdc_last = s;
+            fdc_rep  = 0;
+        end
+        fdc_log++;
+        if ((cmd[0] & 8'h1F) == 8'h06 && res.size() == 7) begin
+            if (res[0][7:6] == 2'b00) reads_ok++; else reads_bad++;
+        end
+        cmd.delete(); res.delete();
+    end
+end
+
+// Text screen from the VDP (mode, name table register) and the physical VRAM (vram_lo holds
+// 0000-FFFF outside GRAPHIC 6 / 7); TEXT1 40, TEXT2 80, GRAPHIC 1-3 32 columns, else empty
+function automatic string screen_text();
+    bit          t1   = sys.MSX.devices.v99.VDP_i.VDPMODETEXT1;
+    bit          t2   = sys.MSX.devices.v99.VDP_i.VDPMODETEXT2;
+    bit          g13  = sys.MSX.devices.v99.VDP_i.VDPMODEGRAPHIC1 || sys.MSX.devices.v99.VDP_i.VDPMODEGRAPHIC2 ||
+                        sys.MSX.devices.v99.VDP_i.VDPMODEGRAPHIC3;
+    logic [6:0]  r2   = sys.MSX.devices.v99.VDP_i.U_VDP_REGISTER.REG_R2_PT_NAM_ADDR;
+    int          cols = t2 ? 80 : t1 ? 40 : 32;
+    int unsigned base = t2 ? {r2[6:2], 12'h000} : {r2, 10'h000};
+    string       txt  = "";
+    if (!(t1 || t2 || g13)) return "";
+    for (int r = 0; r < 24; r++) begin
+        string line = "";
+        int    last = -1;
+        for (int c = 0; c < cols; c++) begin
+            int unsigned a  = base + r * cols + c;
+            logic  [7:0] ch = a < 65536 ? sys.vram_lo.mem[a] : sys.vram_hi.mem[a - 65536];
+            line = {line, string'((ch >= 8'h20 && ch < 8'h7F) ? ch : 8'h20)};
+            if (ch > 8'h20 && ch < 8'h7F) last = c;
+        end
+        if (last >= 0) txt = {txt, $sformatf("  |%s\n", line.substr(0, last))};
+    end
+    return txt;
+endfunction
+
+// Text in the physical VRAM (as written, any text mode): 64 kB banks vram_lo / vram_hi and the
+// linear view (GRAPHIC 6 / 7 interleave the banks)
+function automatic bit vram_has(input string k);
+    int n = k.len();
+    for (int a = 0; a + n <= 131072; a++) begin
+        bit lo = a + n <= 65536, hi = a + n <= 65536, li = 1;
+        for (int i = 0; i < n && (lo || hi || li); i++) begin
+            if (lo && sys.vram_lo.mem[a + i] != k[i]) lo = 0;
+            if (hi && sys.vram_hi.mem[a + i] != k[i]) hi = 0;
+            if (li && (((a + i) & 1) ? sys.vram_hi.mem[(a + i) >> 1] : sys.vram_lo.mem[(a + i) >> 1]) != k[i]) li = 0;
+        end
+        if (lo || hi || li) return 1;
+    end
+    return 0;
+endfunction
+
+// +vram_dump=<prefix>: VRAM as hex text and the VDP mode, for an offline render
+task automatic dump_vram(input string prefix);
+    int fd;
+    fd = $fopen({prefix, ".hex"}, "w");
+    for (int i = 0; i < 65536; i++) $fwrite(fd, "%02x", sys.vram_lo.mem[i]);
+    for (int i = 0; i < 65536; i++) $fwrite(fd, "%02x", sys.vram_hi.mem[i]);
+    $fclose(fd);
+    fd = $fopen({prefix, ".txt"}, "w");
+    $fdisplay(fd, "T1 %0d T2 %0d G1 %0d G2 %0d G3 %0d G4 %0d G5 %0d G6 %0d G7 %0d",
+              sys.MSX.devices.v99.VDP_i.VDPMODETEXT1, sys.MSX.devices.v99.VDP_i.VDPMODETEXT2,
+              sys.MSX.devices.v99.VDP_i.VDPMODEGRAPHIC1, sys.MSX.devices.v99.VDP_i.VDPMODEGRAPHIC2,
+              sys.MSX.devices.v99.VDP_i.VDPMODEGRAPHIC3, sys.MSX.devices.v99.VDP_i.VDPMODEGRAPHIC4,
+              sys.MSX.devices.v99.VDP_i.VDPMODEGRAPHIC5, sys.MSX.devices.v99.VDP_i.VDPMODEGRAPHIC6,
+              sys.MSX.devices.v99.VDP_i.VDPMODEGRAPHIC7);
+    $fdisplay(fd, "R2 %02h R4 %02h R10R3 %03h R7 %02h DISP %0d YDOTS %0d R23 %02h YJK %0d YAE %0d",
+              sys.MSX.devices.v99.VDP_i.U_VDP_REGISTER.REG_R2_PT_NAM_ADDR,
+              sys.MSX.devices.v99.VDP_i.U_VDP_REGISTER.REG_R4_PT_GEN_ADDR,
+              sys.MSX.devices.v99.VDP_i.U_VDP_REGISTER.REG_R10R3_COL_ADDR,
+              sys.MSX.devices.v99.VDP_i.U_VDP_REGISTER.REG_R7_FRAME_COL,
+              sys.MSX.devices.v99.VDP_i.U_VDP_REGISTER.REG_R1_DISP_ON,
+              sys.MSX.devices.v99.VDP_i.U_VDP_REGISTER.REG_R9_Y_DOTS,
+              sys.MSX.devices.v99.VDP_i.U_VDP_REGISTER.REG_R23_VSTART_LINE,
+              sys.MSX.devices.v99.VDP_i.U_VDP_REGISTER.REG_R25_YJK,
+              sys.MSX.devices.v99.VDP_i.U_VDP_REGISTER.REG_R25_YAE);
+    $fclose(fd);
+endtask
+
+function automatic bit contains(input string s, input string k);
+    for (int i = 0; i + k.len() <= s.len(); i++) if (s.substr(i, i + k.len() - 1) == k) return 1;
+    return 0;
+endfunction
+
+// ------------------------------------------------------------------ run
+initial begin
+    string pack_name, dsk_name, expect_txt = "", last = "", now, dump;
+    int fd, c, errors = 0, run_ms = 15000, found_ms = -1, key_ms = 8000;
+    logic [8:0] key = '0;
+    bit         use_key, no_disk, tc_used;
+
+    if (!$value$plusargs("pack=%s", pack_name) || !$value$plusargs("dsk=%s", dsk_name)) begin
+        $display("usage: +pack=<machine.msx> +dsk=<image.dsk> [+expect=<text>] [+run_ms=<ms>]"); $finish;
+    end
+    void'($value$plusargs("expect=%s", expect_txt));
+    void'($value$plusargs("run_ms=%d", run_ms));
+    void'($value$plusargs("key_ms=%d", key_ms));
+    use_key = $value$plusargs("key=%h", key);
+    fd = $fopen(pack_name, "rb"); while ((c = $fgetc(fd)) != -1) pack.push_back(8'(c)); $fclose(fd);
+    no_disk = dsk_name == "none";
+    dsk = new[2 * 1024 * 1024];
+    if (!no_disk) begin
+        fd = $fopen(dsk_name, "rb");
+        while (dsk_bytes < dsk.size() && (c = $fgetc(fd)) != -1) begin dsk[dsk_bytes] = 8'(c); dsk_bytes++; end
+        $fclose(fd);
+    end
+    $display("pack %0d B, disk image %0d B", pack.size(), dsk_bytes);
+
+    repeat (8) @(posedge clk_core);
+    rst_core_async = 0;
+    ioctl_index = 16'd1; ioctl_download = 1;
+    @(posedge clk_core); ioctl_addr = 27'(pack.size());
+    @(posedge clk_core); ioctl_download = 0;
+    wait (sys.upload);
+    wait (!sys.upload);
+    $display("%0t pack loaded, error=%0d, msx_config.fdd=%b", $time, sys.error, msx_config.fdd);
+    if (sys.error != ERR_NONE) begin $display("FAILED machine_boot_tb: pack error"); $finish; end
+    if (!msx_config.fdd[VD - 1]) begin errors++; $display("FAIL msx_config.fdd[%0d] = 0: VD %0d not enabled", VD - 1, VD); end
+
+    // key down once the keyboard map of the pack is loaded
+    if (use_key) begin
+        ps2_key = {1'b1, 1'b1, key};
+        $display("%0t key %03h down", $time, key);
+    end
+
+    // image into the internal drive (as the OSD mount)
+    if (!no_disk) begin
+        @(posedge clk_core); img_size = 64'(dsk_bytes); img_mounted[VD] = 1'b1;
+        @(posedge clk_core); img_mounted = '0;
+    end
+
+    for (int ms = 0; ms < run_ms; ms += 100) begin
+        repeat (MSX::CLK_CORE_HZ / 10) @(posedge clk_core);
+        if (ps2_key[9] && ms + 100 >= key_ms) begin
+            ps2_key = {~ps2_key[10], 1'b0, ps2_key[8:0]};
+            $display("%0t %0d ms: key %03h released", $time, ms, ps2_key[8:0]);
+        end
+        now = screen_text();
+        if (now != last) begin $display("%0t screen (%0d ms):\n%s", $time, ms, now); last = now; end
+        if (ms % 1000 == 0)
+            $display("%0t %0d ms: disk ROM M1 %0d, FDC commands %0d, reads ok %0d bad %0d, HPS reads %0d",
+                     $time, ms, disk_m1, fdc_log, reads_ok, reads_bad, lba_reads);
+        if (expect_txt != "" && (contains(now, expect_txt) || (ms % 500 == 0 && vram_has(expect_txt)))) begin
+            found_ms = ms; break;
+        end
+    end
+    $display("%0t final screen:\n%s", $time, screen_text());
+    if (found_ms < 0 && expect_txt != "" && vram_has(expect_txt)) found_ms = run_ms;
+    if ($value$plusargs("vram_dump=%s", dump)) dump_vram(dump);
+    $display("disk ROM M1 %0d, FDC commands %0d, Read Data ok %0d / abnormal %0d, HPS reads %0d (LBA 0: %0d)",
+             disk_m1, fdc_log, reads_ok, reads_bad, lba_reads, lba0_reads);
+
+    // controller checks only for the TC8566AF (a WD2793 machine checks the drive and the screen)
+    tc_used = sys.io_device[DEV_TC8566AF][MSX::TC8566AF_POS].enable;
+    if (!tc_used) $display("no TC8566AF in this machine: controller checks skipped");
+    if (tc_used && disk_m1 < 1000) begin errors++; $display("FAIL disk ROM does not run (%0d M1)", disk_m1); end
+    if (!no_disk && lba0_reads == 0) begin errors++; $display("FAIL boot sector (LBA 0) not loaded"); end
+    if (tc_used && !no_disk && reads_ok == 0) begin errors++; $display("FAIL no Read Data with a normal end"); end
+    if (expect_txt != "") begin
+        if (found_ms < 0) begin errors++; $display("FAIL \"%s\" not on the screen", expect_txt); end
+        else $display("\"%s\" on the screen at %0d ms", expect_txt, found_ms);
+    end
+    if (errors == 0) $display("PASS machine_boot_tb");
+    else             $display("FAILED machine_boot_tb: %0d errors", errors);
+    $finish;
+end
+
+endmodule

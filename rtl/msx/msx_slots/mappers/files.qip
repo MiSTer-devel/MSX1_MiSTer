@@ -20,3 +20,4 @@ set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) m
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) mirror.sv                          ]
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) ocm_ipl.sv                         ]
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) turbor_fdc.sv                      ]
+set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) panasonic.sv                       ]

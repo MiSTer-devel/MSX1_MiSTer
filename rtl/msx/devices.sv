@@ -63,7 +63,7 @@ module devices  #(parameter sysCLK)
     vram_bus_if             vram_bus_v99();
 
     // Výstupy kombinující jednotlivé zařízení
-    assign data = scc_data & fdc_data & msx2_ram_data & tms_data & v99_data & rtc_data & psg_data & ppi_data & ocm_data & reset_status_data & opm_data & ym2148_data & systimer_data;// & TC8566AF_data;
+    assign data = scc_data & fdc_data & msx2_ram_data & tms_data & v99_data & rtc_data & psg_data & ppi_data & ocm_data & reset_status_data & opm_data & ym2148_data & systimer_data & s1990_data & turbor_pcm_data & turbor_pause_data;
     assign data_oe_rq = fdc_data_oe_rq;// | TC8566AF_data_oe_rq;
     assign data_to_mapper = msx2_ram_data_to_mapper & latch_port_data_to_mapper;
 
@@ -278,6 +278,36 @@ module devices  #(parameter sysCLK)
         .sound(dac_sound)
     );
 
+    // Turbo R: S1990 (E4h / E5h), PCM (A4h / A5h), pause (A7h). TODO: CPU switch (r800, dram),
+    // firmware switch, pause key and LEDs are not connected yet (doc/turboR.md).
+    wire [7:0] s1990_data, turbor_pcm_data, turbor_pause_data;
+    wire       s1990_r800, s1990_dram, turbor_mute;
+    MSX::sound_t turbor_pcm_sound;
+    dev_s1990 dev_s1990 (
+        .cpu_bus(cpu_bus),
+        .io_device(io_device[DEV_S1990]),
+        .firmware_sw(1'b0),
+        .data(s1990_data),
+        .r800(s1990_r800),
+        .dram(s1990_dram)
+    );
+    dev_turbor_pcm dev_turbor_pcm (
+        .cpu_bus(cpu_bus),
+        .io_device(io_device[DEV_TURBOR_PCM]),
+        .data(turbor_pcm_data),
+        .sound(turbor_pcm_sound),
+        .mute_all(turbor_mute)
+    );
+    dev_turbor_pause dev_turbor_pause (
+        .cpu_bus(cpu_bus),
+        .io_device(io_device[DEV_TURBOR_PAUSE]),
+        .pause_key(1'b0),
+        .data(turbor_pause_data),
+        .hw_pause(),
+        .pause_led(),
+        .turbo_led()
+    );
+
     // Single clipping point for all sound sources
     sound_mix sound_mix (
         .clk(cpu_bus.clk),
@@ -285,6 +315,8 @@ module devices  #(parameter sysCLK)
         .scc(scc_sound),
         .psg(psg_sound),
         .dac(dac_sound),
+        .pcm(turbor_pcm_sound),
+        .mute(turbor_mute),
         .opm_L(opm_sound_L),
         .opm_R(opm_sound_R),
         .keybeep(keybeep),

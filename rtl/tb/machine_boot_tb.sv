@@ -8,6 +8,10 @@
 // +dsk=none: no disk in the drive (the boot must not hang on the empty drive).
 // +key=<hex>: a key held down from the start until +key_ms (default 8000), PS/2 code with bit 8
 // = extended, e.g. 171 = Delete (Panasonic FS-A1F: skips the A1 Cockpit firmware).
+// Turbo R: +firmware=1 turns the firmware switch on (OSD status[26]); +pause_ms=<ms> presses the
+// Pause key (hps_io event 377h) at that time and checks that the BIOS lights the pause LED (A7h
+// bit 0) and turns it off after a second press 500 ms later. The FS-A1ST BIOS pauses BASIC in
+// software (A7h = 81h); when it enables the hardware pause (bit 1) the CPU must stop as well.
 // Run: wsl.exe -- bash rtl/tb/run_machine_boot.sh <machine.msx> <image.dsk> [expected text]
 module machine_boot_tb;
 
@@ -178,6 +182,33 @@ logic req_q = 0;
 always @(posedge clk_core) req_q <= sys.MSX.cpu_bus.req;
 wire  access = sys.MSX.cpu_bus.req && !req_q && !reset;
 
+// Turbo R: writes to the S1990 (E5h) with the last M1 fetch, CPU / DRAM mode changes, accesses
+// to the main RAM through main_cs (Panasonic RAM banks, DRAM mode)
+logic [15:0] last_m1 = '0;
+int          s1990_wr = 0, main_rd = 0, main_wr = 0, a7_wr = 0, m1_all = 0, vdp_wr = 0;
+logic        r800_q = 0, dram_q = 0;
+always @(posedge clk_core) begin
+    if (access && sys.MSX.cpu_bus.mreq && sys.MSX.cpu_bus.m1) begin last_m1 <= sys.MSX.cpu_bus.addr; m1_all++; end
+    if (access && sys.MSX.cpu_bus.iorq && !sys.MSX.cpu_bus.m1 && sys.MSX.cpu_bus.wr && sys.MSX.cpu_bus.addr[7:2] == 6'b100110) vdp_wr++;
+    if (access && sys.MSX.cpu_bus.iorq && !sys.MSX.cpu_bus.m1 && sys.MSX.cpu_bus.wr && sys.MSX.cpu_bus.addr[7:0] == 8'hA7
+        && sys.io_device[DEV_TURBOR_PAUSE][0].enable) begin
+        a7_wr++;
+        if (a7_wr <= 20) $display("%0t pause A7 <= %02h (last M1 %04h)", $time, sys.MSX.cpu_bus.data, last_m1);
+    end
+    if (access && sys.MSX.cpu_bus.iorq && !sys.MSX.cpu_bus.m1 && sys.MSX.cpu_bus.wr && sys.MSX.cpu_bus.addr[7:0] == 8'hE5
+        && sys.io_device[DEV_S1990][0].enable) begin
+        s1990_wr++;
+        if (s1990_wr <= 40) $display("%0t S1990 E5 <= %02h (last M1 %04h)", $time, sys.MSX.cpu_bus.data, last_m1);
+    end
+    if (access && sys.MSX.msx_slots.main_cs) begin
+        if (sys.MSX.cpu_bus.wr) main_wr++; else main_rd++;
+    end
+    r800_q <= sys.MSX.turbor_r800;
+    dram_q <= sys.MSX.turbor_dram;
+    if (!reset && r800_q != sys.MSX.turbor_r800) $display("%0t S1990: %s", $time, sys.MSX.turbor_r800 ? "R800" : "Z80");
+    if (!reset && dram_q != sys.MSX.turbor_dram) $display("%0t S1990: %s mode", $time, sys.MSX.turbor_dram ? "DRAM" : "ROM");
+end
+
 // Floppy controller (TC8566AF at its fixed position): bytes written to / read from the data
 // register; M1 fetches in its block (the disk ROM runs)
 wire        tc_cs   = sys.MSX.devices.FDC.FDC_INSTANCES[MSX::TC8566AF_POS].tc.cs_dev;
@@ -308,7 +339,7 @@ endfunction
 // ------------------------------------------------------------------ run
 initial begin
     string pack_name, dsk_name, expect_txt = "", last = "", now, dump;
-    int fd, c, errors = 0, run_ms = 15000, found_ms = -1, key_ms = 8000;
+    int fd, c, errors = 0, run_ms = 15000, found_ms = -1, key_ms = 8000, pause_ms = -1, fw = 0, m1_paused = 0;
     logic [8:0] key = '0;
     bit         use_key, no_disk, tc_used;
 
@@ -319,6 +350,8 @@ initial begin
     void'($value$plusargs("run_ms=%d", run_ms));
     void'($value$plusargs("key_ms=%d", key_ms));
     use_key = $value$plusargs("key=%h", key);
+    void'($value$plusargs("pause_ms=%d", pause_ms));
+    if ($value$plusargs("firmware=%d", fw)) status[26] = fw[0];
     fd = $fopen(pack_name, "rb"); while ((c = $fgetc(fd)) != -1) pack.push_back(8'(c)); $fclose(fd);
     no_disk = dsk_name == "none";
     dsk = new[2 * 1024 * 1024];
@@ -354,15 +387,40 @@ initial begin
 
     for (int ms = 0; ms < run_ms; ms += 100) begin
         repeat (MSX::CLK_CORE_HZ / 10) @(posedge clk_core);
-        if (ps2_key[9] && ms + 100 >= key_ms) begin
+        if (use_key && ps2_key[9] && ms + 100 >= key_ms) begin
             ps2_key = {~ps2_key[10], 1'b0, ps2_key[8:0]};
+            use_key = 0;
             $display("%0t %0d ms: key %03h released", $time, ms, ps2_key[8:0]);
+        end
+        // hardware pause: Pause key, the CPU must stop; the key again, it must run
+        if (pause_ms >= 0 && (ms == pause_ms || ms == pause_ms + 500)) begin
+            ps2_key = {~ps2_key[10], 10'h377};
+            $display("%0t %0d ms: Pause key, A7 = %02h", $time, ms, sys.MSX.devices.dev_turbor_pause.status);
+        end
+        if (pause_ms >= 0 && ms == pause_ms + 100) m1_paused = m1_all;
+        if (pause_ms >= 0 && ms == pause_ms + 400) begin
+            if (!sys.MSX.devices.dev_turbor_pause.paused) begin errors++; $display("FAIL the Pause key did not set the pause"); end
+            if (!sys.MSX.devices.dev_turbor_pause.pause_led) begin errors++; $display("FAIL pause LED off after the Pause key (A7 = %02h)", sys.MSX.devices.dev_turbor_pause.status); end
+            if (sys.MSX.devices.dev_turbor_pause.status[1]) begin
+                if (!sys.MSX.devices.dev_turbor_pause.hw_pause) begin errors++; $display("FAIL no hardware pause with A7 bit 1"); end
+                if (m1_all != m1_paused) begin errors++; $display("FAIL CPU runs in the hardware pause (%0d M1)", m1_all - m1_paused); end
+                else $display("%0t %0d ms: hardware pause, CPU stopped", $time, ms);
+            end else
+                $display("%0t %0d ms: software pause by the BIOS (A7 = %02h), %0d M1 in 300 ms", $time, ms,
+                         sys.MSX.devices.dev_turbor_pause.status, m1_all - m1_paused);
+            m1_paused = m1_all;
+        end
+        if (pause_ms >= 0 && ms == pause_ms + 800) begin
+            if (sys.MSX.devices.dev_turbor_pause.paused) begin errors++; $display("FAIL still paused after the second Pause key"); end
+            if (sys.MSX.devices.dev_turbor_pause.pause_led) begin errors++; $display("FAIL pause LED on after the second Pause key (A7 = %02h)", sys.MSX.devices.dev_turbor_pause.status); end
+            if (m1_all == m1_paused) begin errors++; $display("FAIL CPU does not run after the pause"); end
+            else $display("%0t %0d ms: CPU runs again (%0d M1)", $time, ms, m1_all - m1_paused);
         end
         now = screen_text();
         if (now != last) begin $display("%0t screen (%0d ms):\n%s", $time, ms, now); last = now; end
         if (ms % 1000 == 0)
-            $display("%0t %0d ms: disk ROM M1 %0d, FDC commands %0d, reads ok %0d bad %0d, HPS reads %0d",
-                     $time, ms, disk_m1, fdc_log, reads_ok, reads_bad, lba_reads);
+            $display("%0t %0d ms: M1 %0d, VDP writes %0d, disk ROM M1 %0d, FDC commands %0d, reads ok %0d bad %0d, HPS reads %0d",
+                     $time, ms, m1_all, vdp_wr, disk_m1, fdc_log, reads_ok, reads_bad, lba_reads);
         if (expect_txt != "" && (contains(now, expect_txt) || (ms % 500 == 0 && vram_has(expect_txt)))) begin
             found_ms = ms; break;
         end
@@ -372,6 +430,8 @@ initial begin
     if ($value$plusargs("vram_dump=%s", dump)) dump_vram(dump);
     $display("disk ROM M1 %0d, FDC commands %0d, Read Data ok %0d / abnormal %0d, HPS reads %0d (LBA 0: %0d)",
              disk_m1, fdc_log, reads_ok, reads_bad, lba_reads, lba0_reads);
+    if (sys.io_device[DEV_S1990][0].enable)
+        $display("turbo R: S1990 E5 writes %0d, A7 writes %0d, main RAM via main_cs: %0d reads, %0d writes", s1990_wr, a7_wr, main_rd, main_wr);
 
     // controller checks only for the TC8566AF (a WD2793 machine checks the drive and the screen)
     tc_used = sys.io_device[DEV_TC8566AF][MSX::TC8566AF_POS].enable;

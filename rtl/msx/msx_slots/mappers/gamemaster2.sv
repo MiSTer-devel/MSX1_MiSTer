@@ -73,6 +73,7 @@ module mapper_gamemaster2 (
 
     // Output control signals
     assign out.sram_cs = cs && sram_en;  // SRAM chip select
+    assign out.main_cs = 1'b0;
     assign out.ram_cs  = cs && ram_en;   // RAM chip select
     assign out.rnw     = ~(out.sram_cs && cpu_bus.wr && cpu_bus.addr[15:12] == 4'hB);  // Read/Write control signal
     assign out.addr    = cs ? (sram_en ? sram_addr : ram_addr) : {27{1'b1}};  // Address output, default to all 1s if not selected

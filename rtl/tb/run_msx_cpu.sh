@@ -2,17 +2,24 @@
 # msx_cpu testbench (Verilator --timing).
 #   wsl.exe -- bash rtl/tb/run_msx_cpu.sh                 golden suite (all speeds / waits)
 #   wsl.exe -- bash rtl/tb/run_msx_cpu.sh +sel=1 +lat=2   single run with plusargs
-# ALT=<dir> replaces tv80.sv, tv80a.sv and msx_cpu.sv with versions from <dir>.
+# ALT=<dir> replaces tv80.sv, tv80a.sv and msx_cpu.sv (and tv80_reg.sv if present) with versions
+# from <dir>, built with OLD_CPU (msx_cpu without the Z80 / R800 switch ports).
 set -e
 cd "$(dirname "$0")"
 CPU=../peripheral/CPU
 SRC_TV80=${ALT:-$CPU}/tv80.sv
 SRC_TV80A=${ALT:-$CPU}/tv80a.sv
 SRC_MSXCPU=${ALT:-..}/msx_cpu.sv
+SRC_REG=$CPU/tv80_reg.sv
+DEF=""
+if [ -n "$ALT" ]; then
+    DEF="+define+OLD_CPU"
+    [ -f "$ALT/tv80_reg.sv" ] && SRC_REG=$ALT/tv80_reg.sv
+fi
 OUT=$(mktemp -d)
-verilator --binary --timing -Wno-fatal -Wno-lint -Wno-style -O2 \
+verilator --binary --timing -Wno-fatal -Wno-lint -Wno-style -O2 $DEF \
     --top-module msx_cpu_tb -Mdir "$OUT" -I. \
-    ../package.sv ../clock.sv $CPU/tv80_alu.sv $CPU/tv80_mcode.sv $CPU/tv80_reg.sv \
+    ../package.sv ../clock.sv $CPU/tv80_alu.sv $CPU/tv80_mcode.sv "$SRC_REG" \
     "$SRC_TV80" "$SRC_TV80A" "$SRC_MSXCPU" msx_cpu_tb.sv > "$OUT/build.log" 2>&1 \
     || { cat "$OUT/build.log"; exit 1; }
 grep -E '%Error' "$OUT/build.log" || true

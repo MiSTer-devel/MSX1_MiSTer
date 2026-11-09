@@ -66,6 +66,9 @@
 //  +k05 : Fixed a bug in which the flag register was not changing in "LD A,I" and "LD A,R" by t.hara 2022.11.05
 //
 //  +m01 : Revrite to systemVerilog by Molekula 2025.01.26, original: https://github.com/gnogni/ocm-pld-dev.git 95aa5e2179f28c0d8028e17203909804ce6ff66b
+//  +m02 : Savestate ports REG / DIRSet / DIR as T80.vhd of the MiSTer T80 (T80(c) version 350,
+//         Sorgelig); DIRSet also clears Alternate, the pending write-back and the INT/NMI/HALT
+//         state, so the core can resume fetching at the loaded PC (Z80 / R800 switch, turbo R)
 
 module TV80#( parameter Mode      = 0,
                         R800_MULU = 1,
@@ -103,7 +106,11 @@ module TV80#( parameter Mode      = 0,
     output              IntCycle_n,
     input               R800_mode,
     output              IntE,
-    output              Stop
+    output              Stop,
+    // Savestate (MiSTer T80 layout): IFF2, IFF1, IM, IY, HL', DE', BC', IX, HL, DE, BC, PC, SP, R, I, F', A', F, A
+    output      [211:0] REG,
+    input               DIRSet,         // load DIR (has priority over CEN, works with CEN = 0)
+    input       [211:0] DIR
 );
 
     localparam          aNone = 3'b111;
@@ -347,6 +354,11 @@ module TV80#( parameter Mode      = 0,
                              Save_ALU_r ? ALU_Q  :
                                           DI_Reg ;
 
+    // Register file in logical order regardless of EXX (Alternate swaps pairs 0-2 with 4-6)
+    wire [127:0] DOR;
+    wire [127:0] DOR_logical = Alternate ? {DOR[127:112], DOR[47:0], DOR[63:48], DOR[111:64]} : DOR;
+    assign REG = {IntE_FF2, IntE_FF1, IStatus, DOR_logical, PC, SP, R, I, Fp, Ap, F, ACC};
+
     always_ff @(negedge RESET_n or posedge CLK_n) begin
         if (~RESET_n) begin
             PC            <= '0;
@@ -377,6 +389,22 @@ module TV80#( parameter Mode      = 0,
             Save_ALU_r    <= '0;
             PreserveC_r   <= '0;
             XY_Ind        <= '0;
+        end else if (DIRSet) begin
+            ACC           <= DIR[7:0];
+            F             <= DIR[15:8];
+            Ap            <= DIR[23:16];
+            Fp            <= DIR[31:24];
+            I             <= DIR[39:32];
+            R             <= DIR[47:40];
+            SP            <= DIR[63:48];
+            PC            <= DIR[79:64];
+            A             <= DIR[79:64];
+            IStatus       <= DIR[209:208];
+            Alternate     <= '0;                // DIR is in logical order
+            // drop a write-back still pending from the previous instruction (none after OUT)
+            Read_To_Reg_r <= '0;
+            Save_ALU_r    <= '0;
+            ALU_Op_r      <= '0;
         end else begin
             if (ClkEn) begin
                 ALU_Op_r      <= '0;
@@ -802,7 +830,10 @@ module TV80#( parameter Mode      = 0,
         .DOBH(RegBusB[15:8]),
         .DOBL(RegBusB[7:0]),
         .DOCH(RegBusC[15:8]),
-        .DOCL(RegBusC[7:0])
+        .DOCL(RegBusC[7:0]),
+        .DOR(DOR),
+        .DIRSet(DIRSet),
+        .DIR(DIR[207:80])                   // logical = physical order with Alternate = 0
     );
 
 // Buses
@@ -901,6 +932,13 @@ module TV80#( parameter Mode      = 0,
             Auto_Wait_t1 <= '0;
             Auto_Wait_t2 <= '0;
             M1_n <= '1;
+        end else if (DIRSet) begin
+            IntE_FF2 <= DIR[211];
+            IntE_FF1 <= DIR[210];
+            // the loaded context decides on INT / NMI at the end of its first instruction
+            IntCycle <= '0;
+            NMICycle <= '0;
+            Halt_FF  <= '0;
         end else if (CEN) begin
             if (T_Res)
                 Auto_Wait_t1 <= '0;

@@ -17,5 +17,8 @@
   "OPM":15,
   "YM2148":16,
   "DAC":17,
-  "SYSTIMER":18
+  "SYSTIMER":18,
+  "S1990":19,
+  "TURBOR_PCM":20,
+  "TURBOR_PAUSE":21
 }

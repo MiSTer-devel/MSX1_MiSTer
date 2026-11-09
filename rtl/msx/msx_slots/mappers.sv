@@ -24,6 +24,7 @@ module mappers (
     input  MSX::block_info_t block_info,         // Active block (slot layout entry)
     output MSX::device_bus_t device_bus,         // Cartridge device control (to devices)
     memory_bus_if.device_mp     memory_bus,         // Interface for memory control
+    output                      main_cs,            // memory_bus.addr is an offset in the main RAM
     output                [7:0] data,               // Data output from the active mapper; defaults to FF if no mapper is active
     input                 [7:0] data_to_mapper,
     output                      slot_expander_force_en,
@@ -41,6 +42,7 @@ module mappers (
         M_OFFSET, M_MIRROR, M_MSX2_RAM, M_ASCII8, M_ASCII16, M_GENERIC8K, M_GENERIC16K,
         M_FM_PAC, M_YAMAHA_SFG, M_KONAMI, M_KONAMI_SCC, M_GM2, M_CROSS_BLAIM, M_NATIONAL,
         M_HARRY_FOX, M_ZEMINA80, M_ZEMINA90, M_MFRSD, M_ESE_RAM, M_MEGA_RAM, M_OCM_IPL,
+        M_TURBOR_FDC, M_PANASONIC, M_DRAM,
         M_COUNT
     } mapper_idx_t;
 
@@ -93,6 +95,24 @@ module mappers (
         .cpu_bus(cpu_bus),
         .block_info(block_info),
         .out(mapper_out[M_GENERIC16K])
+    );
+
+    mapper_turbor_fdc turbor_fdc (
+        .cpu_bus(cpu_bus),
+        .block_info(block_info),
+        .out(mapper_out[M_TURBOR_FDC])
+    );
+
+    mapper_panasonic panasonic (
+        .cpu_bus(cpu_bus),
+        .block_info(block_info),
+        .out(mapper_out[M_PANASONIC])
+    );
+
+    mapper_dram dram (
+        .cpu_bus(cpu_bus),
+        .block_info(block_info),
+        .out(mapper_out[M_DRAM])
     );
 
     mapper_fm_pac fm_pac (
@@ -218,6 +238,7 @@ module mappers (
     assign memory_bus.rnw     = mapper_merged.rnw;
     assign memory_bus.ram_cs  = mapper_merged.ram_cs;
     assign memory_bus.sram_cs = mapper_merged.sram_cs;
+    assign main_cs            = mapper_merged.main_cs;
     assign memory_bus.data    = '1;
 
     assign device_bus.we         = device_merged.we;

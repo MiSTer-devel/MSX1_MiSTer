@@ -61,6 +61,7 @@ module mapper_yamaha_sfg (
 
     // outputs not used by this mapper: neutral for the merge in mappers.sv
     assign out.sram_cs = 1'b0;
+    assign out.main_cs = 1'b0;
     assign out.data    = 8'hFF;
     assign device_out.device_ref = 3'd0;
     assign device_out.mode       = 1'b1;

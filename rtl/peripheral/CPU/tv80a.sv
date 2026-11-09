@@ -63,6 +63,8 @@
 //
 //  +m01 : Revrite to systemVerilog by Molekula 2025.01.26, original: https://github.com/gnogni/ocm-pld-dev.git 95aa5e2179f28c0d8028e17203909804ce6ff66b
 //  +m02 : Single clock CLK with clock enables CE_p (former posedge) / CE_n (former negedge)
+//  +m03 : Savestate REG / DIRSet / DIR (MiSTer T80 layout) and MC / TS / IntCycle_n outputs
+//         for the Z80 / R800 context switch in msx_cpu
 
 module TV80a#(
     parameter       Mode      = 0, // 0 => Z80, 1 => Fast Z80, 2 => 8080, 3 => GB
@@ -88,11 +90,16 @@ module TV80a#(
     output          BUSAK_n,
     output   [15:0] A,
     input     [7:0] DI,
-    output    [7:0] DO
+    output    [7:0] DO,
+    output    [2:0] MC,             // machine cycle (1 = M1)
+    output    [2:0] TS,             // T state
+    output          IntCycle_n,     // 0 = interrupt acknowledge cycle
+    output  [211:0] REG,            // savestate, see TV80
+    input           DIRSet,
+    input   [211:0] DIR
 );
 
     logic           Reset_s;
-    logic           IntCycle_n;
     logic           IORQ;
     logic           NoRead;
     logic           Write;
@@ -125,6 +132,8 @@ module TV80a#(
     assign WR_n    = WR_n_j;
     assign RFSH_n  = RFSH_n_i;
     assign A       = A_i;
+    assign MC      = MCycle;
+    assign TS      = TState;
 
 
 
@@ -162,7 +171,10 @@ module TV80a#(
         .MC(MCycle),
         .TS(TState),
         .IntCycle_n(IntCycle_n),
-        .R800_mode(R800_mode)
+        .R800_mode(R800_mode),
+        .REG(REG),
+        .DIRSet(DIRSet),
+        .DIR(DIR)
     );
 
     always_ff @(posedge CLK) begin

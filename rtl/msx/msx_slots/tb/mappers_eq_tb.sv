@@ -41,10 +41,11 @@ assign sd_new.data_from_SD       = sd_q;        assign sd_old.data_from_SD      
 MSX::device_bus_t dev_new, dev_old;
 logic [7:0] data_new, data_old;
 logic       force_new, force_old;
+logic       main_new;                           // main_cs: new output, the reference has none (0)
 
 mappers dut_new (
     .clock_bus(clock_bus), .cpu_bus(cpu_bus), .ext_SD_card_bus(sd_new), .flash_bus(flash_new),
-    .block_info(block_info), .device_bus(dev_new), .memory_bus(mem_new), .data(data_new),
+    .block_info(block_info), .device_bus(dev_new), .memory_bus(mem_new), .main_cs(main_new), .data(data_new),
     .data_to_mapper(data_to_mapper), .slot_expander_force_en(force_new),
     .ocm_megaSD_enable(megaSD_en), .ocm_slot1_mode(slot1_mode), .ocm_slot2_mode(slot2_mode),
     .ocm_ipl_en(ipl_en)
@@ -58,11 +59,11 @@ mappers_old dut_old (
     .ocm_ipl_en(ipl_en)
 );
 
-wire [159:0] obs_new = {mem_new.addr, mem_new.rnw, mem_new.ram_cs, mem_new.sram_cs, mem_new.data,
+wire [191:0] obs_new = {main_new, mem_new.addr, mem_new.rnw, mem_new.ram_cs, mem_new.sram_cs, mem_new.data,
                         data_new, dev_new, force_new,
                         flash_new.base_addr, flash_new.addr, flash_new.data_to_flash, flash_new.we, flash_new.ce,
                         sd_new.rx, sd_new.tx, sd_new.data_to_SD};
-wire [159:0] obs_old = {mem_old.addr, mem_old.rnw, mem_old.ram_cs, mem_old.sram_cs, mem_old.data,
+wire [191:0] obs_old = {1'b0, mem_old.addr, mem_old.rnw, mem_old.ram_cs, mem_old.sram_cs, mem_old.data,
                         data_old, dev_old, force_old,
                         flash_old.base_addr, flash_old.addr, flash_old.data_to_flash, flash_old.we, flash_old.ce,
                         sd_old.rx, sd_old.tx, sd_old.data_to_SD};
@@ -105,6 +106,9 @@ initial begin
             block_info.base_ram   = 27'($urandom);
             block_info.device_ref = 3'($urandom);
             block_info.id         = 1'($urandom);
+            block_info.mapper_param  = 2'($urandom);    // turbo R fields: other mappers ignore them
+            block_info.main_ram_size = 17'($urandom);
+            block_info.dram          = 1'($urandom);
             megaSD_en             = 1'($urandom);
             slot1_mode            = 1'($urandom);
             slot2_mode            = 2'($urandom);

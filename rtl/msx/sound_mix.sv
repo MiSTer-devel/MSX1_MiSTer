@@ -24,6 +24,8 @@ module sound_mix (
     input  MSX::sound_t        scc,
     input  MSX::sound_t        psg,
     input  MSX::sound_t        dac,
+    input  MSX::sound_t        pcm,         // turbo R PCM
+    input                      mute,        // turbo R PCM: all sound muted
     input  MSX::sound_t        opm_L,
     input  MSX::sound_t        opm_R,
     input                      keybeep,
@@ -32,10 +34,10 @@ module sound_mix (
     output logic signed [15:0] sound_R
 );
 
-    localparam int W = 22;                   // 6 terms of 18 bit + sign
+    localparam int W = 22;                   // 7 terms of 18 bit + sign
 
     wire signed [W-1:0] sys    = $signed({12'd0, keybeep, 9'd0}) + $signed({13'd0, tape, 8'd0});
-    wire signed [W-1:0] common = opll + scc + psg + dac + sys;
+    wire signed [W-1:0] common = opll + scc + psg + dac + pcm + sys;
     wire signed [W-1:0] mix_L  = common + opm_L;
     wire signed [W-1:0] mix_R  = common + opm_R;
 
@@ -46,8 +48,8 @@ module sound_mix (
     endfunction
 
     always_ff @(posedge clk) begin
-        sound_L <= clip_x2(mix_L);
-        sound_R <= clip_x2(mix_R);
+        sound_L <= mute ? 16'sd0 : clip_x2(mix_L);
+        sound_R <= mute ? 16'sd0 : clip_x2(mix_R);
     end
 
 endmodule

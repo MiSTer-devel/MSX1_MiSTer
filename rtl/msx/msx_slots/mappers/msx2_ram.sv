@@ -23,7 +23,12 @@ module mapper_msx2_ram (
     input [7:0]             data_to_mapper
 );
 
-    wire cs = (block_info.typ == MAPPER_MSX2) && cpu_bus.mreq && (cpu_bus.wr || cpu_bus.rd);
+    // PANASONIC_RAM = turbo R main RAM: in DRAM mode (S1990) the top 64 KB hold the ROM copy and
+    // ignore writes (openMSX PanasonicMemory::isWritable)
+    wire panasonic = block_info.typ == MAPPER_PANASONIC_RAM;
+    wire cs = (block_info.typ == MAPPER_MSX2 || panasonic) && cpu_bus.mreq && (cpu_bus.wr || cpu_bus.rd);
+    wire [8:0] segments = block_info.rom_size[22:14];
+    wire       protect  = panasonic && block_info.dram && {1'b0, data_to_mapper} >= segments - 9'd4;
 
     // Output assignments
     assign out.ram_cs = cs;  // RAM chip select signal
@@ -32,10 +37,11 @@ module mapper_msx2_ram (
     assign out.addr = cs ? {5'b0, data_to_mapper, cpu_bus.addr[13:0]} : {27{1'b1}};
 
     // Generate the Read/Not Write (rnw) signal based on the chip select and write signal
-    assign out.rnw = ~(cs & cpu_bus.wr);
+    assign out.rnw = ~(cs & cpu_bus.wr & ~protect);
 
     // outputs not used by this mapper: neutral for the merge in mappers.sv
     assign out.sram_cs = 1'b0;
+    assign out.main_cs = 1'b0;
     assign out.data    = 8'hFF;
 
 endmodule

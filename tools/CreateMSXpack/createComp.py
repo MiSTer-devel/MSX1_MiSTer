@@ -296,6 +296,9 @@ def create_msx_config_block(slot, subslot, blocks, outfile, files_with_sha1, con
             (typ, attributes) = block.pop('mapper', (None, None))
             if typ in constants['mapper'] :
                 params[0] = constants['mapper'][typ]
+                # mapper parameter (DRAM: first 16 KB page of the top 64 KB of the main RAM)
+                if attributes and 'param' in attributes :
+                    params[1] = (convert_to_int(attributes['param']) & 3) << 2
                 add_block_type_to_file(address, "MAPPER", params, outfile, constants)
             else :
                 print(f"Error: unknown mapper '{typ}' in slot {slot}/{subslot}")  

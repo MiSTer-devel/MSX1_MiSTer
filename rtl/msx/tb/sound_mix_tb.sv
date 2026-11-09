@@ -4,6 +4,8 @@ module sound_mix_tb;
 
 logic clk = 0;
 MSX::sound_t opll, scc, psg, dac, opm_L, opm_R;
+MSX::sound_t pcm = '0;                  // turbo R PCM, set before apply
+logic mute = 0;                         // turbo R PCM: all sound muted
 logic keybeep, tape;
 logic signed [15:0] sound_L, sound_R;
 
@@ -22,9 +24,9 @@ task automatic apply(input int a, b, c, d, eL, eR, input logic kb, tp);
     logic signed [15:0] expL, expR;
     opll = 18'(a); scc = 18'(b); psg = 18'(c); dac = 18'(d); opm_L = 18'(eL); opm_R = 18'(eR);
     keybeep = kb; tape = tp;
-    common = a + b + c + d + (kb ? 512 : 0) + (tp ? 256 : 0);
-    expL = ref_clip(common + eL);
-    expR = ref_clip(common + eR);
+    common = a + b + c + d + int'(pcm) + (kb ? 512 : 0) + (tp ? 256 : 0);
+    expL = mute ? 16'sd0 : ref_clip(common + eL);
+    expR = mute ? 16'sd0 : ref_clip(common + eR);
     #1 clk = 1; #1 clk = 0;
     checked++;
     if (sound_L !== expL || sound_R !== expR) begin
@@ -56,10 +58,19 @@ initial begin
     apply(-32768, 0, 0, -16384, -32768, -32768, 0, 0);
     apply(32767, 32767, 32767, 32767, 32767, -32768, 1, 1);
     apply(98301, 0, 0, 0, -98304, 98301, 0, 0);
+    // turbo R PCM: one more source; mute silences everything
+    pcm = 18'sd16256; apply(0, 0, 0, 0, 0, 0, 0, 0);
+    pcm = -18'sd16384; apply(1000, 0, 0, 0, 0, 0, 1, 0);
+    mute = 1; apply(30000, 0, 0, 0, 5, 5, 1, 1);
+    mute = 0; pcm = '0;
 
-    for (int i = 0; i < 200000; i++)
+    for (int i = 0; i < 200000; i++) begin
+        pcm  = 18'($signed($urandom_range(32767)) - 16384);
+        mute = $urandom_range(15) == 0;
         apply(rnd_dev(), rnd_dev(), rnd_dev(), rnd_dev(), rnd_dev(), rnd_dev(),
               1'($urandom), 1'($urandom));
+    end
+    mute = 0;
     // Mostly unclipped region
     for (int i = 0; i < 200000; i++)
         apply(rnd_dev() / 32, rnd_dev() / 32, rnd_dev() / 32, rnd_dev() / 32,

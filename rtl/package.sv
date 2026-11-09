@@ -20,7 +20,7 @@ typedef enum logic {CAS_AUDIO_FILE,CAS_AUDIO_ADC} cas_audio_src_t;
 typedef enum logic [1:0] {Z80, R800, UNKN1, UNKN2} cpu_t;
 
 typedef enum logic [3:0] {CART_TYP_SCC, CART_TYP_SCC2, CART_TYP_FM_PAC, CART_TYP_MFRSD, CART_TYP_GM2, CART_TYP_FDC, CART_MEGASCC1, CART_MEGASCC2, CART_MEGA_ASCII_8, CART_MEGA_ASCII_16, MEGARAM, CART_TYP_ROM, CART_TYP_EMPTY } cart_typ_t;
-typedef enum logic [4:0] {DEV_NONE, DEV_OPLL, DEV_SCC, DEV_WD2793, DEV_MSX2_RAM, DEV_LATCH_PORT, DEV_KANJI, DEV_OCM_BOOT, DEV_VDP_TMS, DEV_VDP_V99xx, DEV_RTC, DEV_PSG, DEV_PPI, DEV_RESET_STATUS, DEV_TC8566AF, DEV_OPM, DEV_YM2148, DEV_DAC, DEV_SYSTIMER } device_t;
+typedef enum logic [4:0] {DEV_NONE, DEV_OPLL, DEV_SCC, DEV_WD2793, DEV_MSX2_RAM, DEV_LATCH_PORT, DEV_KANJI, DEV_OCM_BOOT, DEV_VDP_TMS, DEV_VDP_V99xx, DEV_RTC, DEV_PSG, DEV_PPI, DEV_RESET_STATUS, DEV_TC8566AF, DEV_OPM, DEV_YM2148, DEV_DAC, DEV_SYSTIMER, DEV_S1990, DEV_TURBOR_PCM, DEV_TURBOR_PAUSE } device_t;
 typedef enum logic [5:0] {MAPPER_NONE, MAPPER_OFFSET, MAPPER_ASCII16, MAPPER_RTYPE, MAPPER_ASCII8, MAPPER_KOEI, MAPPER_WIZARDY, MAPPER_KONAMI, 
                           MAPPER_FMPAC, MAPPER_GM2, VY0010, MAPPER_KONAMI_SCC, MAPPER_MSX2, MAPPER_GENERIC16KB, MAPPER_CROSS_BLAIM, MAPPER_GENERIC8KB, 
                           MAPPER_HARRY_FOX, MAPPER_ZEMINA_80, MAPPER_ZEMINA_90, MAPPER_KONAMI_SCC_PLUS, 
@@ -32,6 +32,7 @@ typedef enum logic [5:0] {MAPPER_NONE, MAPPER_OFFSET, MAPPER_ASCII16, MAPPER_RTY
                           MAPPER_SUPERSWANGI,
                           MAPPER_MSXWRITE,
                           MAPPER_OCM_IPL,
+                          MAPPER_PANASONIC, MAPPER_PANASONIC_RAM, MAPPER_DRAM,
                           MAPPER_UNUSED} mapper_typ_t;
 typedef enum logic [3:0] {BLOCK_RAM, BLOCK_ROM, BLOCK_SRAM, BLOCK_DEVICE, BLOCK_MAPPER, BLOCK_CART, BLOCK_REF_MEM, BLOCK_REF_DEV, BLOCK_IO_DEVICE, BLOCK_EXPANDER, BLOCK_REF_SHARED_MEM} block_t;
 typedef enum logic [2:0] {CONF_BLOCK, CONF_DEVICE, CONF_LAYOUT, CONF_CARTRIGE, CONF_BLOCK_FW, CONF_UNUSED5, CONF_UNUSED6, CONF_END} conf_t;
@@ -63,6 +64,7 @@ interface clock_bus_if(
     wire     ce_5m39_n;   
     wire     ce_3m58_p;
     wire     ce_3m58_n;
+    wire     ce_7m16_n;   // R800 (turbo R)
     wire     ce_1m79_n;
     wire     ce_1k;
     wire     ce_10hz;
@@ -76,6 +78,7 @@ interface clock_bus_if(
         output  ce_5m39_n,   
         output  ce_3m58_p,
         output  ce_3m58_n,
+        output  ce_7m16_n,
         output  ce_1m79_n,
         output  ce_1k,
         output  ce_10hz
@@ -90,6 +93,7 @@ interface clock_bus_if(
         input   ce_5m39_n,   
         input   ce_3m58_p,
         input   ce_3m58_n,
+        input   ce_7m16_n,
         input   ce_1m79_n,
         input   ce_1k,
         input   ce_10hz
@@ -354,6 +358,7 @@ package MSX;
         logic        rnw;       // 1 when inactive (AND)
         logic        ram_cs;    // OR
         logic        sram_cs;   // OR
+        logic        main_cs;   // OR; addr is an offset in the main RAM (turbo R)
         logic  [7:0] data;      // FF when inactive (AND)
     } mapper_out_t;            // mapper -> mappers.sv
 
@@ -365,6 +370,9 @@ package MSX;
         logic  [2:0] device_ref;
         mapper_typ_t typ;
         logic        id;
+        logic  [1:0] mapper_param;   // per block, from the pack (DRAM: first 16 KB page of the top 64 KB)
+        logic [16:0] main_ram_size;  // main RAM in 8 KB blocks, 0 = none (turbo R)
+        logic        dram;           // turbo R S1990: ROM read from the top 64 KB of the main RAM
     } block_info_t;            // msx_slots -> mappers, devices (active block of the access)
 
     typedef struct packed {
@@ -388,7 +396,7 @@ package MSX;
     } cpu_speed_t;             // devices (OCM turbo) -> msx_cpu; '0 = no override
 
     // Inactive (neutral) values and pairwise merge of the bundles above.
-    localparam mapper_out_t MAPPER_OUT_IDLE = {27'h7FFFFFF, 1'b1, 1'b0, 1'b0, 8'hFF};
+    localparam mapper_out_t MAPPER_OUT_IDLE = {27'h7FFFFFF, 1'b1, 1'b0, 1'b0, 1'b0, 8'hFF};
     localparam device_bus_t DEVICE_BUS_IDLE = {3'd0, 1'b0, 1'b0, 1'b1, 1'b1};
 
     function automatic mapper_out_t mapper_out_merge(input mapper_out_t a, input mapper_out_t b);
@@ -397,6 +405,7 @@ package MSX;
         r.rnw     = a.rnw     & b.rnw;
         r.ram_cs  = a.ram_cs  | b.ram_cs;
         r.sram_cs = a.sram_cs | b.sram_cs;
+        r.main_cs = a.main_cs | b.main_cs;
         r.data    = a.data    & b.data;
         return r;
     endfunction
@@ -418,6 +427,7 @@ package MSX;
         logic           joy_swap;       // OCM: swap joystick ports
         logic           mouse_port;     // OCM: PS/2 mouse on port 1 (0) / 2 (1)
         logic           ocm_r800;       // OCM: CPU type R800 (MULUB / MULUW)
+        logic           turbor_firmware; // turbo R: firmware switch on (S1990 register 5)
     } user_config_t;    
     
     typedef struct {
@@ -432,6 +442,7 @@ package MSX;
         logic  [1:0] offset_ram;
         logic  [2:0] device_ref;
         mapper_typ_t mapper;
+        logic  [1:0] mapper_param;
         logic        cart_num;
         logic        external;
     } block_t;    
@@ -446,6 +457,11 @@ package MSX;
         logic [26:0] addr;
         logic [15:0] size;
     } lookup_SRAM_t;
+
+    typedef struct packed {
+        logic        en;
+        logic  [3:0] ref_ram;   // lookup_RAM entry of the main RAM
+    } main_ram_t;              // memory_upload -> msx_slots (turbo R: mapper PANASONIC_RAM)
 
     typedef struct {
         cart_typ_t   typ;
@@ -515,6 +531,7 @@ package MSX;
             DEV_PSG:    return 2'(N_PSG);
             DEV_WD2793: return 2'(N_WD2793);
             DEV_SYSTIMER: return 2'd1;
+            DEV_S1990, DEV_TURBOR_PCM, DEV_TURBOR_PAUSE: return 2'd1;   // turbo R, single
             default:    return 2'd3;
         endcase
     endfunction

@@ -51,6 +51,11 @@ module devices  #(parameter sysCLK)
     output                  reset_request,
     output MSX::cpu_speed_t cpu_speed,              // OCM turbo, '0 without OCM
     output                  opll_wait,              // CPU wait: OPLL busy (turbo)
+    output                  turbor_r800,            // S1990: R800 selected
+    output                  turbor_dram,            // S1990: DRAM mode (ROM read from the main RAM)
+    output                  turbor_pause,           // hardware pause: hold the CPU
+    output                  turbor_pause_led,
+    output                  turbor_turbo_led,
     input                   ocm_mmc_on,
     output                  ocm_megaSD_enable,
     output                  ocm_slot1_mode,
@@ -63,7 +68,7 @@ module devices  #(parameter sysCLK)
     vram_bus_if             vram_bus_v99();
 
     // Výstupy kombinující jednotlivé zařízení
-    assign data = scc_data & fdc_data & msx2_ram_data & tms_data & v99_data & rtc_data & psg_data & ppi_data & ocm_data & reset_status_data & opm_data & ym2148_data & systimer_data;// & TC8566AF_data;
+    assign data = scc_data & fdc_data & msx2_ram_data & tms_data & v99_data & rtc_data & psg_data & ppi_data & ocm_data & reset_status_data & opm_data & ym2148_data & systimer_data & s1990_data & turbor_pcm_data & turbor_pause_data;
     assign data_oe_rq = fdc_data_oe_rq;// | TC8566AF_data_oe_rq;
     assign data_to_mapper = msx2_ram_data_to_mapper & latch_port_data_to_mapper;
 
@@ -167,6 +172,7 @@ module devices  #(parameter sysCLK)
     dev_FDC #(.sysCLK(sysCLK)) FDC (
         .cpu_bus(cpu_bus),
         .device_bus(device_bus),
+        .block_info(block_info),
         .io_device(io_device),
         .FDD_bus(FDD_bus),
         .data(fdc_data),
@@ -277,6 +283,36 @@ module devices  #(parameter sysCLK)
         .sound(dac_sound)
     );
 
+    // Turbo R: S1990 (E4h / E5h), PCM (A4h / A5h), pause (A7h); the firmware switch is an OSD
+    // option, the pause key the PS/2 Pause key (doc/turboR.md)
+    wire [7:0] s1990_data, turbor_pcm_data, turbor_pause_data;
+    wire       turbor_mute;
+    MSX::sound_t turbor_pcm_sound;
+    dev_s1990 dev_s1990 (
+        .cpu_bus(cpu_bus),
+        .io_device(io_device[DEV_S1990]),
+        .firmware_sw(msx_user_config.turbor_firmware),
+        .data(s1990_data),
+        .r800(turbor_r800),
+        .dram(turbor_dram)
+    );
+    dev_turbor_pcm dev_turbor_pcm (
+        .cpu_bus(cpu_bus),
+        .io_device(io_device[DEV_TURBOR_PCM]),
+        .data(turbor_pcm_data),
+        .sound(turbor_pcm_sound),
+        .mute_all(turbor_mute)
+    );
+    dev_turbor_pause dev_turbor_pause (
+        .cpu_bus(cpu_bus),
+        .io_device(io_device[DEV_TURBOR_PAUSE]),
+        .ps2_key(ps2_key),
+        .data(turbor_pause_data),
+        .hw_pause(turbor_pause),
+        .pause_led(turbor_pause_led),
+        .turbo_led(turbor_turbo_led)
+    );
+
     // Single clipping point for all sound sources
     sound_mix sound_mix (
         .clk(cpu_bus.clk),
@@ -284,6 +320,8 @@ module devices  #(parameter sysCLK)
         .scc(scc_sound),
         .psg(psg_sound),
         .dac(dac_sound),
+        .pcm(turbor_pcm_sound),
+        .mute(turbor_mute),
         .opm_L(opm_sound_L),
         .opm_R(opm_sound_R),
         .keybeep(keybeep),

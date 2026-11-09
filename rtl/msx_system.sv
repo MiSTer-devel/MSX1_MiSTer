@@ -47,6 +47,8 @@ module msx_system (
     output MSX::video_t         video_bus,
     output             [15:0]   audio_L,
     output             [15:0]   audio_R,
+    output                      led_turbo,              // turbo R: R800 running (pause device bit 7)
+    output                      led_pause,
     input                       uart_rxd,
     input                       tape_adc,               // tape input from ADC
     ext_sd_card_if.device_mp    ext_SD_card_bus,
@@ -107,7 +109,8 @@ assign status_menumask[3]     = io_device[DEV_OCM_BOOT][0].enable;
 assign status_menumask[9:4]   = msx_config.fdd[5:0];
 assign status_menumask[10]    = lookup_SRAM[0].size + lookup_SRAM[1].size + lookup_SRAM[2].size + lookup_SRAM[3].size == 0;
 assign status_menumask[11]    = msx_user_config.cas_audio_src == CAS_AUDIO_ADC || io_device[DEV_OCM_BOOT][0].enable;   // no CAS file (OCM: no tape)
-assign status_menumask[15:12] = '0;
+assign status_menumask[12]    = io_device[DEV_S1990][0].enable;    // turbo R options (firmware switch)
+assign status_menumask[15:13] = '0;
 
 assign info_req = error != ERR_NONE;
 assign info     = 8'(error);
@@ -158,6 +161,8 @@ msx #(.sysCLK(sysCLK)) MSX
    .msx_user_config(msx_user_config),
    .sram_save(status[38]),
    .sram_load(status[39]),
+   .led_turbo(led_turbo),
+   .led_pause(led_pause),
    .ioctl_download(ioctl_download),
    .ioctl_index(ioctl_index),
    .ioctl_addr(ioctl_addr),

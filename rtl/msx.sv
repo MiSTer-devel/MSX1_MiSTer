@@ -46,6 +46,8 @@ module msx #(parameter sysCLK)
    input MSX::user_config_t msx_user_config,
    input                    sram_save,
    input                    sram_load,
+   output                   led_turbo,            // turbo R: R800 LED (pause device bit 7)
+   output                   led_pause,
    //IOCTL
    input                    ioctl_download,
    input             [15:0] ioctl_index,
@@ -100,8 +102,7 @@ wire                 reset_lock, reset_request;
 wire                 ocm_megaSD_enable, ocm_slot1_mode;
 wire           [1:0] ocm_slot2_mode;
 wire                 ocm_ipl_en, ocm_mmc_on, ocm_mmc_wait, opll_wait;
-wire                 turbor_r800, turbor_dram;
-wire                 r800_active;              // turbo R: R800 running (TODO: turbo LED, R800 timing)
+wire                 turbor_r800, turbor_dram, turbor_pause;
 MSX::cpu_speed_t     cpu_speed;
 wire signed   [15:0] device_sound_L, device_sound_R;
 
@@ -156,11 +157,12 @@ msx_cpu cpu (
    .m1_wait   (msx_config.wait_count),
    .mem_wait  (cpu_speed.mem_wait),
    .io_wait   (cpu_speed.io_wait),
-   .ext_wait  (ocm_mmc_wait || opll_wait),
+   .ext_wait  (ocm_mmc_wait || opll_wait || turbor_pause),
    .r800      (msx_config.cpu == R800 || msx_user_config.ocm_r800),
    .r800_sel  (turbor_r800),
+   .turbor    (io_device[DEV_S1990][0].enable),
    .cold_reset(core_hard_reset),
-   .r800_active(r800_active),
+   .r800_active(),
    .int_rq    (cpu_interrupt),
    .di        (d_to_cpu),
    .m1_n      (m1_n),
@@ -242,6 +244,9 @@ devices #(.sysCLK(sysCLK)) devices
    .opll_wait(opll_wait),
    .turbor_r800(turbor_r800),
    .turbor_dram(turbor_dram),
+   .turbor_pause(turbor_pause),
+   .turbor_pause_led(led_pause),
+   .turbor_turbo_led(led_turbo),
    .ocm_mmc_on(ocm_mmc_on),
    .ocm_megaSD_enable(ocm_megaSD_enable),
    .ocm_slot1_mode(ocm_slot1_mode),

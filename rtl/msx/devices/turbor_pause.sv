@@ -19,12 +19,14 @@
 // Behaviour as openMSX src/MSXTurboRPause.cc.
 //   read:  bit 0 = pause (the pause key toggles it), other bits 0
 //   write: bit 0 pause LED, bit 1 hardware pause enable, bit 7 turbo (R800) LED
-// With bit 1 set and the pause on, the whole machine stops (hw_pause); the pause LED is lit by
-// bit 0 or by the hardware pause. Reset: status 0, pause off.
+// With bit 1 set and the pause on, the machine stops (hw_pause holds the CPU); the pause LED is
+// lit by bit 0 or by the hardware pause. Reset: status 0, pause off.
+// The pause key is the Pause key of the PS/2 keyboard: hps_io reports its make + break sequence
+// as one event 377h (pressed, extended, 77h), MiSTer sends it when the key is released.
 module dev_turbor_pause (
     cpu_bus_if.device_mp    cpu_bus,
     input  MSX::io_device_t io_device[3],       // single instance: [0]
-    input                   pause_key,          // one clock pulse per key press: toggles the pause
+    input            [10:0] ps2_key,            // {toggle, pressed, extended, code}
     output            [7:0] data,
     output                  hw_pause,           // stop the machine
     output                  pause_led,
@@ -34,10 +36,13 @@ module dev_turbor_pause (
     wire cs = io_device[0].enable && cpu_bus.iorq && ~cpu_bus.m1
               && (cpu_bus.addr[7:0] & io_device[0].mask) == io_device[0].port;
 
-    logic [7:0] status;
-    logic       paused;
+    logic [7:0]  status;
+    logic        paused;
+    logic [10:0] ps2_q = '0;
+    wire         pause_key = ps2_key != ps2_q && ps2_key[9:0] == 10'h377;
 
     always_ff @(posedge cpu_bus.clk) begin
+        ps2_q <= ps2_key;
         if (cpu_bus.reset) begin
             status <= 8'h00;
             paused <= 1'b0;

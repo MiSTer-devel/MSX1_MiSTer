@@ -237,6 +237,7 @@ reset_sync rst_sync_sdram (.clk(clk_sdram), .arst(~locked_sdram),          .rst(
 //  [22]     OCM slot 1 (internal ESE-SCC)
 //  [24:23]  OCM slot 2 (internal ESE-SCC / MegaRAM)
 //  [25]     vertical crop
+//  [26]     turbo R firmware switch
 //  [32:29]  slot B cartridge type (not OCM)
 //  [38]     SRAM save
 //  [39]     SRAM load
@@ -280,6 +281,9 @@ localparam CONF_STR = {
    "h3-;",
    "h3O[13],Joysticks Swap,No,Yes;",
    "h3O[14],Mouse,Port 1,Port 2;",
+   // turbo R (hC): machines with the S1990
+   "hC-;",
+   "hCO[26],Firmware switch,Off,On;",
    "H3-;",
    "H3O[40],Tape Input,File,ADC;",
    "HBF5,CAS,Cas File,31700000;",
@@ -436,6 +440,8 @@ msx_system msx_system
    .video_bus(video_bus),
    .audio_L(AUDIO_L),
    .audio_R(AUDIO_R),
+   .led_turbo(led_turbo),
+   .led_pause(led_pause),
    .uart_rxd(UART_RXD),
    .tape_adc(tape_in),
    .ext_SD_card_bus(ext_SD_card_bus),
@@ -481,8 +487,10 @@ always_ff @(posedge clock_bus.clk) begin
     if((old_mosi ^ sdmosi) || (old_miso ^ sdmiso)) timeout <= 0;
 end
 
-assign LED_USER = vsd_sel & sd_act;
-assign LED_DISK = {1'b1, ~vsd_sel & sd_act};
+// turbo R: R800 on the user LED, pause on the disk LED (VHD / SD activity otherwise)
+wire   led_turbo, led_pause;
+assign LED_USER = (vsd_sel & sd_act) | led_turbo;
+assign LED_DISK = {1'b1, (~vsd_sel & sd_act) | led_pause};
 
 spi_divmmc spi
 (

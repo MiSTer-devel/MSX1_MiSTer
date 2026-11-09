@@ -64,6 +64,7 @@ interface clock_bus_if(
     wire     ce_5m39_n;   
     wire     ce_3m58_p;
     wire     ce_3m58_n;
+    wire     ce_7m16_n;   // R800 (turbo R)
     wire     ce_1m79_n;
     wire     ce_1k;
     wire     ce_10hz;
@@ -77,6 +78,7 @@ interface clock_bus_if(
         output  ce_5m39_n,   
         output  ce_3m58_p,
         output  ce_3m58_n,
+        output  ce_7m16_n,
         output  ce_1m79_n,
         output  ce_1k,
         output  ce_10hz
@@ -91,6 +93,7 @@ interface clock_bus_if(
         input   ce_5m39_n,   
         input   ce_3m58_p,
         input   ce_3m58_n,
+        input   ce_7m16_n,
         input   ce_1m79_n,
         input   ce_1k,
         input   ce_10hz
@@ -424,6 +427,7 @@ package MSX;
         logic           joy_swap;       // OCM: swap joystick ports
         logic           mouse_port;     // OCM: PS/2 mouse on port 1 (0) / 2 (1)
         logic           ocm_r800;       // OCM: CPU type R800 (MULUB / MULUW)
+        logic           turbor_firmware; // turbo R: firmware switch on (S1990 register 5)
     } user_config_t;    
     
     typedef struct {

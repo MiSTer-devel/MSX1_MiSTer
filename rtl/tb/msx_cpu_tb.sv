@@ -42,6 +42,7 @@ msx_cpu dut (
     .r800      (r800),
 `ifndef OLD_CPU
     .r800_sel  (1'b0),
+    .turbor    (1'b0),
     .cold_reset(reset),
     .r800_active(),
 `endif

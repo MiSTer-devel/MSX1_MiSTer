@@ -53,6 +53,9 @@ module devices  #(parameter sysCLK)
     output                  opll_wait,              // CPU wait: OPLL busy (turbo)
     output                  turbor_r800,            // S1990: R800 selected
     output                  turbor_dram,            // S1990: DRAM mode (ROM read from the main RAM)
+    output                  turbor_pause,           // hardware pause: hold the CPU
+    output                  turbor_pause_led,
+    output                  turbor_turbo_led,
     input                   ocm_mmc_on,
     output                  ocm_megaSD_enable,
     output                  ocm_slot1_mode,
@@ -280,15 +283,15 @@ module devices  #(parameter sysCLK)
         .sound(dac_sound)
     );
 
-    // Turbo R: S1990 (E4h / E5h), PCM (A4h / A5h), pause (A7h). TODO: firmware switch, pause key
-    // and LEDs are not connected yet (doc/turboR.md).
+    // Turbo R: S1990 (E4h / E5h), PCM (A4h / A5h), pause (A7h); the firmware switch is an OSD
+    // option, the pause key the PS/2 Pause key (doc/turboR.md)
     wire [7:0] s1990_data, turbor_pcm_data, turbor_pause_data;
     wire       turbor_mute;
     MSX::sound_t turbor_pcm_sound;
     dev_s1990 dev_s1990 (
         .cpu_bus(cpu_bus),
         .io_device(io_device[DEV_S1990]),
-        .firmware_sw(1'b0),
+        .firmware_sw(msx_user_config.turbor_firmware),
         .data(s1990_data),
         .r800(turbor_r800),
         .dram(turbor_dram)
@@ -303,11 +306,11 @@ module devices  #(parameter sysCLK)
     dev_turbor_pause dev_turbor_pause (
         .cpu_bus(cpu_bus),
         .io_device(io_device[DEV_TURBOR_PAUSE]),
-        .pause_key(1'b0),
+        .ps2_key(ps2_key),
         .data(turbor_pause_data),
-        .hw_pause(),
-        .pause_led(),
-        .turbo_led()
+        .hw_pause(turbor_pause),
+        .pause_led(turbor_pause_led),
+        .turbo_led(turbor_turbo_led)
     );
 
     // Single clipping point for all sound sources

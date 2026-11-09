@@ -27,6 +27,8 @@ module wd279x_demodulator #(parameter sysCLK)
     output logic [7:0]  fdd_data,
     output logic        fdd_rx,
     output logic        IDAM_valid,
+    output logic        IDAM_done,      // 1 clk: an ID field is complete (any CRC)
+    output logic        IDAM_crc_ok,    // with IDAM_done
     output logic        DAM_valid,
     output logic        DAM_deleted,
     output logic        DAM_CRC_valid
@@ -89,7 +91,8 @@ module wd279x_demodulator #(parameter sysCLK)
 
     // --- Hlavní stavový automat ---
     always_ff @(posedge clk) begin
-        crcwr <= 0;
+        crcwr     <= 0;
+        IDAM_done <= 0;
 
         if (~MRn) begin
             a1_cnt      <= 0;
@@ -140,6 +143,8 @@ module wd279x_demodulator #(parameter sysCLK)
                 if (sec_id_cnt == 5) begin
                     IDAM <= 0;
                     sec_id_cnt <= 0;
+                    IDAM_done   <= 1;
+                    IDAM_crc_ok <= crc_out == {IDAM_data[4], fdd_data};
                     if (crc_out == {IDAM_data[4], fdd_data})
                         IDAM_valid <= 1;
                 end

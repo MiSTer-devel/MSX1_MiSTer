@@ -55,9 +55,9 @@ module wd279x #(parameter WD279_57=1, parameter sysCLK)
 	logic       INTRQ_ACK;
 
 	assign busy = command_start | status[0];
-	assign INTRQ = INTRQ_I | INTRQ_II || INTRQ_IV;
-	assign status = status_command_type_I | status_command_type_II | status_command_type_IV;
-	assign HLD = HLD_I | HLD_II ;
+	assign INTRQ = INTRQ_I | INTRQ_II | INTRQ_III | INTRQ_IV;
+	assign status = status_command_type_I | status_command_type_II | status_command_type_III | status_command_type_IV;
+	assign HLD = HLD_I | HLD_II | HLD_III;
 	always_comb begin
 		DOUT = '1;
 		INTRQ_ACK = 0;
@@ -122,6 +122,8 @@ module wd279x #(parameter WD279_57=1, parameter sysCLK)
 			end
 			if (reg_sector_write)
 				reg_sector <= reg_sector_out;
+			if (sector_write_III)
+				reg_sector <= sector_out_III;		// Read Address: the track byte of the ID
 		end
 	end
 
@@ -148,7 +150,11 @@ module wd279x #(parameter WD279_57=1, parameter sysCLK)
 				reg_data <= fdd_data;
 				DRQ <= 1;
 			end
-			if (drq_set_II) DRQ <= 1;
+			if (data_write_III) begin
+				reg_data <= data_out_III;
+				DRQ <= 1;
+			end
+			if (drq_set_II || drq_set_III) DRQ <= 1;
 		end
 	end
 
@@ -236,6 +242,49 @@ wd279x_command_II #(.WD279_57(WD279_57)) command_II (
 	.tx_data(tx_data_II)
 );
 
+logic [7:0] status_command_type_III;
+logic       INTRQ_III, HLD_III, drq_set_III, data_write_III, sector_write_III;
+logic [7:0] data_out_III, sector_out_III;
+logic       wg_III, tx_wr_III, tx_a1_III, tx_c2_III, tx_mark_III, tx_crc_III;
+logic [7:0] tx_data_III;
+wd279x_command_III command_III (
+	.clk(clk),
+	.msclk(msclk),
+	.interrupt(interrupt),
+	.MRn(MRn),
+	.command_start(command_start),
+	.command(reg_cmd),
+	.status(status_command_type_III),
+	.INTRQ(INTRQ_III),
+	.INTRQ_ACK(INTRQ_ACK),
+	.DRQ(DRQ),
+	.drq_set(drq_set_III),
+	.data_out(data_out_III),
+	.data_write(data_write_III),
+	.sector_out(sector_out_III),
+	.sector_write(sector_write_III),
+	.INDEXn(INDEXn),
+	.READYn(READYn),
+	.WPROTn(WPROTn),
+	.DDENn(DDENn),
+	.HLD(HLD_III),
+	.IDAM_data(IDAM_data),
+	.IDAM_done(IDAM_done),
+	.IDAM_crc_ok(IDAM_crc_ok),
+	.fdd_data(fdd_data),
+	.fdd_rx(fdd_rx),
+	.reg_data(reg_data),
+	.tx_req(tx_req),
+	.wg(wg_III),
+	.tx_wr(tx_wr_III),
+	.tx_a1(tx_a1_III),
+	.tx_c2(tx_c2_III),
+	.tx_mark(tx_mark_III),
+	.tx_crc(tx_crc_III),
+	.tx_data(tx_data_III),
+	.byte_tick(byte_tick)
+);
+
 logic       INTRQ_IV;
 logic       interrupt;
 logic [7:0] status_command_type_IV;
@@ -260,6 +309,8 @@ logic  [7:0] IDAM_data[6];
 logic  [7:0] fdd_data;
 logic        fdd_rx;
 logic        IDAM_valid;
+logic        IDAM_done;
+logic        IDAM_crc_ok;
 logic        DAM_valid;
 logic        DAM_deleted;
 logic        DAM_CRC_valid;
@@ -274,23 +325,26 @@ wd279x_demodulator #(.sysCLK(sysCLK)) demodulator (
     .fdd_data(fdd_data),
     .fdd_rx(fdd_rx),
     .IDAM_valid(IDAM_valid),
+    .IDAM_done(IDAM_done),
+    .IDAM_crc_ok(IDAM_crc_ok),
 	.DAM_valid(DAM_valid),
 	.DAM_deleted(DAM_deleted),
     .DAM_CRC_valid(DAM_CRC_valid)
 );
 
+// One command writes at a time: type II (Write Sector) or type III (Write Track)
 logic tx_req, tx_idle, byte_tick;
 wd279x_modulator #(.sysCLK(sysCLK)) modulator (
 	.clk(clk),
 	.MRn(MRn),
 	.DDENn(DDENn),
-	.wg(wg_II),
-	.tx_wr(tx_wr_II),
-	.tx_a1(tx_a1_II),
-	.tx_c2(1'b0),
-	.tx_mark(tx_mark_II),
-	.tx_crc(tx_crc_II),
-	.tx_data(tx_data_II),
+	.wg(wg_II | wg_III),
+	.tx_wr(tx_wr_II | tx_wr_III),
+	.tx_a1(tx_a1_II | tx_a1_III),
+	.tx_c2(tx_c2_III),
+	.tx_mark(tx_mark_II | tx_mark_III),
+	.tx_crc(tx_crc_II | tx_crc_III),
+	.tx_data(wg_III ? tx_data_III : tx_data_II),
 	.tx_req(tx_req),
 	.tx_idle(tx_idle),
 	.byte_tick(byte_tick),

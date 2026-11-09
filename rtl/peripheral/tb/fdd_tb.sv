@@ -18,6 +18,9 @@
 // WD2793 writes (drive A): Write Sector A0h into the image and read back, deleted mark A1h,
 // multi-sector B0h ended by D0h, Lost Data when DRQ is not serviced (write and read), write
 // protected disk (status bit 6, nothing taken), head load flag of type I (h).
+// WD2793 type III: Read Address C0h (6 bytes with the CRC of the disk, sector register), Write
+// Track F0h with the MSX-DOS layout (9 sectors of E5 in the image), Read Track E0h (the ID of
+// sector 1 in the raw bytes), Write Track Lost Data before the index and on a protected disk.
 //
 // Run: wsl.exe -- bash rtl/peripheral/tb/run_fdd.sh          (OLD=<git rev>: old FDD code)
 module fdd_tb;
@@ -250,6 +253,57 @@ task automatic read_cmd(input int trk, input int sec, input int nsec, output log
         if (cyc > t_end) begin fail($sformatf("read T%0d S%0d: timeout", trk, sec)); break; end
     end
     mem_rd(16'h7FF8, st);
+endtask
+
+// Type III: C0h Read Address and E0h Read Track collect the bytes, F0h Write Track feeds fmt[]
+// (gap 4E past fmt_len) until the controller ends at the index. A timeout recovers with D0h.
+task automatic type3_cmd(input logic [7:0] cmd, input logic [7:0] fmt[8192], input int fmt_len,
+                         output logic [7:0] st, output logic [7:0] data[$], output int n);
+    logic [7:0] s, b;
+    longint unsigned t_end = cyc + longint'(600) * MS;
+    n = 0; data = {};
+    mem_wr(16'h7FF8, cmd);
+    forever begin
+        mem_rd(16'h7FFF, s);
+        if (!s[7]) begin                                        // DRQ
+            if (cmd[4]) begin mem_wr(16'h7FFB, n < fmt_len ? fmt[n] : 8'h4E); n++; end
+            else begin mem_rd(16'h7FFB, b); data.push_back(b); end
+        end
+        if (!s[6]) break;                                       // INTRQ
+        if (cyc > t_end) begin
+            fail($sformatf("type III %02h: timeout (%0d bytes)", cmd, cmd[4] ? n : data.size()));
+            mem_wr(16'h7FF8, 8'hD0);
+            break;
+        end
+    end
+    repeat (10) @(negedge clk);
+    mem_rd(16'h7FF8, st);
+endtask
+
+// Write Track bytes of a standard MFM track (MSX-DOS FORMAT): IAM, then per sector the ID and a
+// data field of 'fill'; the controller writes F5 as A1, F6 as C2 and F7 as the CRC
+task automatic build_format(input int cyl, input int spt_f, input logic [7:0] fill,
+                            output logic [7:0] fmt[8192], output int len);
+    int k = 0;
+    repeat (80) begin fmt[k] = 8'h4E; k++; end
+    repeat (12) begin fmt[k] = 8'h00; k++; end
+    repeat (3)  begin fmt[k] = 8'hF6; k++; end
+    fmt[k] = 8'hFC; k++;
+    repeat (50) begin fmt[k] = 8'h4E; k++; end
+    for (int s = 1; s <= spt_f; s++) begin
+        repeat (12) begin fmt[k] = 8'h00; k++; end
+        repeat (3)  begin fmt[k] = 8'hF5; k++; end
+        fmt[k] = 8'hFE; k++; fmt[k] = 8'(cyl); k++; fmt[k] = 8'h00; k++; fmt[k] = 8'(s); k++; fmt[k] = 8'h02; k++;
+        fmt[k] = 8'hF7; k++;
+        repeat (22) begin fmt[k] = 8'h4E; k++; end
+        repeat (12) begin fmt[k] = 8'h00; k++; end
+        repeat (3)  begin fmt[k] = 8'hF5; k++; end
+        fmt[k] = 8'hFB; k++;
+        repeat (512) begin fmt[k] = fill; k++; end
+        fmt[k] = 8'hF7; k++;
+        repeat (84) begin fmt[k] = 8'h4E; k++; end
+    end
+    len = k;
 endtask
 
 // Read one sector and compare with image d, LBA lba (the image array holds the writes too)
@@ -802,6 +856,79 @@ initial begin
             read_ok("write protected: T2 S3 unchanged", 2, 3, 0, 2 * 18 + 2);
         end else
             $display("WD2793 write: no write path, the remaining write checks are skipped");
+    end
+
+    // ================================================================ WD2793 type III (drive A, track 3)
+    begin
+        logic [7:0] fmt[8192], e5[512], st, data[$];
+        logic [15:0] c;
+        int len, n, s0;
+        foreach (e5[i]) e5[i] = 8'hE5;
+        mount(0, 737280, 12);
+        select_drive(0, 0, 1);
+        type1("restore for type III", 8'h00);
+        seek(3);
+        repeat (20 * MS) @(negedge clk);
+
+        // --- Read Address C0h: the next ID (C H R N CRC CRC), sector register = track
+        type3_cmd(8'hC0, fmt, 0, st, data, n);
+        if (data.size() != 6 || (st & 8'hFC) != 0)
+            fail($sformatf("read address: %0d bytes, status %02h", data.size(), st));
+        else begin
+            c = crc_upd(16'hCDB4, 8'hFE);
+            for (int k = 0; k < 4; k++) c = crc_upd(c, data[k]);
+            if (data[0] != 8'd3 || data[1] != 8'd0 || data[2] < 8'd1 || data[2] > 8'd9 || data[3] != 8'd2 || {data[4], data[5]} != c)
+                fail($sformatf("read address: %p (expected 03 00 1-9 02 and the CRC %04h)", data, c));
+            mem_rd(16'h7FFA, st);
+            if (st != 8'd3) fail($sformatf("read address: sector register %02h (expected the track, 03)", st));
+        end
+        if (data.size() == 6) begin
+            // --- Write Track F0h with the MSX-DOS layout: 9 sectors of E5 land in the image
+            build_format(3, 9, 8'hE5, fmt, len);
+            s0 = stores[0];
+            type3_cmd(8'hF0, fmt, len, st, data, n);
+            if ((st & 8'hFC) != 0 || n < len) fail($sformatf("write track T3: status %02h, %0d bytes taken (layout %0d)", st, n, len));
+            $display("write track T3: %0d bytes taken (layout %0d)", n, len);
+            wait_stores("write track T3", 0, s0 + 9, 300);
+            for (int k = 0; k < 9; k++) check_img($sformatf("write track T3 S%0d", k + 1), 0, 3 * 18 + k, e5);
+            read_ok("read T3 S5 after the format", 3, 5, 0, 3 * 18 + 4);
+            if (img[0][(3 * 18 - 1) * 512] !== pat(12, 3 * 18 - 1, 0) || img[0][(3 * 18 + 9) * 512] !== pat(12, 3 * 18 + 9, 0))
+                fail("write track T3: another track changed");
+
+            // --- Read Track E0h: the raw bytes from index to index hold the ID of sector 1
+            type3_cmd(8'hE0, fmt, 0, st, data, n);
+            begin
+                bit found = 0;
+                for (int k = 0; k + 4 < data.size(); k++)
+                    if (data[k] == 8'hFE && data[k + 1] == 8'd3 && data[k + 2] == 8'd0 && data[k + 3] == 8'd1 && data[k + 4] == 8'd2) found = 1;
+                $display("read track T3: %0d bytes, ID of sector 1 %s", data.size(), found ? "found" : "missing");
+                if (data.size() < 5500 || !found || (st & 8'hFC) != 0)
+                    fail($sformatf("read track T3: %0d bytes, ID of sector 1 %s, status %02h", data.size(), found ? "found" : "missing", st));
+            end
+
+            // --- Write Track with DRQ not serviced before the index: Lost Data, nothing written
+            s0 = stores[0];
+            mem_wr(16'h7FF8, 8'hF0);
+            begin
+                bit ok;
+                wait_intrq(600, ok);
+                if (!ok) fail("write track lost data: no INTRQ");
+            end
+            mem_rd(16'h7FF8, st);
+            if (!st[2] || st[0]) fail($sformatf("write track lost data: status %02h (expected bit 2)", st));
+            repeat (30 * MS) @(negedge clk);
+            if (stores[0] != s0) fail("write track lost data: sector stored");
+
+            // --- write protected disk: F0h ends with status bit 6, no DRQ
+            mount(0, 737280, 13, 1);
+            repeat (25 * MS) @(negedge clk);
+            s0 = stores[0];
+            type3_cmd(8'hF0, fmt, len, st, data, n);
+            if (!st[6] || n != 0) fail($sformatf("write track protected: status %02h, %0d bytes taken (expected bit 6, none)", st, n));
+            repeat (30 * MS) @(negedge clk);
+            if (stores[0] != s0) fail("write track protected: sector stored");
+        end else
+            $display("WD2793 type III: no Read Address, the remaining type III checks are skipped");
     end
 `endif
 

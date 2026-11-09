@@ -116,8 +116,8 @@ module dev_TC8566AF #(parameter sysCLK)
       .INTn(),
       .INTEV(),
       .WAITIN(1'b0),
-      .WREN(),
-      .WRBIT(),
+      .WREN(FDD_bus.WRITE_GATEn),       // core: active low (pin 24 / 22)
+      .WRBIT(FDD_bus.WRITE_DATAn),
       .RDBIT(FDD_bus.READ_DATAn),
       .STEP(FDD_bus.STEPn),
       .SDIR(sdir),

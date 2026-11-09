@@ -46,6 +46,8 @@ drive_t drive;
 assign FDD_bus.USEL   = drive == DRIVE_B;
 assign FDD_bus.MOTORn = ~(motor && drive != DRIVE_NONE);       // no drive selected: no motor, not ready
 assign FDD_bus.SIDEn  = ~side;
+assign FDD_bus.WRITE_GATEn = 1'b1;                             // wd279x has no write path yet
+assign FDD_bus.WRITE_DATAn = 1'b1;
 
 // Philips 7FFDh bit 2 = 0 iff the disk of the selected drive changed (openMSX PhilipsFDC; read
 // by the Sony disk ROMs, the Philips ROMs ignore it). The read clears it: acknowledged at the

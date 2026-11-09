@@ -1,4 +1,5 @@
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) transmit.sv     ]
+set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) receive.sv      ]
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) track.sv        ]
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) track_buffer.sv ]
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) motor.sv        ]

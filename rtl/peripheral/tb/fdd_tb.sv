@@ -10,6 +10,11 @@
 // disk change: Philips 7FFDh bit 2 per selected drive, cleared by the read, DSKCHGn per drive;
 // READY without the motor (openMSX), motor keeps running motor_off_ms, a seek with 6 ms steps
 // loads only the target track (head settle).
+// Write path (a second unit on VD 3, 4 driven directly, the controller side is the MFM
+// modulator of the modem library): write sector into the buffer and the image, neighbours
+// intact, bad CRC rejected and the track reloaded, write protected image ignores the gate,
+// format of a track (IDs of the stream choose the slots), write followed by a step with a slow
+// HPS still reaches the written track, READ DATA silent while the gate is open.
 //
 // Run: wsl.exe -- bash rtl/peripheral/tb/run_fdd.sh          (OLD=<git rev>: old FDD code)
 module fdd_tb;
@@ -91,7 +96,7 @@ assign block_device_SD.rd = 1'b0;  assign block_device_SD.wr = 1'b0;  assign blo
 assign block_device_SD.blk_cnt = '0;  assign block_device_SD.buff_din = '0;
 genvar gi;
 generate
-    for (gi = 2; gi < 6; gi++) begin : idle_bd
+    for (gi = 4; gi < 6; gi++) begin : idle_bd
         assign block_device_FDD[gi].rd = 1'b0;  assign block_device_FDD[gi].wr = 1'b0;
         assign block_device_FDD[gi].lba = '0;   assign block_device_FDD[gi].blk_cnt = '0;
         assign block_device_FDD[gi].buff_din = '0;
@@ -117,12 +122,13 @@ fdd #(.sysCLK(SYS), .ID("FDDT")) dut (
 );
 `endif
 
-// Disk images of the two drives (VD 1, 2)
-logic [7:0] img[2][737280];
-int         img_bytes[2] = '{0, 0};
-int         img_seed[2]  = '{0, 0};
+// Disk images of the drives (VD 1, 2 of the controller unit, VD 3, 4 of the write unit)
+logic [7:0] img[4][737280];
+int         img_bytes[4] = '{0, 0, 0, 0};
+int         img_seed[4]  = '{0, 0, 0, 0};
 int         hps_lat      = MS;      // HPS answer latency
-int         loads[2]     = '{0, 0};
+int         loads[4]     = '{0, 0, 0, 0};
+int         stores[4]    = '{0, 0, 0, 0};
 
 function automatic logic [7:0] pat(input int seed, input int lba, input int off);
     if (off == 0) return 8'(lba);
@@ -139,26 +145,36 @@ task automatic mount(input int d, input int size, input int seed, input bit ro =
 endtask
 
 initial forever begin                                   // HPS: one request at a time
+    int n;
     @(posedge clk);
-    if (sd_rd[1] || sd_rd[2]) begin
-        int n, d, lba, cnt;
-        n   = sd_rd[1] ? 1 : 2;
-        d   = n - 1;
-        lba = int'(sd_lba[n]);
-        cnt = (int'(sd_blk_cnt[n]) + 1) * 512;
+    n = 0;
+    for (int k = 1; k <= 4; k++) if (n == 0 && (sd_rd[k] || sd_wr[k])) n = k;
+    if (n != 0) begin
+        int d, lba, cnt;
+        bit is_wr;
+        d     = n - 1;
+        is_wr = sd_wr[n];
+        lba   = int'(sd_lba[n]);
+        cnt   = (int'(sd_blk_cnt[n]) + 1) * 512;
         repeat (hps_lat) @(posedge clk);
         sd_ack[n] <= 1'b1;
         for (int i = 0; i < cnt; i++) begin
             int a = lba * 512 + i;
-            @(posedge clk);
-            sd_buff_addr <= 14'(i);
-            sd_buff_dout <= a < img_bytes[d] ? img[d][a] : 8'hFF;
-            sd_buff_wr   <= 1'b1;
-            @(posedge clk);
-            sd_buff_wr   <= 1'b0;
+            if (is_wr) begin                            // registered buffer: address, 2 clocks, data
+                @(posedge clk); sd_buff_addr <= 14'(i);
+                @(posedge clk); @(posedge clk);
+                if (a < img_bytes[d]) img[d][a] = sd_buff_din[n];
+            end else begin
+                @(posedge clk);
+                sd_buff_addr <= 14'(i);
+                sd_buff_dout <= a < img_bytes[d] ? img[d][a] : 8'hFF;
+                sd_buff_wr   <= 1'b1;
+                @(posedge clk);
+                sd_buff_wr   <= 1'b0;
+            end
         end
         @(posedge clk); sd_ack[n] <= 1'b0;
-        loads[d]++;
+        if (is_wr) stores[d]++; else loads[d]++;
     end
 end
 
@@ -295,11 +311,133 @@ always @(posedge clk) begin
     end
 end
 
+// ------------------------------------------------------------------ write path: a unit driven directly (VD 3, 4)
+// The controller side is the MFM modulator of the modem library at the cell rate of the drive,
+// fed byte by byte as a WD279x / TC8566AF does it (sync, marks, data, CRC).
+`ifndef OLD
+FDD_if  wr_bus();
+logic   tb_wgn = 1'b1, tb_stepn = 1'b1, tb_sdirn = 1'b1;
+assign wr_bus.USEL  = 1'b0;     assign wr_bus.MOTORn = 1'b0;  assign wr_bus.STEPn = tb_stepn;
+assign wr_bus.SDIRn = tb_sdirn; assign wr_bus.SIDEn  = 1'b1;  assign wr_bus.DSKCHG_ACK = 2'b00;
+assign wr_bus.WRITE_GATEn = tb_wgn;
+fdd #(.sysCLK(SYS), .ID("FDDW")) wr_dut (
+    .clk(clk), .reset(reset), .FDD_bus(wr_bus), .block_device(block_device_FDD[2:3]),
+    .drive_ds(2'b11), .need_motor(1'b0)
+`ifndef NO_MOTOR_OFF
+    , .motor_off_ms(16'd0)
+`endif
+);
+
+logic       tb_cell;
+clockEnabler #(.clkFreq(SYS), .targetFreq(500000)) tb_cell_en (.clk(clk), .en(tb_cell));
+logic [7:0] tb_txdat = '0;
+logic       tb_txwr = 0, tb_txa1 = 0, tb_txc2 = 0;
+wire        tb_txemp, tb_bit;
+mfmmod tb_mod (
+    .txdat(tb_txdat), .txwr(tb_txwr), .txma1(tb_txa1), .txmc2(tb_txc2), .brk(1'b0),
+    .txemp(tb_txemp), .txend(), .bitout(tb_bit), .writeen(), .sft(tb_cell), .clk(clk), .rstn(~reset)
+);
+assign wr_bus.WRITE_DATAn = ~tb_bit;
+
+function automatic logic [15:0] crc_upd(input logic [15:0] c, input logic [7:0] d);
+    logic [15:0] r;
+    r = c ^ {d, 8'h00};
+    for (int i = 0; i < 8; i++) r = r[15] ? {r[14:0], 1'b0} ^ 16'h1021 : {r[14:0], 1'b0};
+    return r;
+endfunction
+
+logic [15:0] tb_crc;
+task automatic tb_byte(input logic [7:0] b, input bit a1 = 0, input bit c2 = 0);
+    while (!tb_txemp) @(negedge clk);
+    tb_txdat = b; tb_txwr = !(a1 || c2); tb_txa1 = a1; tb_txc2 = c2;
+    @(negedge clk);
+    tb_txwr = 0; tb_txa1 = 0; tb_txc2 = 0;
+    tb_crc = crc_upd(tb_crc, b);
+endtask
+
+task automatic tb_bytes(input logic [7:0] b, input int n);
+    repeat (n) tb_byte(b);
+endtask
+
+task automatic tb_crc_bytes(input bit bad = 0);
+    logic [15:0] c = bad ? ~tb_crc : tb_crc;
+    tb_byte(c[15:8]); tb_byte(c[7:0]);
+endtask
+
+task automatic tb_mark(input logic [7:0] m);              // A1 A1 A1 + mark, CRC from FFFF over them
+    tb_crc = 16'hFFFF;
+    repeat (3) tb_byte(8'hA1, 1);
+    tb_byte(m);
+endtask
+
+task automatic tb_gate_close();
+    while (!tb_txemp) @(negedge clk);
+    repeat (2 * 16 * (SYS / 500_000)) @(negedge clk);     // the last byte leaves the modulator
+    tb_wgn = 1'b1;
+endtask
+
+// Write sector: the gate opens where a WD279x opens it, after GAP2 of the slot (its SYNC2)
+task automatic tb_write_sector(input int sec, input logic [7:0] data[512], input bit bad_crc = 0);
+    while (!(wr_dut.FDD_transmit.field == wr_dut.FDD_transmit.F_SYNC2 && wr_dut.FDD_transmit.sector == 4'(sec - 1)))
+        @(negedge clk);
+    tb_wgn = 1'b0;
+    tb_bytes(8'h00, 12);
+    tb_mark(8'hFB);
+    foreach (data[i]) tb_byte(data[i]);
+    tb_crc_bytes(bad_crc);
+    tb_byte(8'h4E);
+    tb_gate_close();
+endtask
+
+// Write track as a WD279x Write Track (F0): index to index, IAM, then the ID and data field of
+// every sector (the IDs choose the slots)
+task automatic tb_format(input int spt_f, input logic [7:0] fill, input int cyl);
+    while (!wr_bus.INDEXn) @(negedge clk);
+    while (wr_bus.INDEXn)  @(negedge clk);
+    tb_wgn = 1'b0;
+    tb_bytes(8'h4E, 80); tb_bytes(8'h00, 12);
+    repeat (3) tb_byte(8'hC2, 0, 1); tb_byte(8'hFC);
+    tb_bytes(8'h4E, 50);
+    for (int s = 1; s <= spt_f; s++) begin
+        tb_bytes(8'h00, 12); tb_mark(8'hFE);
+        tb_byte(8'(cyl)); tb_byte(8'h00); tb_byte(8'(s)); tb_byte(8'h02); tb_crc_bytes();
+        tb_bytes(8'h4E, 22); tb_bytes(8'h00, 12); tb_mark(8'hFB);
+        tb_bytes(fill, 512); tb_crc_bytes();
+        tb_bytes(8'h4E, 84);
+    end
+    do tb_byte(8'h4E); while (wr_bus.INDEXn);
+    @(negedge clk); tb_wgn = 1'b1;
+endtask
+
+task automatic tb_step(input bit in);
+    tb_sdirn = in;
+    @(negedge clk); tb_stepn = 1'b0;
+    repeat (4) @(negedge clk); tb_stepn = 1'b1;
+    repeat (6 * MS) @(negedge clk);
+endtask
+
+task automatic wait_stores(input string what, input int d, input int n, input int ms);
+    longint unsigned t_end = cyc + longint'(ms) * MS;
+    while (stores[d] < n && cyc < t_end) @(negedge clk);
+    if (stores[d] < n) fail($sformatf("%s: %0d sectors stored (expected %0d)", what, stores[d], n));
+endtask
+
+task automatic check_img(input string what, input int d, input int lba, input logic [7:0] data[512]);
+    int bad = 0;
+    for (int i = 0; i < 512; i++) if (img[d][lba * 512 + i] !== data[i]) bad++;
+    if (bad) fail($sformatf("%s: %0d bytes of image %0d LBA %0d differ", what, bad, d, lba));
+endtask
+
+int rd_during_wg = 0;
+always @(posedge clk) if (!wr_bus.WRITE_GATEn && !wr_bus.READ_DATAn) rd_during_wg++;
+`endif
+
 // ------------------------------------------------------------------ FM cell rate (separate unit, no SD answers)
 FDD_if          fm_bus();
 block_device_if fm_bd[2]();
 assign fm_bus.USEL = 1'b0;  assign fm_bus.MOTORn = 1'b0;  assign fm_bus.STEPn = 1'b1;
 assign fm_bus.SDIRn = 1'b1; assign fm_bus.SIDEn  = 1'b1; assign fm_bus.DSKCHG_ACK = 2'b00;
+assign fm_bus.WRITE_GATEn = 1'b1; assign fm_bus.WRITE_DATAn = 1'b1;
 generate
     for (gi = 0; gi < 2; gi++) begin : fm_hps
         assign fm_bd[gi].ack = 1'b0;          assign fm_bd[gi].buff_addr = '0;
@@ -343,7 +481,7 @@ initial begin
     int e0;
     msx_config.wait_count    = '0;
     msx_config.cpu_clock_sel = '0;
-    msx_config.fdd           = 6'b000011;                         // FDC in cartridge A: drives VD 1, 2
+    msx_config.fdd           = 6'b001111;                         // FDC in cartridge A: drives VD 1, 2; write unit VD 3, 4
     repeat (10) @(negedge clk);
     reset = 0;
     repeat (10) @(negedge clk);
@@ -487,9 +625,67 @@ initial begin
     mount(1, 0, 6);
     select_drive(1, 0, 1);
     read_not_ready("drive B ejected", 0, 1);
+
+    // ================================================================ write path (unit on VD 3, 4)
+    begin
+        logic [7:0] wdata[512], e5[512];
+        int s0, l0;
+        foreach (wdata[i]) wdata[i] = 8'(i * 3 + 11);
+        foreach (e5[i])    e5[i]    = 8'hE5;
+        mount(2, 737280, 7);
+        repeat (25 * MS) @(negedge clk);                // spin up, settle, track load
+        if (!wr_dut.track_ready) fail("write unit: track 0 not loaded");
+
+        // --- write sector: into the buffer, then one sector flushed to the image; neighbours intact
+        s0 = stores[2];
+        tb_write_sector(3, wdata);
+        wait_stores("write T0 S3", 2, s0 + 1, 50);
+        check_img("write T0 S3", 2, 2, wdata);
+        if (img[2][1 * 512] !== pat(7, 1, 0) || img[2][3 * 512] !== pat(7, 3, 0)) fail("write T0 S3: a neighbour sector changed");
+
+        // --- bad CRC: nothing stored, the track is reloaded from the image
+        s0 = stores[2]; l0 = loads[2];
+        tb_write_sector(5, wdata, 1);
+        repeat (40 * MS) @(negedge clk);
+        if (stores[2] != s0) fail("bad CRC: sector stored");
+        if (loads[2] != l0 + 1) fail($sformatf("bad CRC: %0d track loads (expected 1)", loads[2] - l0));
+        if (wr_dut.FDD_buffer.track_dpram.mem[4 * 512 + 7] !== pat(7, 4, 7)) fail("bad CRC: buffer not restored");
+
+        // --- write protected image: the gate is ignored
+        mount(2, 737280, 8, 1);
+        repeat (25 * MS) @(negedge clk);
+        s0 = stores[2];
+        tb_write_sector(2, wdata);
+        repeat (40 * MS) @(negedge clk);
+        if (stores[2] != s0) fail("write protected: sector stored");
+        if (wr_dut.FDD_buffer.track_dpram.mem[1 * 512 + 3] !== pat(8, 1, 3)) fail("write protected: buffer changed");
+
+        // --- format track 1: the IDs of the stream choose the slots, 9 sectors of E5
+        mount(2, 737280, 9);
+        tb_step(1);
+        repeat (25 * MS) @(negedge clk);
+        s0 = stores[2];
+        tb_format(9, 8'hE5, 1);
+        wait_stores("format T1", 2, s0 + 9, 300);
+        for (int s = 0; s < 9; s++) check_img($sformatf("format T1 S%0d", s + 1), 2, 18 + s, e5);
+        if (img[2][17 * 512] !== pat(9, 17, 0) || img[2][27 * 512] !== pat(9, 27, 0)) fail("format T1: another track changed");
+
+        // --- write, then a step before the flush (slow HPS): the flush goes to the written track
+        hps_lat = 150 * MS;
+        s0 = stores[2];
+        tb_write_sector(1, wdata);
+        tb_step(1);
+        wait_stores("write T1 S1 then step", 2, s0 + 1, 400);
+        hps_lat = MS;
+        check_img("write T1 S1 then step", 2, 18, wdata);
+        repeat (200 * MS) @(negedge clk);
+        if (!wr_dut.track_ready) fail("write then step: track 2 not loaded after the flush");
+
+        if (rd_during_wg != 0) fail($sformatf("READ DATA while the gate is open: %0d pulses", rd_during_wg));
+    end
 `endif
 
-    $display("track loads: A %0d, B %0d; FM min interval %0d clk", loads[0], loads[1], fm_min);
+    $display("track loads: A %0d, B %0d, W %0d; stores W %0d; FM min interval %0d clk", loads[0], loads[1], loads[2], stores[2], fm_min);
     if (errors == 0) $display("PASS fdd_tb");
     else             $display("FAILED fdd_tb: %0d errors", errors);
     $finish;

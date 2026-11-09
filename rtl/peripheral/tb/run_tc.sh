@@ -4,6 +4,7 @@
 #               80 clk, sysclk = sysCLK / 1000 (shows that the test catches them)
 #   PREV=<rev>  core (rtl/peripheral/FDC/TC8566AF) and glue of that git revision, +define+PREV_CORE
 #               (skips probes of signals the old core does not have)
+#   NO_WRITE_GLUE=1  glue with WREN / WRBIT of the core left unconnected (before the write path)
 set -e
 cd "$(dirname "$0")"
 ROOT=$(cd ../../.. && pwd)
@@ -30,6 +31,13 @@ if [ -n "$OLD_GLUE" ]; then
         "$GLUE" > "$OUT/tc8566af_glue.sv"
     grep -c "BITLEN = 80\|sysCLK / 1000)\|? 1'b1 : ctl0" "$OUT/tc8566af_glue.sv" | sed 's/^/old glue substitutions: /'
     GLUE="$OUT/tc8566af_glue.sv"
+fi
+if [ -n "$NO_WRITE_GLUE" ]; then
+    sed -e 's|\.WREN(FDD_bus.WRITE_GATEn),.*|.WREN(),|' -e 's|\.WRBIT(FDD_bus.WRITE_DATAn),|.WRBIT(),|' \
+        -e 's|^endmodule|assign FDD_bus.WRITE_GATEn = 1'"'"'b1; assign FDD_bus.WRITE_DATAn = 1'"'"'b1;\nendmodule|' \
+        "$GLUE" > "$OUT/tc8566af_nowrite.sv"
+    grep -c "WREN()\|WRBIT()" "$OUT/tc8566af_nowrite.sv" | sed 's/^/no write glue substitutions: /'
+    GLUE="$OUT/tc8566af_nowrite.sv"
 fi
 verilator --binary --timing -O3 -Wno-fatal -Wno-lint -Wno-style -Wno-MULTIDRIVEN $DEFS \
     --top-module tc8566af_tb -Mdir "$OUT" \

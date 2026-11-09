@@ -157,6 +157,8 @@ interface FDD_if();
     wire       TRACK0n;
     wire       WPROTn;
     wire       READ_DATAn;
+    wire       WRITE_GATEn;  // 0 = the controller writes; READ_DATA is silent meanwhile
+    wire       WRITE_DATAn;  // flux transitions from the controller (falling edge)
     wire [1:0] DSKCHGn;     // per drive: 0 = disk changed since DSKCHG_ACK (turbo R FDCHG1/2)
     wire [1:0] DSKCHG_ACK;  // per drive: the controller has read the change (openMSX: read clears)
 
@@ -166,11 +168,13 @@ interface FDD_if();
         output  READYn,
         input   STEPn,
         input   SDIRn,
-        input   SIDEn,   
+        input   SIDEn,
         output  INDEXn,
         output  TRACK0n,
         output  WPROTn,
         output  READ_DATAn,
+        input   WRITE_GATEn,
+        input   WRITE_DATAn,
         output  DSKCHGn,
         input   DSKCHG_ACK
     );
@@ -181,11 +185,13 @@ interface FDD_if();
         input   READYn,
         output  STEPn,
         output  SDIRn,
-        output  SIDEn,   
+        output  SIDEn,
         input   INDEXn,
         input   TRACK0n,
         input   WPROTn,
         input   READ_DATAn,
+        output  WRITE_GATEn,
+        output  WRITE_DATAn,
         input   DSKCHGn,
         output  DSKCHG_ACK
     );

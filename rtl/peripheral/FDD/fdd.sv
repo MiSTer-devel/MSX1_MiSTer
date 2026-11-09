@@ -16,7 +16,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // Floppy disk drive unit: two 3.5" DD drives (300 rpm, 250 kbit/s) on one Shugart style bus
-// (FDD_if), disks are DSK images of the HPS block devices block_device[0..1]. Read only.
+// (FDD_if), disks are DSK images of the HPS block devices block_device[0..1].
+// Reads: transmit regenerates the track from the track buffer. Writes: receive decodes the
+// controller's stream (WRITE GATE, WRITE DATA) into the buffer, track_buffer flushes the written
+// sectors to the image. A write protected image ignores the gate; READ DATA is silent while
+// the gate is open.
 //
 // The disk geometry comes from the image size (openMSX Disk::detectGeometryFallback, plus
 // 8 sectors per track): 720K / 640K double sided, 360K / 320K single sided, 80 tracks.
@@ -103,6 +107,7 @@ module fdd #(
     wire rotate    = disk_in && spin;
     wire recorded  = disk_in && head_track < g.tracks && (g.ds || !side);   // formatted track under the head
     wire sig_ok    = !need_motor || spin;
+    wire wg        = rotate && !ro[sel] && !FDD_bus.WRITE_GATEn;            // a protected disk ignores the gate
 
     // Head settle: SETTLE_MS without a step of the selected drive before its track is loaded
     logic [6:0] track_q;
@@ -116,26 +121,37 @@ module fdd #(
         else if (msclk && settle != 5'd0)               settle <= settle - 5'd1;
     end
 
-    logic [12:0] buffer_addr;
-    logic  [7:0] buffer_q;
-    logic        track_ready;
+    logic [12:0] buffer_addr, wr_addr;
+    logic  [7:0] buffer_q, wr_data;
+    logic  [3:0] tx_sector, wr_sector;
+    logic        track_ready, wr_en, wr_done, wr_bad;
     track_buffer #(.ID(ID)) FDD_buffer (
         .clk(clk), .reset(reset), .block_device(block_device),
         .want(recorded && settle == 5'd0), .drive(sel), .track(head_track), .head(side),
         .disk_ds(g.ds), .spt(g.spt), .changed(changed),
-        .buffer_addr(buffer_addr), .buffer_q(buffer_q), .ready(track_ready)
+        .buffer_addr(buffer_addr), .buffer_q(buffer_q), .ready(track_ready),
+        .wr_en(wr_en), .wr_addr(wr_addr), .wr_data(wr_data), .wr_sector(wr_sector),
+        .wr_done(wr_done), .wr_bad(wr_bad)
     );
 
     logic flux;
     transmit #(.MFM(MFM)) FDD_transmit (
         .clk(clk), .reset(reset), .index(index_start), .cell_en(cell_en),
         .spt(g.spt), .cyl(head_track), .hd(side), .valid(track_ready),
-        .buffer_addr(buffer_addr), .buffer_q(buffer_q), .flux(flux)
+        .buffer_addr(buffer_addr), .buffer_q(buffer_q), .flux(flux), .sector_out(tx_sector)
+    );
+
+    receive #(.MFM(MFM)) FDD_receive (
+        .clk(clk), .reset(reset), .wg(wg), .wd(FDD_bus.WRITE_DATAn),
+        .bitlen(32'(sysCLK / (MFM ? 500_000 : 250_000))),
+        .spt(g.spt), .valid(track_ready), .tx_sector(tx_sector),
+        .wr_en(wr_en), .wr_addr(wr_addr), .wr_data(wr_data), .wr_sector(wr_sector),
+        .wr_done(wr_done), .wr_bad(wr_bad)
     );
 
     assign FDD_bus.READYn     = !disk_in;
     assign FDD_bus.INDEXn     = !(rotate && angle < ($clog2(ROT))'(INDEX_LEN));
-    assign FDD_bus.READ_DATAn = !(rotate && flux);
+    assign FDD_bus.READ_DATAn = !(rotate && flux && FDD_bus.WRITE_GATEn);
     assign FDD_bus.TRACK0n    = !(sig_ok && head_track == 7'd0);
     assign FDD_bus.WPROTn     = !(sig_ok && (!g.present || ro[sel]));    // no disk reads as protected
 

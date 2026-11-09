@@ -97,6 +97,8 @@ module fdc_if_idle (FDD_if.FDC_mp FDC_bus);
    assign FDC_bus.STEPn      = 1'b1;
    assign FDC_bus.SDIRn      = 1'b1;
    assign FDC_bus.SIDEn      = 1'b1;
+   assign FDC_bus.WRITE_GATEn = 1'b1;
+   assign FDC_bus.WRITE_DATAn = 1'b1;
    assign FDC_bus.DSKCHG_ACK = 2'b00;
 endmodule
 
@@ -112,6 +114,8 @@ module fdd_if_mux (
    assign fdd.STEPn      = sel ? fdc1.STEPn      : fdc0.STEPn;
    assign fdd.SDIRn      = sel ? fdc1.SDIRn      : fdc0.SDIRn;
    assign fdd.SIDEn      = sel ? fdc1.SIDEn      : fdc0.SIDEn;
+   assign fdd.WRITE_GATEn = sel ? fdc1.WRITE_GATEn : fdc0.WRITE_GATEn;
+   assign fdd.WRITE_DATAn = sel ? fdc1.WRITE_DATAn : fdc0.WRITE_DATAn;
    assign fdd.DSKCHG_ACK = sel ? fdc1.DSKCHG_ACK : fdc0.DSKCHG_ACK;
 
    assign fdc0.READYn     = fdd.READYn;

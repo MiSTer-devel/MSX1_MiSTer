@@ -31,7 +31,8 @@ module transmit #(parameter logic MFM = 1'b1)
     input  logic        valid,
     output logic [12:0] buffer_addr,
     input  logic  [7:0] buffer_q,
-    output logic        flux            // 1 clk pulse per flux transition
+    output logic        flux,           // 1 clk pulse per flux transition
+    output logic  [3:0] sector_out      // sector slot under the head (0 based); a write lands here
 );
 
     typedef enum logic [4:0] {
@@ -101,6 +102,7 @@ module transmit #(parameter logic MFM = 1'b1)
     wire         txemp;
 
     assign buffer_addr = {sector, cnt[8:0]};
+    assign sector_out  = sector;
 
     // byte to send now
     logic  [7:0] b;

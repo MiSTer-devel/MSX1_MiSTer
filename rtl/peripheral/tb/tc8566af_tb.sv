@@ -13,6 +13,8 @@
 // drive. Fixes of PC88_MiSTer: step time (16 - SRT) x 2 ms without settling, recalibrate at most
 // 77 steps, read at EOT without TC (IC 01, EN, C H R kept), result phase of a read 93 us after
 // the end, head load / unload (HLT, HUT; probe of the core, not with PREV).
+// Write Data 45h: the sector reaches the image through the drive and reads back, a write
+// protected image ends with ST1 NW (not with PREV).
 //
 // PREV=<rev>: core and glue of that revision (shows which checks the old core fails).
 //
@@ -57,6 +59,10 @@ dev_TC8566AF #(.sysCLK(SYS)) tc (
     .model(model), .twoside(1'b1), .FDD_bus(FDD_bus),
     .cs(1'b1), .data(tc_data), .data_oe_rq(tc_oe)
 );
+`ifdef PREV_CORE
+assign FDD_bus.WRITE_GATEn = 1'b1;                      // the old glue does not drive the write signals
+assign FDD_bus.WRITE_DATAn = 1'b1;
+`endif
 
 // CPU accesses at least 4 us apart (Z80 LD A,(nn) at 3.58 MHz is 3.6 us): the MSR is only
 // valid some cycles after a data byte was taken
@@ -123,6 +129,7 @@ fdd #(.sysCLK(SYS), .ID("FDDT")) drive (
 logic [7:0] img[2][737280];
 int         img_bytes[2] = '{0, 0};
 int         img_seed[2]  = '{0, 0};
+int         stores[2]    = '{0, 0};
 
 function automatic logic [7:0] pat(input int seed, input int lba, input int off);
     if (off == 0) return 8'(lba);
@@ -130,34 +137,43 @@ function automatic logic [7:0] pat(input int seed, input int lba, input int off)
     return 8'(lba * 31 + off * 7 + seed * 101 + (off >> 3));
 endfunction
 
-task automatic mount(input int d, input int size, input int seed);
+task automatic mount(input int d, input int size, input int seed, input bit ro = 0);
     for (int i = 0; i < size; i++) img[d][i] = pat(seed, i / 512, i % 512);
     img_bytes[d] = size;
     img_seed[d]  = seed;
-    @(negedge clk); img_size = 64'(size); img_readonly = 1'b0; img_mounted[d + 1] = 1'b1;
+    @(negedge clk); img_size = 64'(size); img_readonly = ro; img_mounted[d + 1] = 1'b1;
     @(negedge clk); img_mounted = '0;
 endtask
 
 initial forever begin                                   // HPS: one request at a time
     @(posedge clk);
-    if (sd_rd[1] || sd_rd[2]) begin
+    if (sd_rd[1] || sd_rd[2] || sd_wr[1] || sd_wr[2]) begin
         int n, d, lba, cnt;
-        n   = sd_rd[1] ? 1 : 2;
-        d   = n - 1;
-        lba = int'(sd_lba[n]);
-        cnt = (int'(sd_blk_cnt[n]) + 1) * 512;
+        bit is_wr;
+        n     = (sd_rd[1] || sd_wr[1]) ? 1 : 2;
+        d     = n - 1;
+        is_wr = sd_wr[n];
+        lba   = int'(sd_lba[n]);
+        cnt   = (int'(sd_blk_cnt[n]) + 1) * 512;
         repeat (MS) @(posedge clk);
         sd_ack[n] <= 1'b1;
         for (int i = 0; i < cnt; i++) begin
             int a = lba * 512 + i;
-            @(posedge clk);
-            sd_buff_addr <= 14'(i);
-            sd_buff_dout <= a < img_bytes[d] ? img[d][a] : 8'hFF;
-            sd_buff_wr   <= 1'b1;
-            @(posedge clk);
-            sd_buff_wr   <= 1'b0;
+            if (is_wr) begin                            // registered buffer: address, 2 clocks, data
+                @(posedge clk); sd_buff_addr <= 14'(i);
+                @(posedge clk); @(posedge clk);
+                if (a < img_bytes[d]) img[d][a] = sd_buff_din[n];
+            end else begin
+                @(posedge clk);
+                sd_buff_addr <= 14'(i);
+                sd_buff_dout <= a < img_bytes[d] ? img[d][a] : 8'hFF;
+                sd_buff_wr   <= 1'b1;
+                @(posedge clk);
+                sd_buff_wr   <= 1'b0;
+            end
         end
         @(posedge clk); sd_ack[n] <= 1'b0;
+        if (is_wr) stores[d]++;
     end
 end
 
@@ -274,7 +290,7 @@ task automatic read_data(input string what, input int c, input int h, input int 
         if (!s[7]) continue;
         if (!s[5]) break;                               // execution phase ended
         mem_rd(r_dat, v);
-        if (v !== pat(img_seed[0], lba + n / 512, n % 512)) bad++;
+        if (v !== img[0][lba * 512 + n]) bad++;         // the image array holds the writes too
         n++;
     end
     mem_wr(r_ctl1, 8'h03);                              // TC
@@ -290,6 +306,29 @@ task automatic read_data(input string what, input int c, input int h, input int 
     // uPD765 ID after TC on the last sector = EOT, MT = 0: C + 1, H, R = 1, N (openMSX: C, R = EOT + 1)
     if (st[0][2] != h[0] || st[3] != 8'(c + 1) || st[4] != 8'(h) || st[5] != 8'h01 || st[6] != 8'h02)
         fail($sformatf("%s: result C %0d H %0d R %0d N %0d, ST0 %02h", what, st[3], st[4], st[5], st[6], st[0]));
+endtask
+
+// Write Data (MFM) of one sector on cylinder c, head h of drive 0, data loop as the ROM: a byte
+// while RQM and NDM, then a TC pulse; exp_bytes = 0 when the command is expected to refuse
+task automatic write_data(input string what, input int c, input int h, input int sec,
+                          input logic [7:0] data[512], output logic [7:0] st[], input int exp_bytes = 512);
+    logic [7:0] s;
+    int n;
+    longint unsigned t_end;
+    n = 0;
+    command(what, '{8'h45, 8'(h << 2), 8'(c), 8'(h), 8'(sec), 8'h02, 8'(sec), 8'h2A, 8'hFF});
+    t_end = cyc + 3000 * longint'(MS);
+    while (n < 512 && cyc < t_end) begin
+        mem_rd(r_msr, s);
+        if (!s[7]) continue;
+        if (!s[5] || s[6]) break;                       // execution phase ended
+        mem_wr(r_dat, data[n]);
+        n++;
+    end
+    mem_wr(r_ctl1, 8'h03);                              // TC
+    mem_wr(r_ctl1, 8'h02);
+    result(what, 7, st);
+    if (n != exp_bytes) fail($sformatf("%s: %0d bytes taken (expected %0d; ST0 %02h ST1 %02h ST2 %02h)", what, n, exp_bytes, st[0], st[1], st[2]));
 endtask
 
 // ------------------------------------------------------------------ test sequence
@@ -504,6 +543,40 @@ initial begin
     $display("recalibrate 5 -> 0: %0d ms", ms);
     if (ms < 28 || ms > 36) fail($sformatf("recalibrate 5 -> 0: %0d ms (expected 5 x 6 ms)", ms));
     read_data("turbo R T0 H0 S2", 0, 0, 2, 2, 1, r);
+
+`ifndef PREV_CORE
+    // --- write T3 H0 S4: the drive flushes the sector to the image, neighbours intact, the sector
+    // reads back; a write protected image: ST0 IC 01, ST1 NW, nothing stored
+    begin
+        logic [7:0] wdata[512];
+        int s0, bad;
+        longint unsigned t_end;
+        foreach (wdata[i]) wdata[i] = 8'(i * 5 + 1);
+        command("seek 3", '{8'h0F, 8'h00, 8'h03});
+        wait_seek("seek 3", 3, ms);
+        s0 = stores[0];
+        write_data("write T3 H0 S4", 3, 0, 4, wdata, r);
+        if (r[0][7:6] != 2'b00 || r[1] != 8'h00 || r[2] != 8'h00)
+            fail($sformatf("write T3 H0 S4: ST0 %02h ST1 %02h ST2 %02h", r[0], r[1], r[2]));
+        t_end = cyc + 50 * longint'(MS);
+        while (stores[0] < s0 + 1 && cyc < t_end) @(negedge clk);
+        if (stores[0] != s0 + 1) fail($sformatf("write T3 H0 S4: %0d sectors stored (expected 1)", stores[0] - s0));
+        bad = 0;
+        for (int i = 0; i < 512; i++) if (img[0][57 * 512 + i] !== wdata[i]) bad++;
+        if (bad) fail($sformatf("write T3 H0 S4: %0d bytes of the image differ", bad));
+        if (img[0][56 * 512] !== pat(2, 56, 0) || img[0][58 * 512] !== pat(2, 58, 0)) fail("write T3 H0 S4: a neighbour sector changed");
+        read_data("T3 H0 S4 after the write", 3, 0, 4, 4, 57, r);
+
+        mount(0, 737280, 3, 1);
+        repeat (25 * MS) @(negedge clk);
+        s0 = stores[0];
+        write_data("write protected", 3, 0, 4, wdata, r, 0);
+        if (r[0][7:6] != 2'b01 || !r[1][1])
+            fail($sformatf("write protected: ST0 %02h ST1 %02h (expected IC 01, NW)", r[0], r[1]));
+        repeat (30 * MS) @(negedge clk);
+        if (stores[0] != s0) fail("write protected: sector stored");
+    end
+`endif
 
     $display("tc8566af_tb done at %0d ms", cyc / MS);
     if (errors == 0) $display("PASS tc8566af_tb");

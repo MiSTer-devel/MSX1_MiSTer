@@ -101,6 +101,7 @@ wire                 ocm_megaSD_enable, ocm_slot1_mode;
 wire           [1:0] ocm_slot2_mode;
 wire                 ocm_ipl_en, ocm_mmc_on, ocm_mmc_wait, opll_wait;
 wire                 turbor_r800, turbor_dram;
+wire                 r800_active;              // turbo R: R800 running (TODO: turbo LED, R800 timing)
 MSX::cpu_speed_t     cpu_speed;
 wire signed   [15:0] device_sound_L, device_sound_R;
 
@@ -157,6 +158,9 @@ msx_cpu cpu (
    .io_wait   (cpu_speed.io_wait),
    .ext_wait  (ocm_mmc_wait || opll_wait),
    .r800      (msx_config.cpu == R800 || msx_user_config.ocm_r800),
+   .r800_sel  (turbor_r800),
+   .cold_reset(core_hard_reset),
+   .r800_active(r800_active),
    .int_rq    (cpu_interrupt),
    .di        (d_to_cpu),
    .m1_n      (m1_n),

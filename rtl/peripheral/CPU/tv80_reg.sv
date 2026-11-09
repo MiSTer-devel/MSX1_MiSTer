@@ -54,6 +54,7 @@
 //  +k05 : Version alignment by KdL 2023.05.15
 //
 //  +m01 : Revrite to systemVerilog by Molekula 2025.01.26, original: https://github.com/gnogni/ocm-pld-dev.git 95aa5e2179f28c0d8028e17203909804ce6ff66b
+//  +m02 : Savestate ports DOR / DIRSet / DIR as T80_Reg.vhd of the MiSTer T80 (T80(c) version 350, Sorgelig)
 
 module TV80_Reg (
     input           Clk,
@@ -70,14 +71,22 @@ module TV80_Reg (
     output    [7:0] DOBH,
     output    [7:0] DOBL,
     output    [7:0] DOCH,
-    output    [7:0] DOCL
+    output    [7:0] DOCL,
+    output  [127:0] DOR,            // all pairs, physical order: [16n+15:16n] = pair n (H:L)
+    input           DIRSet,         // load all pairs from DIR (works without CEN)
+    input   [127:0] DIR
 );
 
     typedef logic [7:0] Register_Image[8];
     Register_Image RegsH, RegsL;
 
     always_ff @( posedge Clk ) begin
-        if ( CEN ) begin
+        if ( DIRSet ) begin
+            for (int n = 0; n < 8; n++) begin
+                RegsL[n] <= DIR[16*n +: 8];
+                RegsH[n] <= DIR[16*n + 8 +: 8];
+            end
+        end else if ( CEN ) begin
             if ( WEH ) begin
                 RegsH[AddrA] <= DIH;
             end
@@ -86,6 +95,13 @@ module TV80_Reg (
             end
         end
     end
+
+    genvar g;
+    generate
+        for (g = 0; g < 8; g++) begin : dor_pairs
+            assign DOR[16*g +: 16] = {RegsH[g], RegsL[g]};
+        end
+    endgenerate
 
     assign DOAH = RegsH[AddrA];
     assign DOAL = RegsL[AddrA];

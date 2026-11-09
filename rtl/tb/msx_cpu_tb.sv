@@ -40,6 +40,11 @@ msx_cpu dut (
     .io_wait   (4'(iowait)),
     .ext_wait  (1'b0),
     .r800      (r800),
+`ifndef OLD_CPU
+    .r800_sel  (1'b0),
+    .cold_reset(reset),
+    .r800_active(),
+`endif
     .int_rq    (int_rq),
     .di        (di),
     .m1_n, .mreq_n, .iorq_n, .rd_n, .wr_n, .rfsh_n,

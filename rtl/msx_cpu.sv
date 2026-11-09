@@ -25,6 +25,13 @@
 // cost 2 more clk of memory latency margin on M1 fetch (rtl/tb/msx_cpu_tb.sv).
 // clock_sel may change at any time (OCM turbo): a ce_p right after the previous
 // one is dropped, so no CPU half cycle is ever shorter than at 10.7 MHz.
+//
+// Turbo R Z80 / R800: one core, the registers of each CPU are kept in a context register
+// (savestate REG / DIR of TV80). The switch is made on the CE_n of T1 of the first M1 after
+// the S1990 selects the other CPU (instruction boundary, as openMSX): the running context is
+// stored and the other one loaded in that clk, so the fetch already uses the new PC. The R800
+// context is reset only by a cold reset: the BIOS warm boot expects the R800 still parked
+// (doc/turboR.md chapter 6). TODO: R800 timing (7.16 MHz, no M1 wait, VDP spacing).
 
 module msx_cpu (
     clock_bus_if.base_mp clock_bus,
@@ -35,6 +42,9 @@ module msx_cpu (
     input          [3:0] io_wait,       // extra wait states on each I/O access
     input                ext_wait,      // level wait request from the bus (MegaSD SPI, OPLL busy)
     input                r800,          // R800 instructions MULUB / MULUW (OCM CPU type)
+    input                r800_sel,      // CPU selected by the S1990 (1 = R800)
+    input                cold_reset,    // power-up / menu reset / pack upload: R800 context to reset
+    output logic         r800_active,   // CPU running now (1 = R800)
     input                int_rq,
     input          [7:0] di,
     output               m1_n,
@@ -94,9 +104,33 @@ module msx_cpu (
         end
     end
 
+    // Z80 / R800 context switch
+    // IFF2, IFF1, IM, IY, HL', DE', BC', IX, HL, DE, BC, PC, SP, R, I, F', A', F, A (openMSX doReset)
+    localparam logic [211:0] R800_RESET_CTX = {2'b00, 2'd0, {8{16'hFFFF}}, 16'h0000, 16'hFFFF,
+                                               8'h00, 8'h00, 8'hFF, 8'hFF, 8'hFF, 8'hFF};
+    logic [211:0] ctx_z80, ctx_r800;
+    wire  [211:0] core_reg;
+    wire    [2:0] core_mc, core_ts;
+    wire          core_intcycle_n;
+    // not while an interrupt acknowledge is decided: the old CPU finishes it first
+    wire          swap = ~reset && ce_n && (r800_sel != r800_active) &&
+                         core_mc == 3'd1 && core_ts == 3'd1 && core_intcycle_n;
+
+    always_ff @(posedge clock_bus.clk) begin
+        if (reset)
+            r800_active <= 1'b0;
+        else if (swap) begin
+            r800_active <= r800_sel;
+            if (r800_active) ctx_r800 <= core_reg;
+            else             ctx_z80  <= core_reg;
+        end
+        if (cold_reset)
+            ctx_r800 <= R800_RESET_CTX;
+    end
+
     TV80a #(.Mode(0), .R800_MULU(1), .IOWait(1)) Z80 (
         .RESET_n   (~reset),
-        .R800_mode (r800),
+        .R800_mode (r800 || r800_active),
         .CLK       (clock_bus.clk),
         .CE_p      (ce_p),
         .CE_n      (ce_n),
@@ -114,7 +148,13 @@ module msx_cpu (
         .BUSAK_n   (),
         .A         (addr),
         .DI        (di),
-        .DO        (dout)
+        .DO        (dout),
+        .MC        (core_mc),
+        .TS        (core_ts),
+        .IntCycle_n(core_intcycle_n),
+        .REG       (core_reg),
+        .DIRSet    (swap),
+        .DIR       (r800_active ? ctx_z80 : ctx_r800)
     );
 
 endmodule

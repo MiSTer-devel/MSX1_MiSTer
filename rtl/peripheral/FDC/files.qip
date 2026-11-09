@@ -1,1 +1,2 @@
+set_global_assignment -name QIP_FILE           [file join $::quartus(qip_path) modem/files.qip      ]
 set_global_assignment -name QIP_FILE           [file join $::quartus(qip_path) WD279x/files.qip     ]

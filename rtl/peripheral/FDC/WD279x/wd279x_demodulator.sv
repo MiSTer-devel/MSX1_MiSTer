@@ -66,7 +66,7 @@ module wd279x_demodulator #(parameter sysCLK)
     );
 
     // --- FM dekodér ---
-    wd279x_fmdem fmdem (
+    fmdem fmdem_i (
         .clk(clk),
         .rstn(MRn),
         .datin(RAWRDn),
@@ -76,7 +76,7 @@ module wd279x_demodulator #(parameter sysCLK)
     );
 
     // --- MFM dekodér ---
-    wd279x_mfmdem mfmdem (
+    mfmdem mfmdem_i (
         .clk(clk),
         .rstn(MRn),
         .datin(RAWRDn),

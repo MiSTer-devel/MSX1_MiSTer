@@ -1,12 +1,14 @@
 // MFM demodulator
 //
+// Shared floppy modem library (rtl/peripheral/FDC/modem): drive (fdd) and controllers.
+//
 // SystemVerilog port of rtl/FDC/mfmdem.vhd of X68000_MiSTer
 // (https://github.com/MiSTer-devel/X68000_MiSTer), licensed under the GNU General Public
 // License version 3. Port: Molekula.
 //
 // SPDX-License-Identifier: GPL-3.0-only
 
-module wd279x_mfmdem #(
+module mfmdem #(
     parameter int bwidth = 88,
     parameter int fben   = 1
 )(

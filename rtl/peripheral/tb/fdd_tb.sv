@@ -276,7 +276,11 @@ end
 // Bytes after the index mark, decoded by an independent MFM demodulator
 wire [7:0] rx_dat;
 wire       rx_ed, rx_c2, rx_a1;
+`ifdef MODEM_OLD
 wd279x_mfmdem iam_dem (
+`else
+mfmdem iam_dem (
+`endif
     .clk(clk), .rstn(~reset), .init(1'b0), .brk(1'b0), .datin(FDD_bus.READ_DATAn),
     .bitlen(32'(SYS / 500_000)), .RXDAT(rx_dat), .RXED(rx_ed), .DetMA1(rx_a1), .DetMC2(rx_c2),
     .broken(), .curlen()

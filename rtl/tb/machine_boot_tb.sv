@@ -2,8 +2,8 @@
 // serving a DSK image on the internal drive (VD 5, msx_config.fdd[4]). Logs the floppy
 // controller traffic (TC8566AF: command and result bytes, the sectors the drive loads) and
 // the text screen (VDP registers and VRAM).
-// Checks: the pack loads, the disk ROM runs (M1 fetches in the controller's block), the
-// controller reads the boot sector (LBA 0) with a normal end (ST0 IC = 00), and with
+// Checks: the pack loads, the drive loads the boot sector (LBA 0); with a TC8566AF the disk ROM
+// runs (M1 fetches in the controller's block) and Read Data ends normally (ST0 IC = 00); with
 // +expect=<text> that the text appears on the screen (e.g. printed by AUTOEXEC.BAS).
 // +dsk=none: no disk in the drive (the boot must not hang on the empty drive).
 // +key=<hex>: a key held down from the start until +key_ms (default 8000), PS/2 code with bit 8
@@ -310,7 +310,7 @@ initial begin
     string pack_name, dsk_name, expect_txt = "", last = "", now, dump;
     int fd, c, errors = 0, run_ms = 15000, found_ms = -1, key_ms = 8000;
     logic [8:0] key = '0;
-    bit         use_key, no_disk;
+    bit         use_key, no_disk, tc_used;
 
     if (!$value$plusargs("pack=%s", pack_name) || !$value$plusargs("dsk=%s", dsk_name)) begin
         $display("usage: +pack=<machine.msx> +dsk=<image.dsk> [+expect=<text>] [+run_ms=<ms>]"); $finish;
@@ -373,9 +373,12 @@ initial begin
     $display("disk ROM M1 %0d, FDC commands %0d, Read Data ok %0d / abnormal %0d, HPS reads %0d (LBA 0: %0d)",
              disk_m1, fdc_log, reads_ok, reads_bad, lba_reads, lba0_reads);
 
-    if (disk_m1 < 1000)  begin errors++; $display("FAIL disk ROM does not run (%0d M1)", disk_m1); end
+    // controller checks only for the TC8566AF (a WD2793 machine checks the drive and the screen)
+    tc_used = sys.io_device[DEV_TC8566AF][MSX::TC8566AF_POS].enable;
+    if (!tc_used) $display("no TC8566AF in this machine: controller checks skipped");
+    if (tc_used && disk_m1 < 1000) begin errors++; $display("FAIL disk ROM does not run (%0d M1)", disk_m1); end
     if (!no_disk && lba0_reads == 0) begin errors++; $display("FAIL boot sector (LBA 0) not loaded"); end
-    if (!no_disk && reads_ok == 0)   begin errors++; $display("FAIL no Read Data with a normal end"); end
+    if (tc_used && !no_disk && reads_ok == 0) begin errors++; $display("FAIL no Read Data with a normal end"); end
     if (expect_txt != "") begin
         if (found_ms < 0) begin errors++; $display("FAIL \"%s\" not on the screen", expect_txt); end
         else $display("\"%s\" on the screen at %0d ms", expect_txt, found_ms);

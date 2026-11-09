@@ -1,6 +1,6 @@
 // virtual FDC device
 //
-// Copyright (c) 2025 Molekula
+// Copyright (c) 2025-2026 Molekula
 //
 // This program is free software: you can redistribute it and/or modify it under the terms of
 // the GNU General Public License as published by the Free Software Foundation, either version 3
@@ -16,6 +16,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 
+// Floppy controllers at the memory_upload positions (0 cartridge A, 1 cartridge B, 2 internal).
+// Position i drives FDD unit i. A WD2793 copy sits at every position below MSX::N_WD2793; the
+// only TC8566AF copy sits at MSX::TC8566AF_POS and takes the unit over when it is enabled.
 module dev_FDC #(parameter sysCLK)
 (
    cpu_bus_if.device_mp    cpu_bus,
@@ -26,15 +29,20 @@ module dev_FDC #(parameter sysCLK)
    output                  data_oe_rq
 );
 
-   assign data = wd2793_data[0] & wd2793_data[1] & wd2793_data[2]; //& TC8566AF_data;
-   assign data_oe_rq = wd2793_oe_rq[0] | wd2793_oe_rq[1] | wd2793_oe_rq[2]; //| TC8566AF_data_oe_rq;
+   assign data       = fdc_data[0] & fdc_data[1] & fdc_data[2];
+   assign data_oe_rq = fdc_oe_rq[0] | fdc_oe_rq[1] | fdc_oe_rq[2];
 
-   logic [7:0] wd2793_data[3];
-   logic       wd2793_oe_rq[3];
+   logic [7:0] fdc_data[3];
+   logic       fdc_oe_rq[3];
    genvar i;
    generate
       for (i = 0; i < 3; i++) begin : FDC_INSTANCES
-         if (i < MSX::N_WD2793) begin : inst
+         FDD_if wd_bus();
+         FDD_if tc_bus();
+         wire [7:0] wd_data, tc_data;
+         wire       wd_oe_rq, tc_oe_rq, tc_enable;
+
+         if (i < MSX::N_WD2793) begin : wd
             wire cs_dev                = (io_device[DEV_WD2793][i].device_ref == device_bus.device_ref && io_device[DEV_WD2793][i].enable);
             wire [1:0] model           = io_device[DEV_WD2793][i].param[1:0];
             wire [1:0] floppy_drive_en = io_device[DEV_WD2793][i].param[3:2];
@@ -42,37 +50,78 @@ module dev_FDC #(parameter sysCLK)
                .cpu_bus(cpu_bus),
                .model(model),
                .floppy_drive_en(floppy_drive_en),
-               .FDD_bus(FDD_bus[i]),
+               .FDD_bus(wd_bus),
                .cs(cs_dev),
-               .data(wd2793_data[i]),
-               .data_oe_rq(wd2793_oe_rq[i])
+               .data(wd_data),
+               .data_oe_rq(wd_oe_rq)
             );
-         end else begin : none
-            assign wd2793_data[i]       = 8'hFF;
-            assign wd2793_oe_rq[i]      = 1'b0;
-            assign FDD_bus[i].USEL      = 1'b0;     // idle drive interface
-            assign FDD_bus[i].MOTORn    = 1'b1;
-            assign FDD_bus[i].STEPn     = 1'b1;
-            assign FDD_bus[i].SDIRn     = 1'b1;
-            assign FDD_bus[i].SIDEn     = 1'b1;
-            assign FDD_bus[i].DSKCHG_ACK = 2'b00;
+         end else begin : no_wd
+            assign wd_data  = 8'hFF;
+            assign wd_oe_rq = 1'b0;
+            fdc_if_idle idle (.FDC_bus(wd_bus));
          end
+
+         if (i == MSX::TC8566AF_POS) begin : tc
+            wire cs_dev = (io_device[DEV_TC8566AF][i].device_ref == device_bus.device_ref && io_device[DEV_TC8566AF][i].enable);
+            dev_TC8566AF #(.sysCLK(sysCLK)) TC8566AF (
+               .cpu_bus(cpu_bus),
+               .model(io_device[DEV_TC8566AF][i].param[1:0]),
+               .twoside(!io_device[DEV_TC8566AF][i].param[4]),
+               .FDD_bus(tc_bus),
+               .cs(cs_dev),
+               .data(tc_data),
+               .data_oe_rq(tc_oe_rq)
+            );
+            assign tc_enable = io_device[DEV_TC8566AF][i].enable;
+         end else begin : no_tc
+            assign tc_data   = 8'hFF;
+            assign tc_oe_rq  = 1'b0;
+            assign tc_enable = 1'b0;
+            fdc_if_idle idle (.FDC_bus(tc_bus));
+         end
+
+         fdd_if_mux mux (.sel(tc_enable), .fdc0(wd_bus), .fdc1(tc_bus), .fdd(FDD_bus[i]));
+         assign fdc_data[i]  = wd_data & tc_data;
+         assign fdc_oe_rq[i] = wd_oe_rq | tc_oe_rq;
       end
    endgenerate
 
-   /*
-    wire [7:0] TC8566AF_data;
-    wire TC8566AF_data_oe_rq;
-    dev_TC8566AF TC8566AF (
-        .cpu_bus(cpu_bus),
-        .clock_bus(clock_bus),
-        .device_bus(device_bus),
-        .io_device(io_device[DEV_TC8566AF]),
-        .sd_bus(sd_bus),
-        .sd_bus_control(sd_bus_control),
-        .image_info(image_info),
-        .data(TC8566AF_data),
-        .data_oe_rq(TC8566AF_data_oe_rq)
-    );
-*/
+endmodule
+
+// No controller: drive interface idle
+module fdc_if_idle (FDD_if.FDC_mp FDC_bus);
+   assign FDC_bus.USEL       = 1'b0;
+   assign FDC_bus.MOTORn     = 1'b1;
+   assign FDC_bus.STEPn      = 1'b1;
+   assign FDC_bus.SDIRn      = 1'b1;
+   assign FDC_bus.SIDEn      = 1'b1;
+   assign FDC_bus.DSKCHG_ACK = 2'b00;
+endmodule
+
+// Two controllers on one FDD unit: sel picks the one driving it, both see the drive signals
+module fdd_if_mux (
+   input          sel,
+   FDD_if.FDD_mp  fdc0,
+   FDD_if.FDD_mp  fdc1,
+   FDD_if.FDC_mp  fdd
+);
+   assign fdd.USEL       = sel ? fdc1.USEL       : fdc0.USEL;
+   assign fdd.MOTORn     = sel ? fdc1.MOTORn     : fdc0.MOTORn;
+   assign fdd.STEPn      = sel ? fdc1.STEPn      : fdc0.STEPn;
+   assign fdd.SDIRn      = sel ? fdc1.SDIRn      : fdc0.SDIRn;
+   assign fdd.SIDEn      = sel ? fdc1.SIDEn      : fdc0.SIDEn;
+   assign fdd.DSKCHG_ACK = sel ? fdc1.DSKCHG_ACK : fdc0.DSKCHG_ACK;
+
+   assign fdc0.READYn     = fdd.READYn;
+   assign fdc0.INDEXn     = fdd.INDEXn;
+   assign fdc0.TRACK0n    = fdd.TRACK0n;
+   assign fdc0.WPROTn     = fdd.WPROTn;
+   assign fdc0.READ_DATAn = fdd.READ_DATAn;
+   assign fdc0.DSKCHGn    = fdd.DSKCHGn;
+   assign fdc1.READYn     = fdd.READYn;
+   assign fdc1.INDEXn     = fdd.INDEXn;
+   assign fdc1.TRACK0n    = fdd.TRACK0n;
+   assign fdc1.WPROTn     = fdd.WPROTn;
+   assign fdc1.READ_DATAn = fdd.READ_DATAn;
+   assign fdc1.DSKCHGn    = fdd.DSKCHGn;
 endmodule

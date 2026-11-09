@@ -16,4 +16,4 @@ set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) r
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) systimer.sv                        ]
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) ym2148.sv                          ]
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) dac.sv                             ]
-#set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) tc8566af.sv                        ]
+set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) tc8566af.sv                        ]

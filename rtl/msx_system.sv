@@ -329,17 +329,21 @@ tape cass
 );
 
 /////////////////   FLOPPY DRIVES   /////////////////
-// One FDD unit (2 drives) per WD2793 copy (MSX::N_WD2793). memory_upload puts the FDC at a
-// fixed position (0 cartridge A, 1 cartridge B, 2 internal), unit fi is that controller's.
-// Drive properties from its XML parameters: bit 4 single_sided, bits 1:0 style 0 Philips,
-// 1 National, 2 Sony (openMSX MSXFDC: TRACK0 / WPROT need the motor only for Philips; Sony motor
-// keeps running 4 s, motor_off_timeout_ms of all Sony machines).
+// One FDD unit (2 drives) per FDC position. memory_upload puts the FDC at a fixed position
+// (0 cartridge A, 1 cartridge B, 2 internal), unit fi is that controller's: a WD2793 copy
+// (MSX::N_WD2793) or the TC8566AF (MSX::TC8566AF_POS).
+// Drive properties from its XML parameters: bit 4 single_sided, WD2793 bits 1:0 style 0 Philips,
+// 1 National, 2 Sony (openMSX MSXFDC: TRACK0 / WPROT need the motor only for Philips or without
+// a style; Sony motor keeps running 4 s, motor_off_timeout_ms of all Sony machines).
 genvar fi, fd;
 generate
    for (fi = 0; fi < 3; fi++) begin : g_fdd
-      if (fi < MSX::N_WD2793) begin : inst
-         wire [7:0] fdc_param  = io_device[DEV_WD2793][fi].param;
-         wire       fdc_enable = io_device[DEV_WD2793][fi].enable;
+      if (fi < MSX::N_WD2793 || fi == MSX::TC8566AF_POS) begin : inst
+         // TC8566AF (no connection style: signals need the motor, motor stops at once)
+         wire       tc_enable  = fi == MSX::TC8566AF_POS && io_device[DEV_TC8566AF][fi].enable;
+         wire [7:0] fdc_param  = tc_enable ? {io_device[DEV_TC8566AF][fi].param[7:2], 2'd0}
+                                           : io_device[DEV_WD2793][fi].param;
+         wire       fdc_enable = tc_enable || io_device[DEV_WD2793][fi].enable;
          fdd #(.sysCLK(sysCLK), .ID(fi == 0 ? "FDD0" : fi == 1 ? "FDD1" : "FDD2")) fdd_i (
             .clk(clock_bus.clk),
             .reset(reset),

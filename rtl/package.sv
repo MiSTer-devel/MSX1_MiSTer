@@ -501,6 +501,7 @@ package MSX;
     localparam int N_SCC    = 2;
     localparam int N_PSG    = 3;
     localparam int N_WD2793 = 3;    // also the number of emulated FDD units (fdd0..2)
+    localparam int TC8566AF_POS = 2;  // memory_upload position of the one TC8566AF copy (internal)
 
     // Sound of one device type: sum of up to 3 instances x 16 bit signed, no overflow.
     // Clipped only once, in sound_mix.

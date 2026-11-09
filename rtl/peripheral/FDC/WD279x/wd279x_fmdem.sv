@@ -1,4 +1,11 @@
-//TODO license
+// FM demodulator
+//
+// SystemVerilog port of rtl/FDC/fmdem.vhd of X68000_MiSTer
+// (https://github.com/MiSTer-devel/X68000_MiSTer), licensed under the GNU General Public
+// License version 3. Port: Molekula.
+//
+// SPDX-License-Identifier: GPL-3.0-only
+
 module wd279x_fmdem #(
     parameter int bwidth = 22
 )(

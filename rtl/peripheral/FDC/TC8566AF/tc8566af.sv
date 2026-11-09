@@ -1064,8 +1064,8 @@ module tc8566af #(
                     endcase
                     sNR  <= sREADY;
                     sEC  <= 1'b1;
-                    sSE  <= 1'b0;
-                    INTs <= 1'b1;
+                    sSE  <= 1'b1;      // SE also on a failed seek (uPD765; PC88_MiSTer a9ab3e6),
+                    INTs <= 1'b1;      // disk ROMs wait for SE (FS-A1F 7970h)
                 end
                 if (EXEC) begin
                     sIC  <= 2'b00;
@@ -3829,17 +3829,20 @@ module tc8566af #(
                                         default: ;
                                     endcase
                                     execstate <= es_seek;
-                                end else if (NOTRDY) begin
+                                end else begin
+                                    // not ready: end at once, abnormal with SE, for Sense
+                                    // Interrupt (PC88_MiSTer a9ab3e6; was IC 11 after NRDET via
+                                    // INT, which Sense Interrupt does not report with ismode 0)
                                     sHD   <= HD;
                                     sUS   <= US;
-                                    sIC   <= 2'b11;
+                                    sIC   <= 2'b01;
                                     sNR   <= READY;
                                     sEC   <= 1'b0;
-                                    sSE   <= 1'b0;
+                                    sSE   <= 1'b1;
                                     sND   <= 1'b0;
                                     sMA   <= 1'b0;
                                     PCN   <= cPCN;
-                                    INT   <= 1'b1;
+                                    INTs  <= 1'b1;
                                     end_EXEC <= 1'b1;
                                     execstate <= es_idle;
                                 end

@@ -7,7 +7,8 @@
 //
 // Checked: recalibrate / seek / ST0 / PCN, ST3 (track 0, two side, ready), sector data and
 // all 7 result bytes on both sides and after a seek, multi-sector read, Read ID, a missing
-// sector (ST1 ND), turbo R registers (7FF4 / 7FF5, 7FF1 disk change with read clear), the
+// sector (ST1 ND), Recalibrate / Seek on a drive without a disk (Sense Interrupt reports the
+// end), turbo R registers (7FF4 / 7FF5, 7FF1 disk change with read clear), the
 // register window constants (7FF0, 7FFC-7FFF, unused FFh, page 2 mirror), motor of the selected
 // drive.
 //
@@ -303,6 +304,31 @@ initial begin
     if (FDD_bus.MOTORn !== 1'b0 || FDD_bus.USEL !== 1'b0) fail("drive 0 motor off with control 0 = 14");
     repeat (5 * MS) @(negedge clk);                     // spin up
 
+    // --- Disk ROM init (FS-A1F 7742h): control 0 = 04h (motor off), Specify, Recalibrate, Sense
+    // Interrupt polled back to back until the end is reported. With the motor off the drive does
+    // not show TRACK0 (need_motor), so the Recalibrate ends with an error; the ROM repeats Sense
+    // Interrupt until ST0 has SE (7970h), so SE must come with the error too (uPD765, openMSX).
+    mem_wr(r_ctl0, 8'h04);
+    command("init specify", '{8'h03, 8'hDF, 8'h09});
+    command("init recalibrate", '{8'h07, 8'h00});
+    begin
+        longint unsigned t0 = cyc, t_end = cyc + 3000 * longint'(MS);
+        bit done = 0;
+        while (!done && cyc < t_end) begin
+            command("init sense int", '{8'h08});
+            result_any(r);
+            if (r.size() == 2) begin
+                done = 1;
+                $display("init recalibrate (motor off): ST0 %02h PCN %0d after %0d ms", r[0], r[1], (cyc - t0) / MS);
+                if (r[0] != 8'h70)                      // IC 01, SE (the ROM waits for it), EC
+                    fail($sformatf("init recalibrate (motor off): ST0 %02h (expected 70h)", r[0]));
+            end
+        end
+        if (!done) fail("init recalibrate (motor off): Sense Interrupt never reports the end (80h only)");
+    end
+    mem_wr(r_ctl0, 8'h14);
+    repeat (5 * MS) @(negedge clk);
+
     // --- Specify (non-DMA), Recalibrate, Sense Drive Status
     command("specify", '{8'h03, 8'hDF, 8'h09});
 `ifdef MSR_TRACE
@@ -353,6 +379,46 @@ initial begin
     result("read T5 S10", 7, r);
     if (r[0][7:6] != 2'b01 || r[1] != 8'h04)
         fail($sformatf("read T5 S10: ST0 %02h ST1 %02h ST2 %02h (expected 4x 04 xx)", r[0], r[1], r[2]));
+
+    // --- drive 1 has no disk (not ready): Sense Interrupt must report the Recalibrate end (the
+    // ROM polls it). ST0 differs between models: this core 29h (SE, NR), upstream PC88_MiSTer
+    // 69h (IC 01), openMSX 21h (SE only); checked: SE, US = 1, IC 00 or 01
+    mem_wr(r_ctl0, 8'h21);                              // motor 1, drive 1
+    command("recalibrate (no disk)", '{8'h07, 8'h01});
+    begin
+        longint unsigned t_end = cyc + 2000 * longint'(MS);
+        bit done = 0;
+        while (!done && cyc < t_end) begin
+            repeat (MS) @(negedge clk);
+            command("no disk sense int", '{8'h08});
+            result_any(r);
+            if (r.size() == 2) begin
+                done = 1;
+                if (!r[0][5] || r[0][1:0] != 2'b01 || r[0][7])
+                    fail($sformatf("recalibrate (no disk): ST0 %02h (expected SE, US 1)", r[0]));
+                else $display("recalibrate (no disk): ST0 %02h after %0d ms", r[0], (cyc - (t_end - 2000 * longint'(MS))) / MS);
+            end
+        end
+        if (!done) fail("recalibrate (no disk): Sense Interrupt never reports the end (80h only)");
+    end
+    command("seek 5 (no disk)", '{8'h0F, 8'h01, 8'h05});
+    begin
+        longint unsigned t0 = cyc, t_end = cyc + 2500 * longint'(MS);
+        bit done = 0;
+        while (!done && cyc < t_end) begin
+            repeat (MS) @(negedge clk);
+            command("no disk sense int", '{8'h08});
+            result_any(r);
+            if (r.size() == 2) begin
+                done = 1;
+                if (!r[0][5] || r[0][1:0] != 2'b01 || r[0][7])
+                    fail($sformatf("seek (no disk): ST0 %02h (expected SE, US 1)", r[0]));
+                else $display("seek (no disk): ST0 %02h PCN %0d after %0d ms", r[0], r[1], (cyc - t0) / MS);
+            end
+        end
+        if (!done) fail("seek (no disk): Sense Interrupt never reports the end (80h only)");
+    end
+    mem_wr(r_ctl0, 8'h14);                              // back to drive 0
 
     // --- turbo R registers: 7FF4 / 7FF5, 7FF1 disk change (bits 4 / 5 = 0, read clears)
     use_turbo_r_regs(1);

@@ -96,7 +96,7 @@ module headseek #(
                                 current <= current + 1;
                             end else begin
                                 seekerrb <= 1'b1;
-                                busyb    <= 1'b1;
+                                busyb    <= 1'b0;      // was 1: drive busy for ever (a9ab3e6)
                                 state    <= ST_IDLE;
                             end
                         end else begin
@@ -139,6 +139,7 @@ module headseek #(
                 end
                 ST_IDLE: begin
                     if (destset) begin
+                        seekerrb <= 1'b0;                  // a9ab3e6
                         if (current == desttrack) begin
                             reachtrack <= 1'b1;
                             state      <= ST_NOP;

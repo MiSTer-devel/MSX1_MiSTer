@@ -99,7 +99,7 @@ kap. 3.1 `doc/fork-muhanpong.md`). Sloupce FPGA a openMSX doplní měření.
 
 | Stránka | NMS 8245, V9938 PAL (sim.) | VG-8020, TMS (sim.) | FPGA | openMSX |
 |---|---|---|---|---|
-| 1 snímek | 1268–1271 | 1060–1064 (= NTSC!) | | |
+| 1 snímek | 1268–1271 | 1268–1272 (po opravě PAL, dřív 1060–1064) | | |
 | 3 VR | 485 / 780 / 1 | — | | |
 | 4 FH, R#19 = 0/100/191 | 492 / 899 / 1269 | — | | |
 | 5 FH | a) 1111; b) 899 / 0 / 0; c) 0000 | — | | |
@@ -109,8 +109,8 @@ kap. 3.1 `doc/fork-muhanpong.md`). Sloupce FPGA a openMSX doplní měření.
 | 8 LINE 255,100 / 255,255 / HMMV vyp. | 77 / 77 / 3262 | — | | |
 
 **Poznámky:**
-- **VG-8020 je PAL stroj**, ale TMS v jádře běží v NTSC. `deviceParams.json` kóduje PAL = 0, NTSC = 1
-  a `dev_tms` posílá `param[0]` přímo do `is_pal_i`. Polarita je nejspíš prohozená, otevřené.
+- **VG-8020 (PAL)** běžel s TMS v NTSC: `deviceParams.json` kóduje PAL = 0, NTSC = 1 a
+  `dev_tms` posílal `param[0]` přímo do `is_pal_i`. Opraveno v `9de13dc`.
 - **Příkazy VDP v řádcích** (iterace × 56 / 228), ESE VDP: HMMV ~1118, LMMV ~4591, HMMM ~1370,
   LMMM ~5339, YMMM ~1394.
   - Fork uvádí openMSX (stejná sada příkazů, parametry neověřené): HMMV 722, LMMV 1476,

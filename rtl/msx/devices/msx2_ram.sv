@@ -34,7 +34,7 @@ module dev_msx2_ram (
     
     always_comb begin : output_mux
         data_to_mapper = 8'hFF;
-        for (int i = 0; i < 3; i++) begin
+        for (int i = 0; i < MSX::N_MEM_MAPPER; i++) begin
             if (io_device[i].enable && io_device[i].device_ref == device_bus.device_ref ) begin
                 data_to_mapper = data_to_mapper_ar[i];
             end
@@ -44,20 +44,25 @@ module dev_msx2_ram (
     genvar i;
     generate
         for (i = 0; i < 3; i++) begin : msx2_ram_dev_INSTANCES
-            wire cs_io_active = (cpu_bus.addr[7:0] & io_device[i].mask) == io_device[i].port;
-            wire cs_enable = io_device[i].enable && cs_io_active && io_en;
-            msx2_ram msx2_ram_i (
-                .clk(cpu_bus.clk),
-                .reset(cpu_bus.reset),
-                .data(cpu_bus.data),
-                .addr(cpu_bus.addr),
-                .oe(cs_enable && cpu_bus.rd),
-                .wr(cs_enable && cpu_bus.wr && cpu_bus.req),
-                .size(io_device[i].param),
-                .q(data_out[i]),
-                .data_to_mapper(data_to_mapper_ar[i]),
-                .limit_mapper(i == 0 ? limit_internal_mapper : 1'b0)
-            );
+            if (i < MSX::N_MEM_MAPPER) begin : inst
+                wire cs_io_active = (cpu_bus.addr[7:0] & io_device[i].mask) == io_device[i].port;
+                wire cs_enable = io_device[i].enable && cs_io_active && io_en;
+                msx2_ram msx2_ram_i (
+                    .clk(cpu_bus.clk),
+                    .reset(cpu_bus.reset),
+                    .data(cpu_bus.data),
+                    .addr(cpu_bus.addr),
+                    .oe(cs_enable && cpu_bus.rd),
+                    .wr(cs_enable && cpu_bus.wr && cpu_bus.req),
+                    .size(io_device[i].param),
+                    .q(data_out[i]),
+                    .data_to_mapper(data_to_mapper_ar[i]),
+                    .limit_mapper(i == 0 ? limit_internal_mapper : 1'b0)
+                );
+            end else begin : none
+                assign data_out[i]          = 8'hFF;
+                assign data_to_mapper_ar[i] = 8'hFF;
+            end
         end
     endgenerate
 

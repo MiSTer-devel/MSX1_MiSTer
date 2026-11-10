@@ -66,7 +66,7 @@ module msx #(parameter sysCLK)
    //KBD
    input MSX::kb_memory_t   kb_upload_memory,
    //SD FDC
-   FDD_if.FDC_mp           FDD_bus[3]
+   FDD_if.FDC_mp           FDD_bus[MSX::N_FDC]
 
    /*
    input                    img_mounted,

@@ -1,4 +1,5 @@
-// dev_dac: sum of 3 DACs at full width (no 16-bit wrap), sign extension of negative values.
+// dev_dac: sum of the MSX::N_DAC built DACs at full width (no 16-bit wrap), sign extension of
+// negative values. Writes go to all 3 io_device entries, the ones not built stay silent.
 // Run: wsl.exe -- bash rtl/msx/devices/tb/run_dac.sh [alt_dac.sv]
 module dac_tb;
 
@@ -39,7 +40,7 @@ endfunction
 task automatic check(input logic [7:0] a, b, c);
     int exp;
     dac_write(0, a); dac_write(1, b); dac_write(2, c);
-    exp = scale(a) + scale(b) + scale(c);
+    exp = (MSX::N_DAC > 0 ? scale(a) : 0) + (MSX::N_DAC > 1 ? scale(b) : 0) + (MSX::N_DAC > 2 ? scale(c) : 0);
     if (sound !== exp) begin
         errors++;
         $display("FAIL dac %02h %02h %02h: sound=%0d exp %0d", a, b, c, sound, exp);

@@ -34,14 +34,14 @@ endfunction
 
     always_comb begin
         sound = '0;
-        for (int i = 0; i < 3; i++)
+        for (int i = 0; i < MSX::N_DAC; i++)
             if (io_device[i].enable) sound += scale(audio_dac[i]);
     end
 
     assign cs = cpu_bus.addr[15:14] == 2'b01 && ~cpu_bus.addr[4] && cpu_bus.mreq && cpu_bus.wr && cpu_bus.req;
 
     genvar i;
-    generate for (i=0; i<3; i++) begin : g_dac
+    generate for (i=0; i<MSX::N_DAC; i++) begin : g_dac
         always_ff @(posedge cpu_bus.clk) begin
             if (cpu_bus.reset) 
                 audio_dac[i] <= '0;

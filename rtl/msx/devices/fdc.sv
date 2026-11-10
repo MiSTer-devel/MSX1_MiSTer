@@ -16,34 +16,36 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 
-// Floppy controllers at the memory_upload positions (0 cartridge A, 1 cartridge B, 2 internal).
-// Position i drives FDD unit i. A WD2793 copy sits at every position below MSX::N_WD2793; the
-// only TC8566AF copy sits at MSX::TC8566AF_POS and takes the unit over when it is enabled.
+// One floppy controller per FDC position (MSX::N_FDC; 0 internal, 1 cartridge in slot A),
+// position i drives FDD unit i. The TC8566AF (MSX::N_TC8566AF) sits at position 0 and takes
+// the unit over when enabled.
 module dev_FDC #(parameter sysCLK)
 (
    cpu_bus_if.device_mp    cpu_bus,
    input  MSX::device_bus_t device_bus,
    input  MSX::block_info_t block_info,
    input MSX::io_device_t  io_device[32][3],
-   FDD_if.FDC_mp           FDD_bus[3],
+   FDD_if.FDC_mp           FDD_bus[MSX::N_FDC],
    output            [7:0] data,
    output                  data_oe_rq
 );
 
-   assign data       = fdc_data[0] & fdc_data[1] & fdc_data[2];
-   assign data_oe_rq = fdc_oe_rq[0] | fdc_oe_rq[1] | fdc_oe_rq[2];
+   logic [7:0] fdc_data[MSX::N_FDC];
+   logic       fdc_oe_rq[MSX::N_FDC];
 
-   logic [7:0] fdc_data[3];
-   logic       fdc_oe_rq[3];
+   // N_FDC is 1 or 2
+   assign data       = fdc_data[0] & fdc_data[MSX::N_FDC-1];
+   assign data_oe_rq = fdc_oe_rq[0] | fdc_oe_rq[MSX::N_FDC-1];
+
    genvar i;
    generate
-      for (i = 0; i < 3; i++) begin : FDC_INSTANCES
+      for (i = 0; i < MSX::N_FDC; i++) begin : FDC_INSTANCES
          FDD_if wd_bus();
          FDD_if tc_bus();
          wire [7:0] wd_data, tc_data;
          wire       wd_oe_rq, tc_oe_rq, tc_enable;
 
-         if (i < MSX::N_WD2793) begin : wd
+         begin : wd
             wire cs_dev                = (io_device[DEV_WD2793][i].device_ref == device_bus.device_ref && io_device[DEV_WD2793][i].enable);
             wire [1:0] model           = io_device[DEV_WD2793][i].param[1:0];
             wire [1:0] floppy_drive_en = io_device[DEV_WD2793][i].param[3:2];
@@ -57,13 +59,9 @@ module dev_FDC #(parameter sysCLK)
                .data(wd_data),
                .data_oe_rq(wd_oe_rq)
             );
-         end else begin : no_wd
-            assign wd_data  = 8'hFF;
-            assign wd_oe_rq = 1'b0;
-            fdc_if_idle idle (.FDC_bus(wd_bus));
          end
 
-         if (i == MSX::TC8566AF_POS) begin : tc
+         if (i == 0 && MSX::N_TC8566AF > 0) begin : tc
             wire cs_dev = (io_device[DEV_TC8566AF][i].device_ref == device_bus.device_ref && io_device[DEV_TC8566AF][i].enable);
             dev_TC8566AF #(.sysCLK(sysCLK)) TC8566AF (
                .cpu_bus(cpu_bus),

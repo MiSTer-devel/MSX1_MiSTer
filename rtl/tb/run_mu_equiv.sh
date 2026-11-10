@@ -16,8 +16,12 @@ REF=${REF:-2451995}
 [ -n "$DUT" ] && DUT=$(realpath "$DUT")
 cd "$(dirname "$0")"
 OUT=$(mktemp -d)
+# reference: old copy limits (3, SCC 2) and its FDC block device records for the tb
 if [ -f "$REF" ]; then cat "$REF"; else git -C .. show "$REF:rtl/memory_upload.sv"; fi |
-    sed 's/^module memory_upload\r\?$/module memory_upload_ref/' > "$OUT/memory_upload_ref.sv"
+    sed 's/^module memory_upload\r\?$/module memory_upload_ref/' |
+    sed "s/MSX::dev_copies(device_t'(conf\[1\]))/(device_t'(conf[1]) == DEV_SCC ? 2'd2 : 2'd3)/g" |
+    sed "/^endmodule/i\\    wire tb_fdc_rec = state == STATE_PROCESS_BLOCK \&\& block_t'(conf[2]) == BLOCK_DEVICE \&\& (device_t'(conf[3]) == DEV_WD2793 || device_t'(conf[3]) == DEV_TC8566AF);\n    wire tb_load_start = state == STATE_CLEAN;" \
+    > "$OUT/memory_upload_ref.sv"
 grep -q "^module memory_upload_ref" "$OUT/memory_upload_ref.sv" || { echo "reference module not found"; exit 1; }
 verilator --binary --timing -O3 -Wno-fatal -Wno-lint -Wno-style \
     --top-module mu_equiv_tb -Mdir "$OUT" \

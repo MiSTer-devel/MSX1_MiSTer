@@ -145,9 +145,9 @@ module memory_upload
     // copies of the device type of the current record:
     wire  [4:0] dev_rd_t = (state == STATE_PROCESS_BLOCK) ? conf[3][4:0] : conf[1][4:0];
     wire  [2:0] dev_en   = {io_device[dev_rd_t][2].enable, io_device[dev_rd_t][1].enable, io_device[dev_rd_t][0].enable};
-    // CONF_DEVICE: free copies within the number of synthesized copies (MSX::dev_copies)
-    wire  [1:0] dev_max  = MSX::dev_copies(device_t'(conf[1]));
-    wire  [2:0] dev_free = ~dev_en & {dev_max > 2'd2, dev_max > 2'd1, dev_max > 2'd0};
+    // free copies of that type among the synthesized ones (MSX::dev_slots)
+    wire  [2:0] dev_ok   = MSX::dev_slots(device_t'(dev_rd_t));
+    wire  [2:0] dev_free = ~dev_en & dev_ok;
     wire        dev_slot_free = |dev_free;
     logic  [3:0] ref_ram;
     logic        crc_en;
@@ -155,6 +155,10 @@ module memory_upload
     logic        cart_id;
     logic        fw_space;
     logic  [1:0] slot, subslot, block;
+    // FDC (WD2793 / TC8566AF) position: 0 internal, 1 cartridge in slot A (with N_FDC = 1 the
+    // cartridge shares position 0). One FDC per position, whichever type.
+    wire  [1:0] fdc_pos  = (fw_space && MSX::N_FDC > 1) ? 2'd1 : 2'd0;
+    wire        fdc_busy = io_device[DEV_WD2793][fdc_pos].enable || io_device[DEV_TC8566AF][fdc_pos].enable;
 
     // io_device write command, registered (applied one clock after the step that makes it;
     // the enable bits are next read several steps later)
@@ -486,7 +490,7 @@ module memory_upload
                                 pattern                           <= PATTERN_DDR;
                                 state                             <= STATE_FILL_RAM;
                                 next_state                        <= STATE_READ_CONF;
-                            end else begin
+                            end else if (dev_slot_free) begin                             // no copy left: stays stopped
                                 state      <= STATE_READ_CONF;
                                 next_state <= STATE_LOAD_CONF;
                             end
@@ -649,19 +653,32 @@ module memory_upload
                             state  <= STATE_SET_LAYOUT;
                             device <= device_t'(conf[3]);
                             last_device <= device_t'(conf[3]);
-                            if (device_t'(conf[3]) == DEV_TC8566AF || device_t'(conf[3]) == DEV_WD2793) begin       //FIXED DEVICE position ID
-                                dev_wk                = fw_space ? {1'b0, cart_id} : 2'd2;
-                                dev_we_en             = 1'b1;
-                                dev_we_plo            = 1'b1;
-                                dev_we_phi            = 1'b1;
-                                dev_we_dref           = 1'b1;
-                                io_ref_mapper         <= current_io_ref_mapper == '0 ? io_ref_mapper + 3'd1 : io_ref_mapper;
-                                current_io_ref_mapper <= current_io_ref_mapper == '0 ? io_ref_mapper : current_io_ref_mapper;
-                                last_device_num       <= fw_space ? {1'b0, cart_id} : 2'd2;
-                                $display("BLOCK IO_DEVICE[%x] IS FIXED pos:%x reference %d", device_t'(conf[3]), fw_space ? {1'b0, cart_id} : 2'd2, current_io_ref_mapper == '0 ? io_ref_mapper : current_io_ref_mapper );
-                                $display("BLOCK IO_DEVICE[%x][%x] enable: 1 param:%x", device_t'(conf[3]), fw_space ? {1'b0, cart_id} : 2'd2, conf[4]);
-                            end else if (dev_en != 3'b111) begin                    // first free copy
-                                dev_wk                = ~dev_en[0] ? 2'd0 : ~dev_en[1] ? 2'd1 : 2'd2;
+                            if (device_t'(conf[3]) == DEV_TC8566AF || device_t'(conf[3]) == DEV_WD2793) begin       // FDC: fixed position
+                                if ((fw_space && cart_id) || !dev_ok[fdc_pos]) begin  // slot B, or not built at this position
+                                    error       <= ERR_MISSING_SOURCE;
+                                    state       <= STATE_IDLE;
+                                    device      <= DEV_NONE;
+                                    last_device <= DEV_NONE;
+                                    $display("FDC %x NOT IN THIS BUILD (cartridge %0d, position %0d)", device_t'(conf[3]), fw_space ? cart_id + 1 : 0, fdc_pos);
+                                end else if (fdc_busy) begin                         // one FDC per position
+                                    error       <= ERR_FDC_PRESENT;
+                                    state       <= STATE_IDLE;
+                                    device      <= DEV_NONE;
+                                    last_device <= DEV_NONE;
+                                    $display("FDC %x: POSITION %0d ALREADY HAS AN FDC", device_t'(conf[3]), fdc_pos);
+                                end else begin
+                                    dev_wk                = fdc_pos;
+                                    dev_we_en             = 1'b1;
+                                    dev_we_plo            = 1'b1;
+                                    dev_we_phi            = 1'b1;
+                                    dev_we_dref           = 1'b1;
+                                    io_ref_mapper         <= current_io_ref_mapper == '0 ? io_ref_mapper + 3'd1 : io_ref_mapper;
+                                    current_io_ref_mapper <= current_io_ref_mapper == '0 ? io_ref_mapper : current_io_ref_mapper;
+                                    last_device_num       <= fdc_pos;
+                                    $display("BLOCK IO_DEVICE[%x][%x] FDC enable: 1 param:%x reference %d", device_t'(conf[3]), fdc_pos, conf[4], current_io_ref_mapper == '0 ? io_ref_mapper : current_io_ref_mapper);
+                                end
+                            end else if (dev_slot_free) begin                       // first free synthesized copy
+                                dev_wk                = dev_free[0] ? 2'd0 : dev_free[1] ? 2'd1 : 2'd2;
                                 dev_we_en             = 1'b1;
                                 dev_we_plo            = 1'b1;
                                 dev_we_phi            = 1'b1;
@@ -671,9 +688,9 @@ module memory_upload
                                 last_device_num       <= dev_wk;
                                 $display("BLOCK IO_DEVICE[%x][%x] enable: 1 param:%x reference: %d", device_t'(conf[3]), dev_wk, conf[4], current_io_ref_mapper == '0 ? io_ref_mapper : current_io_ref_mapper);
                             end else begin
-                                error                 <= ERR_DEVICE_MISSING;                  // DEVICE JIZ NENI K DISPOZICI
+                                error                 <= ERR_MISSING_SOURCE;                  // no synthesized copy left
                                 state                 <= STATE_IDLE;
-                                $display("DEVICE %x JIZ NENI K DISPOZICI", device_t'(conf[3]));
+                                $display("DEVICE %x: NO COPY LEFT IN THIS BUILD", device_t'(conf[3]));
                                 device                <= DEV_NONE;
                                 last_device           <= DEV_NONE;
                             end
@@ -818,21 +835,10 @@ module memory_upload
                         dev_wt     = device;
                         dev_wk     = last_device_num;
                         dev_we_phi = 1'b1;
-                        if (fw_space) begin
-                            if (cart_id) begin
-                                msx_config.fdd[3:2] <= conf[4][3:2];
-                                dev_param[7:6] = 2'd1;
-                                $display("Change FDD layout. Slot %d: %x ", cart_id, conf[4][3:2]);
-                            end else begin
-                                msx_config.fdd[1:0] <= conf[4][3:2];
-                                dev_param[7:6] = 2'd0;
-                                $display("Change FDD layout. Internal: %x) ", conf[4][3:2]);
-                            end
-                        end else begin
-                            msx_config.fdd[5:4] <= conf[4][3:2];
-                            dev_param[7:6] = 2'd2;
-                            $display("Change FDD layout. Internal: %x) ", conf[4][3:2]);
-                        end
+                        dev_param[7:6] = fw_space ? 2'd0 : 2'd2;           // placement: cartridge A / internal
+                        if (last_device_num[0]) msx_config.fdd[3:2] <= conf[4][3:2];
+                        else                    msx_config.fdd[1:0] <= conf[4][3:2];
+                        $display("Change FDD layout. Position %0d (%s): %x", last_device_num, fw_space ? "cartridge A" : "internal", conf[4][3:2]);
                     end
                 end
                 STATE_SEARCH_CRC32_INIT: begin

@@ -15,6 +15,17 @@
 // of the stopped run, the module under test from 0. What the entries of the blocks with a
 // mapper hold is always compared.
 //
+// Device limits (MSX::dev_slots, MSX::N_FDC) are applied to the reference result, which has
+// the old rules (3 copies, SCC 2; FDC at 0 cartridge A, 1 cartridge B, 2 internal):
+// - a load whose reference result needs more copies than built, an FDC cartridge in slot B,
+//   or more FDC records than positions must stop with ERR_MISSING_SOURCE / ERR_FDC_PRESENT;
+//   only the error is compared and the streams are taken over from the reference. The next
+//   load is not compared either: the reference finished the load the new module stopped and
+//   carries registers of it (device, last_device_num) into the next one;
+// - otherwise the FDC of reference position 2 (internal) is at 0, of position 0 (cartridge A)
+//   at 1 with N_FDC = 2, else at 0; msx_config.fdd moves with it.
+// The FDC records are counted in the reference (tb_fdc_rec, tb_load_start: run_mu_equiv.sh).
+//
 //   wsl.exe -- bash rtl/tb/run_mu_equiv.sh <packs dir> <CART_FW.msx> <ROM set dir>
 `timescale 1ns/1ps
 
@@ -153,8 +164,16 @@ always_ff @(posedge clk) begin
     idle_r <= (idle_clr || rd_r || mem_r.ram_cs || kb_r.we || !ready_r) ? 0 : idle_r + 1;
 end
 
+// FDC block device records of the reference's current load
+int   fdc_rec = 0;
+always_ff @(posedge clk) begin
+    if (ref_i.tb_load_start)   fdc_rec <= 0;
+    else if (ref_i.tb_fdc_rec) fdc_rec <= fdc_rec + 1;
+end
+
 // ------------------------------------------------------------------ compare
-int    errors = 0, compares = 0;
+int    errors = 0, compares = 0, limit_stops = 0, after_stop = 0;
+bit    stopped = 0;
 bit    strict = 0;
 MSX::block_t      nlay[64];
 MSX::lookup_RAM_t nram[64];
@@ -167,7 +186,59 @@ string ctx = "";
 `define CMP(what, a, b) begin compares++; if ((a) !== (b)) begin errors++; \
     if (errors <= maxdiff) $display("DIFF [%s] %s: new %0h, ref %0h", ctx, what, a, b); end end
 
+function automatic int ones3(input logic [2:0] m);
+    return int'(m[0]) + int'(m[1]) + int'(m[2]);
+endfunction
+
+// The reference result breaks a limit of this build
+function automatic bit over_limit();
+    logic [2:0] fdc_at;
+    int         npos;
+    for (int t = 0; t < 32; t++)
+        if (t != DEV_WD2793 && t != DEV_TC8566AF &&
+            int'(dev_r[t][0].enable) + int'(dev_r[t][1].enable) + int'(dev_r[t][2].enable) > ones3(MSX::dev_slots(device_t'(t)))) begin
+            if ($test$plusargs("v")) $display("| limit: device type %0d, %0d copies", t, int'(dev_r[t][0].enable) + int'(dev_r[t][1].enable) + int'(dev_r[t][2].enable));
+            return 1;
+        end
+    for (int p = 0; p < 3; p++) fdc_at[p] = dev_r[DEV_WD2793][p].enable || dev_r[DEV_TC8566AF][p].enable;
+    if (fdc_at[1]) return 1;                                            // cartridge B
+    npos = int'(fdc_at[0]) + int'(fdc_at[2]);
+    if (MSX::N_FDC == 1 ? fdc_rec > 1 : fdc_rec > npos) return 1;       // two FDCs at one position
+    if (dev_r[DEV_TC8566AF][2].enable && !MSX::dev_slots(DEV_TC8566AF)[0]) return 1;
+    if (dev_r[DEV_TC8566AF][0].enable && !MSX::dev_slots(DEV_TC8566AF)[MSX::N_FDC > 1 ? 1 : 0]) return 1;
+    return 0;
+endfunction
+
 task automatic compare();
+    MSX::io_device_t exp_dev[32][3];
+    logic [5:0]      exp_fdd;
+    int              cart_pos;
+    if (over_limit()) begin
+        limit_stops++;
+        stopped = 1;
+        `CMP("error (limit)", err_n == ERR_MISSING_SOURCE || err_n == ERR_FDC_PRESENT, 1'b1)
+        mh_n = mh_r; mc_n = mc_r; kh_n = kh_r; kc_n = kc_r; lsc_n = lsc_r; rsc_n = rsc_r;
+        return;
+    end
+    if (stopped) begin                                                  // first load after a stop
+        stopped = 0;
+        after_stop++;
+        mh_n = mh_r; mc_n = mc_r; kh_n = kh_r; kc_n = kc_r; lsc_n = lsc_r; rsc_n = rsc_r;
+        return;
+    end
+    // FDC positions of this build
+    cart_pos = MSX::N_FDC > 1 ? 1 : 0;
+    exp_dev  = dev_r;
+    exp_fdd  = '0;
+    for (int j = 0; j < 2; j++) begin
+        int t = j ? int'(DEV_TC8566AF) : int'(DEV_WD2793);
+        exp_dev[t][0] = dev_r[t][1];                                    // unused entry (the default)
+        exp_dev[t][2] = dev_r[t][1];
+        if (dev_r[t][2].enable) exp_dev[t][0] = dev_r[t][2];
+        if (dev_r[t][0].enable) exp_dev[t][cart_pos] = dev_r[t][0];
+    end
+    if (dev_r[DEV_WD2793][2].enable || dev_r[DEV_TC8566AF][2].enable) exp_fdd[1:0] = cfg_r.fdd[5:4];
+    if (dev_r[DEV_WD2793][0].enable || dev_r[DEV_TC8566AF][0].enable) exp_fdd[2*cart_pos +: 2] = cfg_r.fdd[1:0];
     `CMP("error", err_n, err_r)
     `CMP("upload", up_n, up_r)
     `CMP("reset", rst_n, rst_r)
@@ -179,7 +250,7 @@ task automatic compare();
     `CMP("keyboard writes", kc_n, kc_r)
     `CMP("keyboard stream", kh_n, kh_r)
     `CMP("bus rnw / sram_cs", bad_bus, 0)
-    `CMP("msx_config", {cfg_n.cpu, cfg_n.wait_count, cfg_n.cpu_clock_sel, cfg_n.fdd}, {cfg_r.cpu, cfg_r.wait_count, cfg_r.cpu_clock_sel, cfg_r.fdd})
+    `CMP("msx_config", {cfg_n.cpu, cfg_n.wait_count, cfg_n.cpu_clock_sel, cfg_n.fdd}, {cfg_r.cpu, cfg_r.wait_count, cfg_r.cpu_clock_sel, exp_fdd})
     `CMP("main_ram.en", main_n.en, main_r.en)
     if (main_r.en) begin
         if (strict) `CMP("main_ram.ref_ram", main_n.ref_ram, main_r.ref_ram)
@@ -195,7 +266,7 @@ task automatic compare();
         for (int k = 0; k < 3; k++)
             `CMP($sformatf("io_device[%0d][%0d] (mask port param mem_ref device_ref enable)", t, k),
                  {dev_n[t][k].mask, dev_n[t][k].port, dev_n[t][k].param, 1'b0, dev_n[t][k].mem_ref, 1'b0, dev_n[t][k].device_ref, 3'b0, dev_n[t][k].enable},
-                 {dev_r[t][k].mask, dev_r[t][k].port, dev_r[t][k].param, 1'b0, dev_r[t][k].mem_ref, 1'b0, dev_r[t][k].device_ref, 3'b0, dev_r[t][k].enable})
+                 {exp_dev[t][k].mask, exp_dev[t][k].port, exp_dev[t][k].param, 1'b0, exp_dev[t][k].mem_ref, 1'b0, exp_dev[t][k].device_ref, 3'b0, exp_dev[t][k].enable})
     if (strict)
         for (int i = 0; i < 16; i++)
             `CMP($sformatf("lookup_RAM[%0d]", i), dut.ram_slots[i], {ram_r[i].addr, ram_r[i].size, ram_r[i].ro})
@@ -394,7 +465,7 @@ initial begin
         end
     end
 
-    $write("%s mu_equiv seed %0d: %0d compares, %0d differences; errors seen:", errors ? "FAIL" : "PASS", seed, compares, errors);
+    $write("%s mu_equiv seed %0d: %0d compares, %0d differences, %0d limit stops (%0d next loads skipped); errors seen:", errors ? "FAIL" : "PASS", seed, compares, errors, limit_stops, after_stop);
     for (int i = 0; i < 16; i++) if (stat_err[i] > 0) $write(" %0d x%0d", i, stat_err[i]);
     $display("");
     $finish;

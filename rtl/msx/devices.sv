@@ -22,7 +22,7 @@ module devices  #(parameter sysCLK)
     input                   hard_reset,                             // cold reset (cpu_bus.reset is any reset)
     cpu_bus_if.device_mp    cpu_bus,                                // CPU bus interface
     input  MSX::device_bus_t device_bus,                             // Device control bus interface
-    FDD_if.FDC_mp           FDD_bus[3],
+    FDD_if.FDC_mp           FDD_bus[MSX::N_FDC],
     output MSX::video_t     video_bus,
     vram_bus_if.device_mp   vram_bus,
     memory_bus_if.device_mp memory_bus,

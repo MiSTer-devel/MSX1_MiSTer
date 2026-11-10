@@ -16,6 +16,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 
+// block_device_FDD[i] = hps_io VD i+1, VDNUM = 1 + 2*MSX::N_FDC
 module blockDevMux #(parameter VDNUM) (
     input                     clk,
     input                     reset,
@@ -38,23 +39,23 @@ module blockDevMux #(parameter VDNUM) (
     input              [63:0] img_size,
     input                     img_readonly,
     
-    block_device_if.hps_mp    block_device_FDD[6],
+    block_device_if.hps_mp    block_device_FDD[VDNUM-1],
     block_device_if.hps_mp    block_device_SD
 );
 
     // FDD images: size and read-only latched per drive (img_size / img_readonly of hps_io are
     // valid only with the img_mounted pulse); img_mounted itself goes on as the 1 clk event
     // "image (re)mounted", as for the SD card. A mounted image survives a core reset.
-    logic [23:0] FDD_image_size[6];
-    logic  [5:0] FDD_image_ro;
+    logic [23:0] FDD_image_size[VDNUM-1];
+    logic [VDNUM-2:0] FDD_image_ro;
 
     initial begin
         FDD_image_size     = '{default: 24'd0};
-        FDD_image_ro       = 6'd0;
+        FDD_image_ro       = '0;
     end
 
     always_ff @(posedge clk) begin
-        for (int i = 0; i < 6; i++) begin
+        for (int i = 0; i < VDNUM-1; i++) begin
             if (img_mounted[i+1]) begin
                 FDD_image_size[i] <= img_size[23:0];
                 FDD_image_ro[i]   <= img_readonly;
@@ -64,7 +65,7 @@ module blockDevMux #(parameter VDNUM) (
 
     genvar i;
     generate
-        for (i = 0; i < 6; i++) begin : BLOCK_DEVICE_FDD_MAPS
+        for (i = 0; i < VDNUM-1; i++) begin : BLOCK_DEVICE_FDD_MAPS
             assign sd_lba[i+1]                        = block_device_FDD[i].lba;
             assign sd_blk_cnt[i+1]                    = block_device_FDD[i].blk_cnt;
             assign sd_rd[i+1]                         = block_device_FDD[i].rd;

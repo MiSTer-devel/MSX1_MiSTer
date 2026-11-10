@@ -40,7 +40,7 @@ module msx_system (
     input                       img_readonly,
     input              [63:0]   img_size,
     input                       sd_img_mounted,         // virtual SD card image (block_device_SD)
-    block_device_if.device_mp   block_device_FDD[6],
+    block_device_if.device_mp   block_device_FDD[2*MSX::N_FDC],
     output MSX::msx_config_t    msx_config,
 
     // Peripherals
@@ -68,7 +68,7 @@ localparam int sysCLK = MSX::CLK_CORE_HZ;
 
 flash_bus_if    flash_bus();
 vram_bus_if     vram_bus();
-FDD_if          FDD_bus[3]();
+FDD_if          FDD_bus[MSX::N_FDC]();
 memory_bus_if   memory_bus_msx();
 memory_bus_if   memory_bus_upload();
 memory_bus_if   memory_bus_flash();
@@ -342,39 +342,28 @@ tape cass
 );
 
 /////////////////   FLOPPY DRIVES   /////////////////
-// One FDD unit (2 drives) per FDC position. memory_upload puts the FDC at a fixed position
-// (0 cartridge A, 1 cartridge B, 2 internal), unit fi is that controller's: a WD2793 copy
-// (MSX::N_WD2793) or the TC8566AF (MSX::TC8566AF_POS).
+// One FDD unit (2 drives) per FDC position (MSX::N_FDC), fed by the WD2793 of that position
+// or, at position 0, by the TC8566AF.
 // Drive properties from its XML parameters: bit 4 single_sided, WD2793 bits 1:0 style 0 Philips,
 // 1 National, 2 Sony (openMSX MSXFDC: TRACK0 / WPROT need the motor only for Philips or without
 // a style; Sony motor keeps running 4 s, motor_off_timeout_ms of all Sony machines).
-genvar fi, fd;
+genvar fi;
 generate
-   for (fi = 0; fi < 3; fi++) begin : g_fdd
-      if (fi < MSX::N_WD2793 || fi == MSX::TC8566AF_POS) begin : inst
-         // TC8566AF (no connection style: signals need the motor, motor stops at once)
-         wire       tc_enable  = fi == MSX::TC8566AF_POS && io_device[DEV_TC8566AF][fi].enable;
-         wire [7:0] fdc_param  = tc_enable ? {io_device[DEV_TC8566AF][fi].param[7:2], 2'd0}
-                                           : io_device[DEV_WD2793][fi].param;
-         wire       fdc_enable = tc_enable || io_device[DEV_WD2793][fi].enable;
-         fdd #(.sysCLK(sysCLK), .ID(fi == 0 ? "FDD0" : fi == 1 ? "FDD1" : "FDD2")) fdd_i (
-            .clk(clock_bus.clk),
-            .reset(reset),
-            .FDD_bus(FDD_bus[fi]),
-            .block_device(block_device_FDD[2*fi:2*fi+1]),
-            .drive_ds(fdc_param[4] ? 2'b00 : 2'b11),
-            .need_motor(!fdc_enable || fdc_param[1:0] == 2'd0),
-            .motor_off_ms(fdc_enable && fdc_param[1:0] == 2'd2 ? 16'd4000 : 16'd0)
-         );
-      end else begin : none               // no FDC: block devices idle
-         for (fd = 2*fi; fd < 2*fi+2; fd++) begin : idle
-            assign block_device_FDD[fd].rd       = '0;
-            assign block_device_FDD[fd].wr       = '0;
-            assign block_device_FDD[fd].lba      = '0;
-            assign block_device_FDD[fd].blk_cnt  = '0;
-            assign block_device_FDD[fd].buff_din = '0;
-         end
-      end
+   for (fi = 0; fi < MSX::N_FDC; fi++) begin : g_fdd
+      // TC8566AF (no connection style: signals need the motor, motor stops at once)
+      wire       tc_enable  = fi == 0 && MSX::N_TC8566AF > 0 && io_device[DEV_TC8566AF][fi].enable;
+      wire [7:0] fdc_param  = tc_enable ? {io_device[DEV_TC8566AF][fi].param[7:2], 2'd0}
+                                        : io_device[DEV_WD2793][fi].param;
+      wire       fdc_enable = tc_enable || io_device[DEV_WD2793][fi].enable;
+      fdd #(.sysCLK(sysCLK), .ID(fi == 0 ? "FDD0" : "FDD1")) fdd_i (
+         .clk(clock_bus.clk),
+         .reset(reset),
+         .FDD_bus(FDD_bus[fi]),
+         .block_device(block_device_FDD[2*fi:2*fi+1]),
+         .drive_ds(fdc_param[4] ? 2'b00 : 2'b11),
+         .need_motor(!fdc_enable || fdc_param[1:0] == 2'd0),
+         .motor_off_ms(fdc_enable && fdc_param[1:0] == 2'd2 ? 16'd4000 : 16'd0)
+      );
    end
 endgenerate
 

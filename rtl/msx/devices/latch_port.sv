@@ -27,7 +27,7 @@ module dev_latch_port (
     
     always_comb begin : output_mux
         data_to_mapper = 8'hFF;
-        for (int i = 0; i < 3; i++) begin
+        for (int i = 0; i < MSX::N_LATCH_PORT; i++) begin
             if (io_device[i].enable && io_device[i].device_ref == device_bus.device_ref ) begin
                 data_to_mapper = data_to_mapper_ar[i];
             end
@@ -38,7 +38,7 @@ module dev_latch_port (
 
     genvar i;
     generate
-        for (i = 0; i < 3; i++) begin : LATCH_PORT_DEV_INSTANCES
+        for (i = 0; i < MSX::N_LATCH_PORT; i++) begin : LATCH_PORT_DEV_INSTANCES
             wire cs_active = (cpu_bus.addr[7:0] & io_device[i].mask) == io_device[i].port;
             wire cs_enable = io_device[i].enable && cs_active && io_en;
 

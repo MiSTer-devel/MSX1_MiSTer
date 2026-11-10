@@ -42,12 +42,12 @@ wire          ddr3_rd, ddr3_ready;
 wire    [7:0] ddr3_dout;
 wire   [63:0] ddr3_dout64;
 
-block_device_if block_device_FDD[6]();
+block_device_if block_device_FDD[2*MSX::N_FDC]();
 ext_sd_card_if  ext_SD_card_bus();
 memory_bus_if   sd_ch1(), sd_ch2(), sd_ch3();
 
 genvar gi;
-generate for (gi = 0; gi < 6; gi++) begin : fdd_idle
+generate for (gi = 0; gi < 2*MSX::N_FDC; gi++) begin : fdd_idle
     assign block_device_FDD[gi].ack          = 1'b0;
     assign block_device_FDD[gi].buff_addr    = '0;
     assign block_device_FDD[gi].buff_dout    = '0;
@@ -224,7 +224,7 @@ always @(posedge clk_core) begin
 end
 
 // Port F4 (reset status): every access, with the stored value (bit 7 = 1: BIOS shows the logo)
-wire [7:0] f4_reg = sys.MSX.devices.dev_reset_status.RESET_STATUS_DEV_INSTANCES[0].latch_port_i.r_status;
+wire [7:0] f4_reg = sys.MSX.devices.dev_reset_status.RESET_STATUS_DEV_INSTANCES[0].inst.latch_port_i.r_status;
 int        boot = 1, f4_ipl_wr = 0, f4_bios_wr = 0;
 logic [7:0] f4_first_read[int];
 always @(posedge clk_core) begin

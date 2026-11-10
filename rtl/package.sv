@@ -36,7 +36,7 @@ typedef enum logic [5:0] {MAPPER_NONE, MAPPER_OFFSET, MAPPER_ASCII16, MAPPER_RTY
                           MAPPER_UNUSED} mapper_typ_t;
 typedef enum logic [3:0] {BLOCK_RAM, BLOCK_ROM, BLOCK_SRAM, BLOCK_DEVICE, BLOCK_MAPPER, BLOCK_CART, BLOCK_REF_MEM, BLOCK_REF_DEV, BLOCK_IO_DEVICE, BLOCK_EXPANDER, BLOCK_REF_SHARED_MEM} block_t;
 typedef enum logic [2:0] {CONF_BLOCK, CONF_DEVICE, CONF_LAYOUT, CONF_CARTRIGE, CONF_BLOCK_FW, CONF_UNUSED5, CONF_UNUSED6, CONF_END} conf_t;
-typedef enum logic [3:0] {ERR_NONE, ERR_BAD_MSX_CONF, ERR_NOT_SUPPORTED_CONF, ERR_NOT_SUPPORTED_BLOCK, ERR_BAD_MSX_FW_CONF, ERR_NOT_FW_CONF, ERR_DEVICE_MISSING, ERR_MISSING_SOURCE, ERR_NO_CRC_DB, ERR_NO_CRC_FOUND, ERR_NO_MEMORY} error_t;
+typedef enum logic [3:0] {ERR_NONE, ERR_BAD_MSX_CONF, ERR_NOT_SUPPORTED_CONF, ERR_NOT_SUPPORTED_BLOCK, ERR_BAD_MSX_FW_CONF, ERR_NOT_FW_CONF, ERR_DEVICE_MISSING, ERR_MISSING_SOURCE, ERR_NO_CRC_DB, ERR_NO_CRC_FOUND, ERR_NO_MEMORY, ERR_FDC_PRESENT} error_t;
 
 interface cpu_regs_if();
     wire [15:0] AF;
@@ -512,37 +512,55 @@ package MSX;
         cpu_t cpu;
         logic [2:0] wait_count;
         logic [2:0] cpu_clock_sel;
-        logic [5:0] fdd;
+        logic [5:0] fdd;        // drives shown in the OSD, a bit pair per FDC position (2*N_FDC used)
     } msx_config_t;
 
     // clk_core frequency in Hz (pll outclk_1). The only place it is defined.
     localparam int CLK_CORE_HZ = 21477270;
 
-    // Synthesized copies of multi-instance devices (hardware is a superset of all
-    // configurations; io_device keeps 3 slots per type). Lower a count for a smaller
-    // build: a configuration needing more copies fails with ERR_MISSING_SOURCE
-    // ("Exceeded number of IO_DEVICE").
-    localparam int N_OPLL   = 3;
-    localparam int N_OPM    = 3;
-    localparam int N_SCC    = 2;
-    localparam int N_PSG    = 3;
-    localparam int N_WD2793 = 3;    // also the number of emulated FDD units (fdd0..2)
-    localparam int TC8566AF_POS = 2;  // memory_upload position of the one TC8566AF copy (internal)
+    // ---------------------------------------------------------------- synthesized copies
+    // The one place to set how many copies of a device are built (io_device keeps 3 slots
+    // per type). Values = what the machine XMLs and the OSD cartridges need, see
+    // doc/pocty-zarizeni.md. memory_upload stops a configuration needing more copies with
+    // ERR_MISSING_SOURCE ("Device not in this core build").
+    localparam int N_OPLL         = 2;      // 0..3  machine + FM-PAC, or FM-PAC in A and B
+    localparam int N_OPM          = 1;      // 0..3
+    localparam int N_SCC          = 2;      // 0..2
+    localparam int N_PSG          = 1;      // 0..3
+    localparam int N_DAC          = 2;      // 0..3  Synthesizer ROM in A and B
+    localparam int N_LATCH_PORT   = 2;      // 0..3  Zemina90 ROM in A and B
+    localparam int N_MEM_MAPPER   = 2;      // 0..3  machine + MFRSD in slot A
+    localparam int N_RESET_STATUS = 1;      // 0..3
+    // Floppy controller positions, each with a WD2793 and an FDD unit (2 drives):
+    // 0 = internal (machine XML), 1 = cartridge in slot A. With N_FDC = 1 the cartridge
+    // takes position 0 and only when the machine has no FDC (ERR_FDC_PRESENT). FDC
+    // cartridges go to slot A only. N_FDC = 2 also needs the S3/S4 drive items in CONF_STR.
+    localparam int N_FDC          = 1;      // 1..2
+    localparam int N_TC8566AF     = 1;      // 0..1, position 0 only
+    // Every other device type is a single copy.
 
     // Sound of one device type: sum of up to 3 instances x 16 bit signed, no overflow.
     // Clipped only once, in sound_mix.
     typedef logic signed [17:0] sound_t;
 
-    function automatic logic [1:0] dev_copies(input device_t d);
+    function automatic logic [2:0] cnt_mask(input int n);
+        return n >= 3 ? 3'b111 : n == 2 ? 3'b011 : n == 1 ? 3'b001 : 3'b000;
+    endfunction
+
+    // Synthesized copies of a device type: bit k = io_device[type][k] has hardware
+    function automatic logic [2:0] dev_slots(input device_t d);
         case (d)
-            DEV_OPLL:   return 2'(N_OPLL);
-            DEV_OPM:    return 2'(N_OPM);
-            DEV_SCC:    return 2'(N_SCC);
-            DEV_PSG:    return 2'(N_PSG);
-            DEV_WD2793: return 2'(N_WD2793);
-            DEV_SYSTIMER: return 2'd1;
-            DEV_S1990, DEV_TURBOR_PCM, DEV_TURBOR_PAUSE: return 2'd1;   // turbo R, single
-            default:    return 2'd3;
+            DEV_OPLL:         return cnt_mask(N_OPLL);
+            DEV_OPM:          return cnt_mask(N_OPM);
+            DEV_SCC:          return cnt_mask(N_SCC);
+            DEV_PSG:          return cnt_mask(N_PSG);
+            DEV_DAC:          return cnt_mask(N_DAC);
+            DEV_LATCH_PORT:   return cnt_mask(N_LATCH_PORT);
+            DEV_MSX2_RAM:     return cnt_mask(N_MEM_MAPPER);
+            DEV_RESET_STATUS: return cnt_mask(N_RESET_STATUS);
+            DEV_WD2793:       return cnt_mask(N_FDC);
+            DEV_TC8566AF:     return cnt_mask(N_TC8566AF);
+            default:          return 3'b001;
         endcase
     endfunction
 

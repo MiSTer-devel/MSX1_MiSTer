@@ -32,18 +32,22 @@ module dev_reset_status (
     genvar i;
     generate
         for (i = 0; i < 3; i++) begin : RESET_STATUS_DEV_INSTANCES
-            wire cs_active = (cpu_bus.addr[7:0] & io_device[i].mask) == io_device[i].port;
-            wire cs_enable = io_device[i].enable && cs_active && io_en;
+            if (i < MSX::N_RESET_STATUS) begin : inst
+                wire cs_active = (cpu_bus.addr[7:0] & io_device[i].mask) == io_device[i].port;
+                wire cs_enable = io_device[i].enable && cs_active && io_en;
 
-            reset_status latch_port_i (
-                .clk(cpu_bus.clk),
-                .reset(hard_reset),
-                .data(cpu_bus.data),
-                .wr(cs_enable && cpu_bus.wr && cpu_bus.req),
-                .rd(cs_enable && cpu_bus.rd),
-                .status(status[i]),
-                .inverted(io_device[i].param[0])
-            );
+                reset_status latch_port_i (
+                    .clk(cpu_bus.clk),
+                    .reset(hard_reset),
+                    .data(cpu_bus.data),
+                    .wr(cs_enable && cpu_bus.wr && cpu_bus.req),
+                    .rd(cs_enable && cpu_bus.rd),
+                    .status(status[i]),
+                    .inverted(io_device[i].param[0])
+                );
+            end else begin : none
+                assign status[i] = 8'hFF;
+            end
         end
     endgenerate
 

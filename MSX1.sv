@@ -192,7 +192,7 @@ assign AUDIO_MIX = 0;
 assign LED_POWER = 0;
 assign BUTTONS   = 0;
 
-localparam VDNUM = 7;
+localparam VDNUM = 1 + 2*MSX::N_FDC;      // SD card + 2 drives per FDC position
 
 /////////////////   CLOCKS   /////////////////
 wire clk_core, clk_sdram, locked_sdram;
@@ -252,18 +252,16 @@ localparam CONF_STR = {
    "FC2,MSX,Load FW  PACK,30300000;",
    "FC6,DB,Load DB MAPPERS,31600000;",
    "-;",
-   "h8S5,DSK,Mount int. Drive 1;",
-   "h9S6,DSK,Mount int. Drive 2;",
-   "H3-;",
-   CONF_STR_SLOT_A,
-   "H1FS3,ROM,Load,30C00000;",
+   // drives of FDC position 0 (internal FDC or FDC cartridge in slot A); N_FDC = 2 would add
+   // "h6S3,DSK,Mount Drive 1;" and "h7S4,DSK,Mount Drive 2;" under slot A
    "h4S1,DSK,Mount Drive 1;",
    "h5S2,DSK,Mount Drive 2;",
    "H3-;",
+   CONF_STR_SLOT_A,
+   "H1FS3,ROM,Load,30C00000;",
+   "H3-;",
    CONF_STR_SLOT_B,
    "H2F4,ROM,Load,31100000;",
-   "h6S3,DSK,Mount Drive 1;",
-   "h7S4,DSK,Mount Drive 2;",
    "h0-;",
    "h0SC0,VHD,Load SD card;",
    "h3O[12],Reset after Mount,No,Yes;",
@@ -299,7 +297,7 @@ localparam CONF_STR = {
    "T[21],Reset;",
    "H3R[10],Reset & Detach ROM Cartridge;",
    "R[21],Reset and close OSD;",
-   "I,BAD MSX CONF,NOT SUPPORTED CONF,NOT SUPPORTED BLOCK,BAD MSX FW CONF,NOT FW CONF,DEVICE MISSING,Exceeded number of IO_DEVICE,No CRC32 DB,Not find CRC32 in DB,SMALL MEMORY;",
+   "I,BAD MSX CONF,NOT SUPPORTED CONF,NOT SUPPORTED BLOCK,BAD MSX FW CONF,NOT FW CONF,DEVICE MISSING,Device not in this core build,No CRC32 DB,Not find CRC32 in DB,SMALL MEMORY,FDC already in machine;",
    "V,v",`BUILD_DATE
 };
 
@@ -373,7 +371,7 @@ hps_io #(.CONF_STR(CONF_STR),.VDNUM(VDNUM)) hps_io
 );
 
 // HPS image slots: 1..6 floppy drives, 0 virtual SD card
-block_device_if block_device_FDD[6]();
+block_device_if block_device_FDD[2*MSX::N_FDC]();
 block_device_if block_device_SD();
 MSX::msx_config_t msx_config;
 

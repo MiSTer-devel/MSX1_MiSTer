@@ -1,5 +1,5 @@
 // Machine boot from a floppy: msx_system with a machine pack, blockDevMux and an HPS model
-// serving a DSK image on the internal drive (VD 5, msx_config.fdd[4]). Logs the floppy
+// serving a DSK image on drive 1 of FDC position 0 (VD 1, msx_config.fdd[0]). Logs the floppy
 // controller traffic (TC8566AF: command and result bytes, the sectors the drive loads) and
 // the text screen (VDP registers and VRAM).
 // Checks: the pack loads, the drive loads the boot sector (LBA 0); with a TC8566AF the disk ROM
@@ -10,6 +10,8 @@
 // = extended, e.g. 171 = Delete (Panasonic FS-A1F: skips the A1 Cockpit firmware).
 // Cartridge: +fw=<CART_FW_EN.msx> +db=<mappers.db> +rom=<game.rom> loads a ROM into slot A as the
 // OSD does (FW pack, mapper database, ROM; the mapper comes from the CRC32 in the database).
+// +slota=<n>: OSD slot A item (CONF_STR_SLOT_A, 1 = FDC; needs +fw). +error=<n>: the pack load
+// must stop with this error_t (e.g. 11 = ERR_FDC_PRESENT), then PASS.
 // +frames=<prefix> +frame_ms=<ms> +frame_n=<n>: n frames of the video output (DE area) from
 // frame_ms on as <prefix>_NNN.ppm.
 // Turbo R: +firmware=1 turns the firmware switch on (OSD status[26]); +pause_ms=<ms> presses the
@@ -51,7 +53,7 @@ wire          ddr3_rd, ddr3_ready;
 wire    [7:0] ddr3_dout;
 wire   [63:0] ddr3_dout64;
 
-block_device_if block_device_FDD[6]();
+block_device_if block_device_FDD[2*MSX::N_FDC]();
 block_device_if block_device_SD();
 logic    [10:0] ps2_key = '0;                           // +key: {toggle, down, extended, code}
 ext_sd_card_if  ext_SD_card_bus();
@@ -136,8 +138,8 @@ assign sd_ch2.q = c2.data; assign sd_ch2.sdram_ready = c2.ready; assign sd_ch2.s
 assign sd_ch3.q = c3.data; assign sd_ch3.sdram_ready = c3.ready; assign sd_ch3.sdram_done = 1'b0;
 
 // ------------------------------------------------------------------ floppy images: blockDevMux + HPS
-localparam int VDNUM = 7;
-localparam int VD    = 5;                               // internal drive A (msx_config.fdd[4])
+localparam int VDNUM = 1 + 2*MSX::N_FDC;
+localparam int VD    = 1;                               // drive 1 of FDC position 0 (msx_config.fdd[0])
 wire [31:0] sd_lba[VDNUM];
 wire  [5:0] sd_blk_cnt[VDNUM];
 wire [VDNUM-1:0] sd_rd, sd_wr;
@@ -218,7 +220,7 @@ end
 
 // Floppy controller (TC8566AF at its fixed position): bytes written to / read from the data
 // register; M1 fetches in its block (the disk ROM runs)
-wire        tc_cs   = sys.MSX.devices.FDC.FDC_INSTANCES[MSX::TC8566AF_POS].tc.cs_dev;
+wire        tc_cs   = sys.MSX.devices.FDC.FDC_INSTANCES[0].tc.cs_dev;
 wire [3:0]  tc_a    = sys.MSX.cpu_bus.addr[3:0];
 wire        tc_win  = tc_cs && sys.MSX.cpu_bus.mreq && sys.MSX.cpu_bus.addr[13:4] == 10'h3FF;
 int         disk_m1 = 0, fdc_log = 0, fdc_lines = 0, fdc_rep = 0, reads_ok = 0, reads_bad = 0;
@@ -233,17 +235,17 @@ end
 // data register reads: sampled at the end of the read (data valid then)
 logic rd_dat_q = 0;
 wire  rd_dat = tc_win && sys.MSX.cpu_bus.rd && (tc_a == 4'hB || tc_a == 4'h5);
-wire  [7:0] tc_dout = sys.MSX.devices.FDC.FDC_INSTANCES[MSX::TC8566AF_POS].tc_data;
+wire  [7:0] tc_dout = sys.MSX.devices.FDC.FDC_INSTANCES[0].tc_data;
 logic [7:0] dat_q;
 always @(posedge clk_core) begin
     rd_dat_q <= rd_dat;
     if (rd_dat) dat_q <= tc_dout;
     // result bytes (RD_CMD); sector data of the execution phase is not logged
-    if (rd_dat_q && !rd_dat && sys.MSX.devices.FDC.FDC_INSTANCES[MSX::TC8566AF_POS].tc.TC8566AF.fdc.RD_CMD)
+    if (rd_dat_q && !rd_dat && sys.MSX.devices.FDC.FDC_INSTANCES[0].tc.TC8566AF.fdc.RD_CMD)
         res.push_back(dat_q);
 end
 // log a command with its result once the controller is idle again (MSR = 80h)
-wire idle = sys.MSX.devices.FDC.FDC_INSTANCES[MSX::TC8566AF_POS].tc.TC8566AF.fdc.datnum == 0;
+wire idle = sys.MSX.devices.FDC.FDC_INSTANCES[0].tc.TC8566AF.fdc.datnum == 0;
 logic idle_q = 1;
 always @(posedge clk_core) begin
     idle_q <= idle;
@@ -416,6 +418,7 @@ initial begin
     string pack_name, dsk_name, expect_txt = "", last = "", now, dump, fname;
     int frame_ms = 0;
     int fd, c, errors = 0, run_ms = 15000, found_ms = -1, key_ms = 8000, pause_ms = -1, fw = 0, m1_paused = 0;
+    int slota = 0, want_err = 0;
     logic [8:0] key = '0;
     bit         use_key, no_disk, tc_used;
 
@@ -428,6 +431,8 @@ initial begin
     use_key = $value$plusargs("key=%h", key);
     void'($value$plusargs("pause_ms=%d", pause_ms));
     if ($value$plusargs("firmware=%d", fw)) status[26] = fw[0];
+    if ($value$plusargs("slota=%d", slota)) status[20:17] = 4'(slota);
+    void'($value$plusargs("error=%d", want_err));
     fd = $fopen(pack_name, "rb"); while ((c = $fgetc(fd)) != -1) pack.push_back(8'(c)); $fclose(fd);
     if ($value$plusargs("fw=%s", fname))  begin fd = $fopen(fname, "rb"); while ((c = $fgetc(fd)) != -1) fwpk.push_back(8'(c));  $fclose(fd); end
     if ($value$plusargs("db=%s", fname))  begin fd = $fopen(fname, "rb"); while ((c = $fgetc(fd)) != -1) db.push_back(8'(c));  $fclose(fd); end
@@ -475,7 +480,11 @@ initial begin
         wait (sys.upload); wait (!sys.upload);
     end
     $display("%0t pack loaded, error=%0d, msx_config.fdd=%b", $time, sys.error, msx_config.fdd);
-    if (sys.error != ERR_NONE) begin $display("FAILED machine_boot_tb: pack error"); $finish; end
+    if (want_err != 0) begin
+        if (int'(sys.error) == want_err) $display("PASS machine_boot_tb: pack error %0d as expected", want_err);
+        else                             $display("FAILED machine_boot_tb: pack error %0d, expected %0d", sys.error, want_err);
+        $finish;
+    end else if (sys.error != ERR_NONE) begin $display("FAILED machine_boot_tb: pack error"); $finish; end
     if (!no_disk && !msx_config.fdd[VD - 1]) begin errors++; $display("FAIL msx_config.fdd[%0d] = 0: VD %0d not enabled", VD - 1, VD); end
 
     // key down once the keyboard map of the pack is loaded
@@ -540,7 +549,7 @@ initial begin
         $display("turbo R: S1990 E5 writes %0d, A7 writes %0d, main RAM via main_cs: %0d reads, %0d writes", s1990_wr, a7_wr, main_rd, main_wr);
 
     // controller checks only for the TC8566AF (a WD2793 machine checks the drive and the screen)
-    tc_used = sys.io_device[DEV_TC8566AF][MSX::TC8566AF_POS].enable;
+    tc_used = sys.io_device[DEV_TC8566AF][0].enable;
     if (!tc_used) $display("no TC8566AF in this machine: controller checks skipped");
     if (tc_used && disk_m1 < 1000) begin errors++; $display("FAIL disk ROM does not run (%0d M1)", disk_m1); end
     if (!no_disk && lba0_reads == 0) begin errors++; $display("FAIL boot sector (LBA 0) not loaded"); end

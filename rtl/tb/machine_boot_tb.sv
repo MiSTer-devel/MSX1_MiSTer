@@ -269,6 +269,27 @@ always @(posedge clk_core) begin
     end
 end
 
+// Text screen of a TMS99xx (VDP18): Text 40 / Graphic 1-2 32 columns, name table R#2
+function automatic string tms_text();
+    logic [7:0]  r1   = sys.MSX.devices.tms.tms_i.cpu_io_b.ctrl_reg_q[1];
+    logic [7:0]  r2   = sys.MSX.devices.tms.tms_i.cpu_io_b.ctrl_reg_q[2];
+    int          cols = r1[4] ? 40 : 32;
+    int unsigned base = {r2[3:0], 10'h000};
+    string       txt  = "";
+    if (r1[3]) return "";                                   // multicolor
+    for (int r = 0; r < 24; r++) begin
+        string line = "";
+        int    last = -1;
+        for (int c = 0; c < cols; c++) begin
+            logic [7:0] ch = sys.vram_lo.mem[base + r * cols + c];
+            line = {line, string'((ch >= 8'h20 && ch < 8'h7F) ? ch : 8'h20)};
+            if (ch > 8'h20 && ch < 8'h7F) last = c;
+        end
+        if (last >= 0) txt = {txt, $sformatf("  |%s\n", line.substr(0, last))};
+    end
+    return txt;
+endfunction
+
 // Text screen from the VDP (mode, name table register) and the physical VRAM (vram_lo holds
 // 0000-FFFF outside GRAPHIC 6 / 7); TEXT1 40, TEXT2 80, GRAPHIC 1-3 32 columns, else empty
 function automatic string screen_text();
@@ -280,6 +301,7 @@ function automatic string screen_text();
     int          cols = t2 ? 80 : t1 ? 40 : 32;
     int unsigned base = t2 ? {r2[6:2], 12'h000} : {r2, 10'h000};
     string       txt  = "";
+    if (sys.MSX.devices.tms.io_device[0].enable) return tms_text();
     if (!(t1 || t2 || g13)) return "";
     for (int r = 0; r < 24; r++) begin
         string line = "";
@@ -343,6 +365,18 @@ string      frame_prefix = "";
 int         frame_left = 0, frame_idx = 0, fr_w = 0, fr_h = 0, fr_x = 0;
 bit         frame_arm = 0, fr_on = 0, prev_vbl = 1;
 int         frame_fd;
+// +cmdlog: V99x8 command engine start / end (CE) with the command register R#46
+bit cmdlog, ce_q;
+initial cmdlog = $test$plusargs("cmdlog");
+always @(posedge clk_core) if (cmdlog) begin
+    if (sys.MSX.cpu_bus.req && sys.MSX.cpu_bus.iorq && !sys.MSX.cpu_bus.m1 && sys.MSX.cpu_bus.wr &&
+        sys.MSX.cpu_bus.addr[7:2] == 6'b100110 && sys.MSX.cpu_bus.addr[1:0] != 2'd0)
+        $display("%0t OUT (%02hh),%02hh", $time, sys.MSX.cpu_bus.addr[7:0], sys.MSX.cpu_bus.data);
+    if (sys.MSX.devices.v99.VDP_i.VDPCMDCE != ce_q)
+        $display("%0t CE %0d", $time, sys.MSX.devices.v99.VDP_i.VDPCMDCE);
+    ce_q <= sys.MSX.devices.v99.VDP_i.VDPCMDCE;
+end
+
 always @(posedge clk_core) if (video_bus.ce_pix) begin
     if (video_bus.vblank && !prev_vbl && fr_on) begin            // frame done
         for (int y = fr_h; y < 240; y++) for (int i = 0; i < 256; i++) $fwrite(frame_fd, "%c%c%c", 8'd0, 8'd0, 8'd0);

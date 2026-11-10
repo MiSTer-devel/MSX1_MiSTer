@@ -262,6 +262,19 @@ module vdp_timing_tb;
         set_reg(15, 8'h02);
     endtask
 
+
+    // VDP command duration (informational): SCREEN 5, display on, sprites off, as vdptest
+    task automatic cmd_time(input string what, input logic [7:0] regs[$]);
+        int t0, t;
+        set_reg(17, 8'd32);
+        foreach (regs[i]) port_wr(2'd3, regs[i]);
+        t0 = line;
+        set_reg(15, 8'h02);
+        do status(2); while (st[0] && line < t0 + 20000);
+        t = line - t0;
+        $display("  %-24s %5d lines%s", what, t, st[0] ? "  (CE still 1: timeout)" : "");
+    endtask
+
     initial begin
         string only;
         repeat (20) @(posedge clk);
@@ -302,12 +315,23 @@ module vdp_timing_tb;
         // line 192 is still checked (unlike the TMS9929A measured on the Sord M5)
         sprite_coll("Y = 191, 192 lines (line 192 checked)", 8'h00, 8'd191, 1);
 
+        if ($test$plusargs("cmd")) begin
+            $display("SCREEN 5: command time (display on, sprites off)");
+            set_reg(0, 8'h06); set_reg(1, 8'h40); set_reg(2, 8'h1F); set_reg(8, 8'h0A); set_reg(9, $test$plusargs("pal") ? 8'h02 : 8'h00);
+            cmd_time("HMMV 256x212", '{0,0,0,0,0,0,0,0,0,1,212,0,8'h44,0,8'hC0});
+            cmd_time("LMMV 256x212", '{0,0,0,0,0,0,0,0,0,1,212,0,8'h05,0,8'h80});
+            cmd_time("YMMM 212", '{0,0,0,1,0,0,0,0,0,1,212,0,0,0,8'hE0});
+            cmd_time("HMMM 256x212", '{0,0,0,1,0,0,0,0,0,1,212,0,0,0,8'hD0});
+            cmd_time("LMMM 256x212", '{0,0,0,1,0,0,0,0,0,1,212,0,0,0,8'h90});
+            cmd_time("LINE 255,100", '{0,0,0,0,0,0,0,0,255,0,100,0,8'h0F,0,8'h70});
+        end
+
         $display("%s vdp_timing_tb (%0d errors)", errors ? "FAIL" : "PASS", errors);
         $finish;
     end
 
     initial begin
-        #2s;
+        #8s;
         $display("FAIL vdp_timing_tb timeout");
         $finish;
     end

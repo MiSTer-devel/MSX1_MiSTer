@@ -484,7 +484,7 @@ initial begin
     end
 
     // BIOS in ESE-RAM (SDRAM address = system address - 2^18)
-    ese    = sys.lookup_RAM[sys.slot_layout[{2'd3, 2'd2, 2'd1}].ref_ram].addr;
+    ese    = 32'(sys.memory_upload.ram_slots[sys.memory_upload.lay_slots[{2'd3, 2'd2, 2'd1}][19:16]][44:18]);   // RAM of block 3-2 page 1
     ese_sd = ese - (1 << 18);
     begin
         int bad = 0;

@@ -13,7 +13,8 @@ cd "$(dirname "$0")"
 OUT=$(mktemp -d)
 MU=../memory_upload.sv
 if [ -n "$OLD" ]; then git -C .. show "$OLD:rtl/memory_upload.sv" > "$OUT/memory_upload.sv"; MU="$OUT/memory_upload.sv"; fi
-verilator --binary --timing -O3 -Wno-fatal -Wno-lint -Wno-style \
+DEF=""; [ -n "$OLD" ] && DEF="+define+OLD_MU"     # OLD: a revision with the tables as arrays
+verilator --binary --timing -O3 -Wno-fatal -Wno-lint -Wno-style $DEF \
     --top-module memory_upload_tb -Mdir "$OUT" \
     ../package.sv "$MU" ../peripheral/ddram.sv ../lib/crc32.sv memory_upload_tb.sv \
     > "$OUT/build.log" 2>&1 || { cat "$OUT/build.log"; exit 1; }

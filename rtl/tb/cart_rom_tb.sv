@@ -62,6 +62,21 @@ MSX::kb_memory_t         kb_upload_memory;
 MSX::slot_expander_t     slot_expander[4];
 MSX::block_t             slot_layout[64];
 MSX::lookup_RAM_t        lookup_RAM[16];
+logic              [5:0] layout_id = '0;
+MSX::block_t             active_block;
+MSX::lookup_RAM_t        active_RAM, main_RAM;
+
+// The tables of the loader into slot_layout / lookup_RAM: a sweep of its read port
+task automatic snapshot();
+`ifndef OLD_MU
+    for (int i = 0; i < 64; i++) begin
+        layout_id = 6'(i);
+        @(negedge clk);
+        slot_layout[i] = active_block;
+        lookup_RAM[active_block.ref_ram] = active_RAM;
+    end
+`endif
+endtask
 MSX::lookup_SRAM_t       lookup_SRAM[4];
 MSX::config_cart_t       cart_conf[2];
 MSX::io_device_t         io_device[32][3];
@@ -75,7 +90,12 @@ memory_upload dut (
     .ioctl_addr(ioctl_addr), .rom_eject(1'b0), .reload(1'b0),
     .ddr3_addr(ddr3_addr), .ddr3_rd(ddr3_rd), .ddr3_dout(ddr3_dout), .ddr3_ready(ddr3_ready),
     .ddr3_request(ddr3_request), .memory_bus(mem), .kb_upload_memory(kb_upload_memory),
-    .slot_expander(slot_expander), .slot_layout(slot_layout), .lookup_RAM(lookup_RAM),
+    .slot_expander(slot_expander),
+`ifdef OLD_MU                       // reference revision: the tables as arrays
+    .slot_layout(slot_layout), .lookup_RAM(lookup_RAM),
+`else
+    .layout_id(layout_id), .active_block(active_block), .active_RAM(active_RAM), .main_RAM(main_RAM),
+`endif
     .lookup_SRAM(lookup_SRAM), .cart_conf(cart_conf), .io_device(io_device), .io_memory(io_memory),
     .msx_config(msx_config), .load_sram(load_sram), .error(error), .reset(upload_reset)
 );
@@ -122,6 +142,7 @@ task automatic check(input string what, input int p0, input int p1, input int p2
     wait (upload);
     wait (!upload || error != ERR_NONE);                // an error leaves the loader stopped
     repeat (10) @(posedge clk);
+    snapshot();
     if (error !== err) begin
         errors++; $display("FAIL %s: error %0d (expected %0d)", what, error, err);
         return;

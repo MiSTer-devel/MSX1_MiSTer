@@ -24,8 +24,10 @@ module msx_slots (
     memory_bus_if.device_mp     memory_bus,
     output MSX::block_info_t block_info,   
     input MSX::slot_expander_t  slot_expander[4],
-    input MSX::block_t          slot_layout[64],
-    input MSX::lookup_RAM_t     lookup_RAM[16],
+    output                [5:0] layout_id,        // block of the access: {slot, subslot, page}
+    input MSX::block_t          active_block,     // its layout (memory_upload tables)
+    input MSX::lookup_RAM_t     active_RAM,       // its memory
+    input MSX::lookup_RAM_t     main_RAM,         // memory of main_ram.ref_ram
     input MSX::lookup_SRAM_t    lookup_SRAM[4],
     input MSX::main_ram_t       main_ram,         // turbo R: RAM other blocks may map (main_cs)
     input                       dram,             // turbo R S1990: DRAM mode
@@ -61,17 +63,11 @@ module msx_slots (
         .active_slot(active_slot)
     );
 
-    wire [5:0] layout_id = {active_slot, active_subslot, cpu_bus.addr[15:14]};
-    MSX::block_t active_block;
-    MSX::lookup_RAM_t active_RAM;
+    assign layout_id = {active_slot, active_subslot, cpu_bus.addr[15:14]};
     MSX::lookup_SRAM_t active_SRAM;
 
-    assign active_block = slot_layout[layout_id];
-    assign active_RAM = lookup_RAM[active_block.ref_ram];
     assign active_SRAM = lookup_SRAM[active_block.ref_sram];
 
-    MSX::lookup_RAM_t main_RAM;
-    assign main_RAM = lookup_RAM[main_ram.ref_ram];
     wire main_cs;
 
     wire [1:0] offset_ram = active_block.offset_ram;

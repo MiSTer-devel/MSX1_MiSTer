@@ -76,8 +76,9 @@ memory_bus_if   memory_bus_backup();
 
 MSX::user_config_t       msx_user_config;
 MSX::config_cart_t       cart_conf[2];
-MSX::block_t             slot_layout[64];
-MSX::lookup_RAM_t        lookup_RAM[16];
+wire               [5:0] layout_id;       // msx_slots -> memory_upload tables
+MSX::block_t             active_block;
+MSX::lookup_RAM_t        active_RAM, main_RAM;
 MSX::lookup_SRAM_t       lookup_SRAM[4];
 MSX::main_ram_t          main_ram;
 MSX::io_device_t         io_device[32][3];
@@ -167,8 +168,10 @@ msx #(.sysCLK(sysCLK)) MSX
    .ioctl_index(ioctl_index),
    .ioctl_addr(ioctl_addr),
    .slot_expander(slot_expander),
-   .slot_layout(slot_layout),
-   .lookup_RAM(lookup_RAM),
+   .layout_id(layout_id),
+   .active_block(active_block),
+   .active_RAM(active_RAM),
+   .main_RAM(main_RAM),
    .lookup_SRAM(lookup_SRAM),
    .main_ram(main_ram),
    .io_device(io_device),
@@ -206,8 +209,10 @@ memory_upload memory_upload(
    .memory_bus(memory_bus_upload),
    .kb_upload_memory(kb_upload_memory),
    .slot_expander(slot_expander),
-   .slot_layout(slot_layout),
-   .lookup_RAM(lookup_RAM),
+   .layout_id(layout_id),
+   .active_block(active_block),
+   .active_RAM(active_RAM),
+   .main_RAM(main_RAM),
    .lookup_SRAM(lookup_SRAM),
    .main_ram(main_ram),
    .cart_conf(cart_conf),

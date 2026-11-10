@@ -144,6 +144,31 @@ module memory_upload
     logic  [3:0] ref_ram;
     logic        crc_en;
     logic        ram_ce;
+    logic        cart_id;
+
+    // Cartridge ROM without a database entry (or without a database): plain ROM, read linearly,
+    // placed by its MSX header (bytes 0-3 and 4000h-4003h, captured while the ROM streams in,
+    // as the CRC). FW pack configurations 0x0000 / 0x4000 / 0x8000 of cart_device.json.
+    localparam logic [7:0] FW_PLAIN_0000 = 8'd20, FW_PLAIN_4000 = 8'd21, FW_PLAIN_8000 = 8'd22;
+    logic [16:0] hdr_cnt;
+    logic  [7:0] hdr0[4], hdr4[4];      // file offsets 0 and 4000h: 'A' 'B' INIT
+    always_ff @(posedge clk) begin
+        if (!crc_en) hdr_cnt <= '0;
+        else if (ram_ce) begin
+            if (hdr_cnt < 17'h1FFFF) hdr_cnt <= hdr_cnt + 1'd1;
+            if (hdr_cnt[16:2] == 15'h0000) hdr0[hdr_cnt[1:0]] <= ddr3_dout;
+            if (hdr_cnt[16:2] == 15'h1000) hdr4[hdr_cnt[1:0]] <= ddr3_dout;
+        end
+    end
+    wire  [26:0] cart_size = ioctl_size[cart_id ? size_ROM_B : size_ROM_A];
+    wire         ab0       = hdr0[0] == 8'h41 && hdr0[1] == 8'h42;
+    wire         ab4       = cart_size > 27'h4000 && hdr4[0] == 8'h41 && hdr4[1] == 8'h42;
+    wire         plain_ok  = cart_size <= 27'h10000;             // more needs a mapper
+    // 'AB' at 0: INIT page 2 -> 8000h, page 0 -> 0000h, else 4000h; 'AB' only at 4000h (48 / 64 kB
+    // ROM from 0000h) -> 0000h; no header -> 4000h
+    wire   [7:0] plain_id  = ab0 ? (hdr0[3][7:6] == 2'd2 ? FW_PLAIN_8000 :
+                                    hdr0[3][7:6] == 2'd0 && {hdr0[3], hdr0[2]} != 16'h0000 ? FW_PLAIN_0000 : FW_PLAIN_4000) :
+                             ab4 ? FW_PLAIN_0000 : FW_PLAIN_4000;
 
     always_ff @(posedge clk) begin
         logic [24:0] data_size;
@@ -155,7 +180,6 @@ module memory_upload
         logic [1:0]  slot, subslot, block, size, offset, ref_sram, mapper_param;
         logic [15:0] rom_fw_table;
         logic  [2:0] io_ref_mem, io_ref_mapper;
-        logic        cart_id;
         mapper_typ_t mapper;
         device_t device;
 
@@ -762,11 +786,22 @@ module memory_upload
                 end
                 STATE_SEARCH_CRC32_INIT: begin
                     if (ioctl_size[size_CRC] == 0) begin
-                        $display("NO CRC32 DB");
-                        ddr3_addr <= save_addr;
-                        ddr3_rd   <= '1;
-                        error     <= ERR_NO_CRC_DB;
-                        state     <= STATE_STOP;
+                        crc_en <= 1'b0;
+                        if (plain_ok && ioctl_size[size_FW_PACK] > '0) begin
+                            $display("NO CRC32 DB: plain ROM, FW conf %0d", plain_id);
+                            ddr3_addr  <= 28'h300010 + {18'b0, plain_id, 2'b00};
+                            ddr3_rd    <= '1;
+                            read_cnt   <= 4;
+                            fw_space   <= '1;
+                            state      <= STATE_READ_CONF;
+                            next_state <= STATE_GET_FW_ADDR;
+                        end else begin
+                            $display("NO CRC32 DB");
+                            ddr3_addr <= save_addr;
+                            ddr3_rd   <= '1;
+                            error     <= plain_ok ? ERR_NOT_FW_CONF : ERR_NO_CRC_DB;
+                            state     <= STATE_STOP;
+                        end
                     end else begin
                         state     <= STATE_SEARCH_CRC32;
                         ddr3_addr <= DDR3_CRC32_TABLE_ADDR;                     // Adresa CRC32 tabulky
@@ -791,12 +826,21 @@ module memory_upload
                         end
                     end else begin
                         if ((ddr3_addr - DDR3_CRC32_TABLE_ADDR) == {1'b0, ioctl_size[size_CRC]}) begin
-                            $display("NOT FIND CRC32: %x", rom_crc32);
-                            // TODO: Nastav linear mapper a pokračuj.
-                            ddr3_addr <= save_addr;
-                            ddr3_rd   <= '1;
-                            error     <= ERR_NO_CRC_FOUND;
-                            state     <= STATE_STOP;
+                            if (plain_ok && ioctl_size[size_FW_PACK] > '0) begin                    // plain ROM
+                                $display("NOT FIND CRC32: %x, plain ROM, FW conf %0d", rom_crc32, plain_id);
+                                ddr3_addr  <= 28'h300010 + {18'b0, plain_id, 2'b00};
+                                ddr3_rd    <= '1;
+                                read_cnt   <= 4;
+                                fw_space   <= '1;
+                                state      <= STATE_READ_CONF;
+                                next_state <= STATE_GET_FW_ADDR;
+                            end else begin
+                                $display("NOT FIND CRC32: %x", rom_crc32);
+                                ddr3_addr <= save_addr;
+                                ddr3_rd   <= '1;
+                                error     <= plain_ok ? ERR_NOT_FW_CONF : ERR_NO_CRC_FOUND;
+                                state     <= STATE_STOP;
+                            end
                         end else begin
                             ddr3_rd <= 1'b1;
                         end                                                                                                // Další data z DDR

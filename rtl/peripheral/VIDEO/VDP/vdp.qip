@@ -13,4 +13,4 @@ set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) v
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) vdp_sprite.sv       ]
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) vdp_ssg.sv          ]
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) vdp_text12.sv       ]
-set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) vdp_wait_control.sv ]
+set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) vdp_access_slots.sv ]

@@ -442,6 +442,7 @@ logic [8:0] PALETTEDATARGB_OUT;
 // VDP COMMAND SIGNALS
 logic [7:0] VDPCMDCLR;
 logic VDPCMDCE;
+logic VDPCMDROWSTEP, VDPCMDMINORSTEP, VDP_CMD_XFER;
 logic VDPCMDBD;
 logic VDPCMDTR;
 logic [10:0] VDPCMDSXTMP;
@@ -461,7 +462,6 @@ logic VDPCMDVRAMRDREQ;
 logic [16:0] VDPCMDVRAMACCESSADDR;
 logic [7:0] VDPCMDVRAMWRDATA;
 
-logic VDP_COMMAND_DRIVE;
 logic VDP_COMMAND_ACTIVE;
 logic [7:4] CUR_VDP_COMMAND;
 
@@ -751,7 +751,7 @@ always_ff @(posedge CLK21M or posedge RESET) begin
 
         VDPCMDVRAMWRACK <= 1'b0;
         VDPCMDVRAMREADINGR <= 1'b0;
-        VDP_COMMAND_DRIVE <= 1'b0;
+        VDP_CMD_XFER <= 1'b0;
     end else begin
         //------------------------------------------
         // MAIN STATE
@@ -804,12 +804,8 @@ always_ff @(posedge CLK21M or posedge RESET) begin
             VRAMACCESSSWITCH = VRAM_ACCESS_DRAW;
         end
 
-        if ((VRAMACCESSSWITCH == VRAM_ACCESS_VDPW) || (VRAMACCESSSWITCH == VRAM_ACCESS_VDPR) ||
-            (VRAMACCESSSWITCH == VRAM_ACCESS_VDPS)) begin
-            VDP_COMMAND_DRIVE <= 1'b1;
-        end else begin
-            VDP_COMMAND_DRIVE <= 1'b0;
-        end
+        // a real command access (uses a token of vdp_access_slots)
+        VDP_CMD_XFER <= (VRAMACCESSSWITCH == VRAM_ACCESS_VDPW) || (VRAMACCESSSWITCH == VRAM_ACCESS_VDPR);
 
         //-----------------------------------------
         // VRAM ACCESS ADDRESS SWITCH
@@ -1240,23 +1236,29 @@ VDP_COMMAND U_VDP_COMMAND (
     .PTR                 (VDPCMDTR),
     .PSXTMP              (VDPCMDSXTMP),
     .CUR_VDP_COMMAND     (CUR_VDP_COMMAND),
+    .PROWSTEP            (VDPCMDROWSTEP),
+    .PMINORSTEP          (VDPCMDMINORSTEP),
     .REG_R25_CMD         (REG_R25_CMD)
 );
 
-VDP_WAIT_CONTROL U_VDP_WAIT_CONTROL (
+// Command engine VRAM access timing as openMSX (vdp_access_slots.sv)
+VDP_ACCESS_SLOTS U_VDP_ACCESS_SLOTS (
     .RESET               (RESET),
     .CLK21M              (CLK21M),
 
-    .VDP_COMMAND         (CUR_VDP_COMMAND),
+    .H_CNT               (H_CNT),
+    .DISP_LINE           (PREWINDOW_Y & REG_R1_DISP_ON),
+    .SPRITES             (~REG_R8_SP_OFF),
+    .BITMAP              (VDPMODEGRAPHIC4 | VDPMODEGRAPHIC5 | VDPMODEGRAPHIC6 | VDPMODEGRAPHIC7),
+    .TEXT                (TEXT_MODE),
 
-    .VDPR9PALMODE        (VDPR9PALMODE),
-    .REG_R1_DISP_ON      (REG_R1_DISP_ON),
-    .REG_R8_SP_OFF       (REG_R8_SP_OFF),
-    .REG_R9_Y_DOTS       (REG_R9_Y_DOTS),
+    .VDP_COMMAND         (CUR_VDP_COMMAND),
+    .CE                  (VDPCMDCE),
+    .XFER                (VDP_CMD_XFER),
+    .ROWSTEP             (VDPCMDROWSTEP),
+    .MINORSTEP           (VDPCMDMINORSTEP),
 
     .VDPSPEEDMODE        (VDPSPEEDMODE),
-    .DRIVE               (VDP_COMMAND_DRIVE),
-
     .ACTIVE              (VDP_COMMAND_ACTIVE)
 );
 

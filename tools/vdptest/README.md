@@ -21,6 +21,7 @@ sh tools/vdptest/build.sh
 |---|---|
 | `vdptest.rom` | 16 kB cartridge na 4000h. **Mezerník** = další stránka, **Enter** = předchozí. |
 | `vdptest_auto.rom` | Stránkuje sám (asi po 0,6 s), pro simulaci. |
+| `cmdbench.rom` | Doby příkazů VDP ve 14 konfiguracích (MSX2), viz kapitola CMDBENCH. |
 
 Assembler je `pasmo.exe` 0.6.0 (zkopírovaný z projektu Sord M5). Volba
 `--equ STARTPG=n` začne stránkou n+1 (ladění jedné stránky v simulaci).
@@ -125,3 +126,24 @@ kap. 3.1 `doc/fork-muhanpong.md`). Sloupec openMSX: Philips NMS 8245 (V9938 PAL)
   - LINE o 25–36 % rychlejší a nezávislý na vedlejší ose (openMSX 103 / 121, ESE 77 / 77).
   - Dřívější závěr „logické příkazy 3× pomalejší“ byl chybný: srovnával s čísly z forku
     (tamní openMSX HMMV 722 řádků, tady 1120), naměřená tedy s jinými parametry.
+
+## CMDBENCH (doby příkazů V9938/V9958)
+
+`cmdbench.rom` měří osm příkazů (HMMV, LMMV, SRCH, YMMM, HMMM, LMMM, LINE 255×100 a 255×255)
+ve 14 konfiguracích:
+- SCREEN 5: NTSC a PAL, 212 a 192 řádků, sprity zapnuté a vypnuté, vypnutý obraz;
+- SCREEN 6, 7 a 8 (NTSC, 212 řádků, sprity zapnuté) a SCREEN 8 se sprity vypnutými.
+
+Každý příkaz startuje, když VR přejde na 0 (řádek před displejem). Výsledek je počet
+iterací smyčky 56 T do CE = 0, jako na stránce 8 vdptestu. Po měření ROM vypíše tabulku
+v 80 sloupcích, jeden řádek na konfiguraci. Výsledky jsou i v RAM od C000h (14 × 8 slov),
+C0FEh = A5h znamená hotovo.
+
+**openMSX bez okna** (výsledky do souboru, skript `cmdbench.tcl`):
+
+```
+OPENMSX_USER_DATA=<adresář s systemroms> CMDBENCH_OUT=vysledek.txt   openmsx -machine Philips_NMS_8245 -cart cmdbench.rom -script cmdbench.tcl
+```
+
+Výstup openMSX 18.0 je referencí testu `rtl/peripheral/VIDEO/VDP/tb/run_vdp_cmd.sh`
+(`cmdbench_openmsx.txt`). Model přístupových slotů VDP je popsaný v `doc/vdp-prikazy.md`.

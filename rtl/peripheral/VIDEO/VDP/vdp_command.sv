@@ -87,6 +87,8 @@ module VDP_COMMAND (
     output logic            PTR,
     output logic [10:0]     PSXTMP,
     output logic [7:4]      CUR_VDP_COMMAND,
+    output logic            PROWSTEP,     // pulse: block command went to the next row
+    output logic            PMINORSTEP,   // pulse: LINE stepped its minor axis
     input  logic            REG_R25_CMD
 );
 
@@ -198,7 +200,11 @@ module VDP_COMMAND (
             VDPVRAMACCESSY = '0;
             VDPVRAMACCESSX = '0;
             VRAMACCESSADDR <= '0;
+            PROWSTEP <= 1'b0;
+            PMINORSTEP <= 1'b0;
         end else begin
+            PROWSTEP <= 1'b0;
+            PMINORSTEP <= 1'b0;
         
             GRAPHIC4_OR_6 = (VDPMODEGRAPHIC4 == 1'b1 || VDPMODEGRAPHIC6 == 1'b1);
         
@@ -500,6 +506,7 @@ module VDP_COMMAND (
                 STLINENEWPOS: begin
                     // APPLICABLE TO LINE
                     if (SXTMP[10]) begin
+                        PMINORSTEP <= 1'b1;
                         SXTMP <= {1'b0, (SXTMP[9:0] + NX)};
                         if (MM)
                             DXTMP <= DXTMP + XCOUNTDELTA[9:0];
@@ -584,6 +591,7 @@ module VDP_COMMAND (
                     end
 
                     if (!INITIALIZING && NXLOOPEND) begin
+                        PROWSTEP <= 1'b1;
                         NXTMP <= NXCOUNT;
                         SXTMP <= CMR[7:4] == YMMM ? {2'b00, DX} : {2'b00, SX};
                         DXTMP <= {1'b0, DX};

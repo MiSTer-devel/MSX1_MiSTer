@@ -95,26 +95,33 @@ wsl.exe -- bash rtl/tb/run_machine_boot.sh <stroj.msx> none \
 ## Výsledky
 
 **Simulace** celého stroje (`machine_boot_tb`, 2026-11-10, větev `VDP_fork` = opravy VDP z
-kap. 3.1 `doc/fork-muhanpong.md`). Sloupce FPGA a openMSX doplní měření.
+kap. 3.1 `doc/fork-muhanpong.md`). Sloupec openMSX: Philips NMS 8245 (V9938 PAL), 2026-11-10. Sloupec FPGA: NMS 8245 na MiSTeru, 2026-11-10.
 
 | Stránka | NMS 8245, V9938 PAL (sim.) | VG-8020, TMS (sim.) | FPGA | openMSX |
 |---|---|---|---|---|
-| 1 snímek | 1268–1271 | 1268–1272 (po opravě PAL, dřív 1060–1064) | | |
-| 3 VR | 485 / 780 / 1 | — | | |
-| 4 FH, R#19 = 0/100/191 | 492 / 899 / 1269 | — | | |
-| 5 FH | a) 1111; b) 899 / 0 / 0; c) 0000 | — | | |
-| 6 5S / C | 890 / 894 | 686 / 691–692 | | |
-| 7 kolize | 11001 | 10001 | | |
-| 8 HMMV / LMMV / YMMM / HMMM / LMMM | 4553 / 18689 / 5675 / 5579 / 21737 | — | | |
-| 8 LINE 255,100 / 255,255 / HMMV vyp. | 77 / 77 / 3262 | — | | |
+| 1 snímek | 1268–1271 | 1268–1272 (po opravě PAL, dřív 1060–1064) | 1268–1272 | 1268–1272 |
+| 3 VR | 485 / 780 / 1 | — | 484–485 / 780–781 / 1 | 485 / 780 / 1 |
+| 4 FH, R#19 = 0/100/191 | 492 / 899 / 1269 | — | 491–492 / 899 / 1269 | 491–492 / 899 / 1269 |
+| 5 FH | a) 1111; b) 899 / 0 / 0; c) 0000 | — | a) 1111; b) 899 / 0 / 0; c) 0000 | a) 1111; b) 899 / 0 / 0; c) 0000 |
+| 6 5S / C | 890 / 894 | 686 / 691–692 | 890 / 894 | 894 / 895 |
+| 7 kolize | 11001 | 10001 | 11001 | 11001 |
+| 8 HMMV / LMMV / YMMM / HMMM / LMMM | 4553 / 18689 / 5675 / 5579 / 21737 | — | 4553 / 18648 / 5717 / 5537 / 21737 | 4561 / 18226 / 5495 / 7715 / 21280 |
+| 8 LINE 255,100 / 255,255 / HMMV vyp. | 77 / 77 / 3262 | — | 77 / 77 / 3262 | 103 / 121 / 3996 |
 
 **Poznámky:**
 - **VG-8020 (PAL)** běžel s TMS v NTSC: `deviceParams.json` kóduje PAL = 0, NTSC = 1 a
   `dev_tms` posílal `param[0]` přímo do `is_pal_i`. Opraveno v `9de13dc`.
-- **Příkazy VDP v řádcích** (iterace × 56 / 228), ESE VDP: HMMV ~1118, LMMV ~4591, HMMM ~1370,
-  LMMM ~5339, YMMM ~1394.
-  - Fork uvádí openMSX (stejná sada příkazů, parametry neověřené): HMMV 722, LMMV 1476,
-    HMMM 1467, LMMM 1745, YMMM 1205.
-  - Logické příkazy jsou tedy asi 3× pomalejší. Řešit je má krok 6 (přístupové sloty).
-  - LINE trvá u ESE stejně bez ohledu na krátkou stranu. openMSX přidává 32 taktů na každý
-    krok vedlejší osy.
+- **FPGA = simulace:** stránky 1–7 shodně (±1 iterace), příkazy do 0,8 %.
+- **V9938 FPGA vs openMSX:** stránky 1, 3, 4, 5 a 7 se shodují.
+- **5S (stránka 6)** přijde v ESE o 4 iterace (~1 řádek) dřív, C o 1 iteraci.
+  - openMSX kontroluje sprity celého řádku najednou na jeho konci (komentář v
+    `SpriteChecker.hh`, `checkUntil`); ESE prohledává Y během řádku před ním a
+    podle téhož komentáře to tak nejspíš dělá i čip.
+  - Pro okamžik 5S proto openMSX není přesná reference. Na HW neměřeno.
+- **Příkazy VDP (stránka 8)**, ESE proti openMSX:
+  - HMMV −0,2 %, LMMV +2,5 %, YMMM +3,3 %, LMMM +2,1 %: shoda;
+  - HMMM o 28 % rychlejší (7715 → 5579);
+  - HMMV s vypnutým obrazem o 18 % rychlejší (3996 → 3262);
+  - LINE o 25–36 % rychlejší a nezávislý na vedlejší ose (openMSX 103 / 121, ESE 77 / 77).
+  - Dřívější závěr „logické příkazy 3× pomalejší“ byl chybný: srovnával s čísly z forku
+    (tamní openMSX HMMV 722 řádků, tady 1120), naměřená tedy s jinými parametry.

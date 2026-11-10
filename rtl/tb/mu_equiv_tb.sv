@@ -10,6 +10,11 @@
 // eject, database changes, reloads. The reference has the table arrays as ports, the new
 // module is read through its layout_id port.
 //
+// The numbers of the RAM lookup entries (ref_ram) are compared only with +strict: the
+// reference starts a load after a stopped one (missing database entry) with the entry counter
+// of the stopped run, the module under test from 0. What the entries of the blocks with a
+// mapper hold is always compared.
+//
 //   wsl.exe -- bash rtl/tb/run_mu_equiv.sh <packs dir> <CART_FW.msx> <ROM set dir>
 `timescale 1ns/1ps
 
@@ -150,10 +155,17 @@ end
 
 // ------------------------------------------------------------------ compare
 int    errors = 0, compares = 0;
+bit    strict = 0;
+MSX::block_t      nlay[64];
+MSX::lookup_RAM_t nram[64];
+logic [3:0]       shift;
+bit               shifted;
+int               unowned = 0;
+int    maxdiff = 40;
 string ctx = "";
 
 `define CMP(what, a, b) begin compares++; if ((a) !== (b)) begin errors++; \
-    if (errors <= 40) $display("DIFF [%s] %s: new %0h, ref %0h", ctx, what, a, b); end end
+    if (errors <= maxdiff) $display("DIFF [%s] %s: new %0h, ref %0h", ctx, what, a, b); end end
 
 task automatic compare();
     `CMP("error", err_n, err_r)
@@ -170,7 +182,7 @@ task automatic compare();
     `CMP("msx_config", {cfg_n.cpu, cfg_n.wait_count, cfg_n.cpu_clock_sel, cfg_n.fdd}, {cfg_r.cpu, cfg_r.wait_count, cfg_r.cpu_clock_sel, cfg_r.fdd})
     `CMP("main_ram.en", main_n.en, main_r.en)
     if (main_r.en) begin
-        `CMP("main_ram.ref_ram", main_n.ref_ram, main_r.ref_ram)
+        if (strict) `CMP("main_ram.ref_ram", main_n.ref_ram, main_r.ref_ram)
         `CMP("main_RAM", {mr_n.addr, mr_n.size, mr_n.ro}, {ram_r[main_r.ref_ram].addr, ram_r[main_r.ref_ram].size, ram_r[main_r.ref_ram].ro})
     end
     for (int i = 0; i < 4; i++) begin
@@ -184,16 +196,36 @@ task automatic compare();
             `CMP($sformatf("io_device[%0d][%0d] (mask port param mem_ref device_ref enable)", t, k),
                  {dev_n[t][k].mask, dev_n[t][k].port, dev_n[t][k].param, 1'b0, dev_n[t][k].mem_ref, 1'b0, dev_n[t][k].device_ref, 3'b0, dev_n[t][k].enable},
                  {dev_r[t][k].mask, dev_r[t][k].port, dev_r[t][k].param, 1'b0, dev_r[t][k].mem_ref, 1'b0, dev_r[t][k].device_ref, 3'b0, dev_r[t][k].enable})
-    for (int i = 0; i < 16; i++)
-        `CMP($sformatf("lookup_RAM[%0d]", i), dut.ram_slots[i], {ram_r[i].addr, ram_r[i].size, ram_r[i].ro})
+    if (strict)
+        for (int i = 0; i < 16; i++)
+            `CMP($sformatf("lookup_RAM[%0d]", i), dut.ram_slots[i], {ram_r[i].addr, ram_r[i].size, ram_r[i].ro})
+    // new module: sweep of the read port
     for (int i = 0; i < 64; i++) begin
-        MSX::block_t b = lay_r[i];
         layout_id = 6'(i);
         @(negedge clk);
+        nlay[i] = ab_n;
+        nram[i] = ar_n;
+    end
+    // Entry numbers of the reference after a stopped load are shifted by its old counter.
+    // The shift must be the same for every block that has its own entry.
+    shift = '0; shifted = 0;
+    if (!strict)
+        for (int i = 0; i < 64; i++)
+            if (nlay[i].ref_ram != lay_r[i].ref_ram) begin
+                if (!shifted) begin shift = lay_r[i].ref_ram - nlay[i].ref_ram; shifted = 1; end
+                `CMP($sformatf("ref_ram shift of layout[%0d]", i), 4'(lay_r[i].ref_ram - nlay[i].ref_ram), shift)
+            end
+    for (int i = 0; i < 64; i++) begin
+        MSX::block_t b = lay_r[i];
         `CMP($sformatf("layout[%0d] (ref_ram ref_sram offset device_ref mapper param cart ext)", i),
-             {ab_n.ref_ram, ab_n.ref_sram, ab_n.offset_ram, 1'b0, ab_n.device_ref, 2'b0, 6'(ab_n.mapper), 2'b0, ab_n.mapper_param, 3'b0, ab_n.cart_num, 3'b0, ab_n.external},
-             {b.ref_ram, b.ref_sram, b.offset_ram, 1'b0, b.device_ref, 2'b0, 6'(b.mapper), 2'b0, b.mapper_param, 3'b0, b.cart_num, 3'b0, b.external})
-        `CMP($sformatf("active_RAM[%0d]", i), {ar_n.addr, ar_n.size, ar_n.ro}, {ram_r[b.ref_ram].addr, ram_r[b.ref_ram].size, ram_r[b.ref_ram].ro})
+             {strict ? nlay[i].ref_ram : 4'd0, nlay[i].ref_sram, nlay[i].offset_ram, 1'b0, nlay[i].device_ref, 2'b0, 6'(nlay[i].mapper), 2'b0, nlay[i].mapper_param, 3'b0, nlay[i].cart_num, 3'b0, nlay[i].external},
+             {strict ? b.ref_ram : 4'd0, b.ref_sram, b.offset_ram, 1'b0, b.device_ref, 2'b0, 6'(b.mapper), 2'b0, b.mapper_param, 3'b0, b.cart_num, 3'b0, b.external})
+        // A block without a mapper has no memory. A block with a mapper but without an entry
+        // of its own keeps entry 0 in both; after a shifted start the reference has another
+        // block's memory there than after a load from idle (unowned).
+        if (strict || (b.mapper != MAPPER_NONE && 4'(b.ref_ram - nlay[i].ref_ram) == shift))
+            `CMP($sformatf("active_RAM[%0d]", i), {nram[i].addr, nram[i].size, nram[i].ro}, {ram_r[b.ref_ram].addr, ram_r[b.ref_ram].size, ram_r[b.ref_ram].ro})
+        else if (b.mapper != MAPPER_NONE) unowned++;
     end
 endtask
 
@@ -269,6 +301,8 @@ initial begin
     void'($value$plusargs("steps=%d", steps));
     void'($value$plusargs("lat=%d", lat_max));
     if ($test$plusargs("fast")) slow = 0;
+    if ($test$plusargs("strict")) strict = 1;
+    void'($value$plusargs("maxdiff=%d", maxdiff));
     if (!$value$plusargs("pack=%s", pack_name)) begin $display("usage: +pack= +fw= +rom0=.. +db0=.. +seed="); $finish; end
     load_file(pack_name, pack_f);
     if ($value$plusargs("fw=%s", name)) load_file(name, fw_f);

@@ -6,6 +6,8 @@
 #   REF=<git rev | file>   reference memory_upload.sv (default: the last revision with the
 #                          tables in registers)
 #   DUT=<file>             memory_upload.sv under test (a mutant must fail)
+#   STRICT=1               compare the RAM lookup entry numbers too (module under test without
+#                          the restart through the idle state: DUT=<fe7ca9e file>)
 #   SEED0=<n> first seed, STEPS=<n> actions per run, JOBS=<n> parallel runs (4), ARGS="+v" verbose
 set -e
 PACKS=$(realpath "$1"); FW=$(realpath "$2"); SET=$(realpath "$3"); NSEED=${4:-2}
@@ -29,6 +31,7 @@ seed=${SEED0:-1}
 while IFS= read -r pack; do
     for n in $(seq 1 "$NSEED"); do printf '%s\t%s\n' "$seed" "$pack"; seed=$((seed+1)); done
 done < <(find "$PACKS" -name "*.msx" | sort) > "$OUT/jobs.txt"
+[ -n "$STRICT" ] && ARGSET="$ARGSET +strict"
 export OUT FW ARGSET ARGS STEPS LINES_MAX
 run_one() {
     seed=${1%%$'\t'*}; pack=${1#*$'\t'}

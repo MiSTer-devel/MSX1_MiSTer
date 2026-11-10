@@ -56,7 +56,7 @@ module memory_upload
     localparam logic [2:0] CONF_SIZE = 7;           // Conf block size for computer 8 bytes - 1 byte
 
     // Stavový signál, který indikuje, že jsem v režimu upload. Resetujeme core a RAM přístup pro UPLOAD
-    assign upload = state != STATE_IDLE;
+    assign upload = state != STATE_IDLE || restart;
 
     // Řízení načítání dat
     logic [26:0] ioctl_size[5] = '{default: 27'd0};
@@ -135,6 +135,7 @@ module memory_upload
     } state_t;
 
     state_t state = STATE_IDLE;
+    logic   restart = 1'b0;         // a load request waits for STATE_IDLE to start the upload
     state_t next_state = STATE_IDLE;
     pattern_t pattern;
     logic [26:0] ram_addr;
@@ -277,11 +278,6 @@ module memory_upload
         logic [1:0] last_device_num;
         logic [2:0] current_io_ref_mapper;
 
-        if (load) begin
-            state <= STATE_CLEAN;
-            $display("DO STATE_CLEAN");
-        end
-
         lay_we      = 1'b0;
         lay_wa      = {slot, subslot, block};
         lay_d       = lay_q0;
@@ -318,7 +314,7 @@ module memory_upload
             case(state)
                 STATE_IDLE: begin
                     block_num           <= '0;
-                    ddr3_request        <= '0;
+                    ddr3_request        <= restart;
                     ref_add             <= '0;
                     ref_sram_add        <= '0;
                     ref_sram            <= '0;
@@ -334,7 +330,13 @@ module memory_upload
                     set_offset          <= '0;
                     fix_offset          <= '0;
                     load_sram           <= '0;
-                    reset               <= '0;
+                    if (restart) begin                      // start the upload; the core stays in reset
+                        restart         <= 1'b0;
+                        state           <= STATE_CLEAN;
+                        $display("DO STATE_CLEAN");
+                    end else begin
+                        reset           <= '0;
+                    end
                 end
                 STATE_RESET: begin
                     reset      <= '1;
@@ -915,6 +917,14 @@ module memory_upload
                 end
                 default: ;
             endcase
+        end
+
+        // A load request ends whatever is running and starts over through STATE_IDLE, which
+        // takes all working registers to their start values. After the state machine, so that
+        // it wins over the transition of this step.
+        if (load) begin
+            restart <= 1'b1;
+            state   <= STATE_IDLE;
         end
 
         // table and io_device writes of this step

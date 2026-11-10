@@ -310,6 +310,8 @@ logic REQ_VSYNC_INT_N;
 logic HSYNCINT_N;
 logic CLR_HSYNC_INT;
 logic REQ_HSYNC_INT_N;
+logic FH_LEVEL;
+logic REQ_HSYNC_S1_N;     // S#1 FH as read: the latch with IE1 on, the line level with IE1 off
 
 logic DVIDEOHS_N;
 
@@ -552,8 +554,12 @@ VDP_INTERRUPT U_INTERRUPT (
     .CLR_HSYNC_INT          (CLR_HSYNC_INT),
     .REQ_VSYNC_INT_N        (REQ_VSYNC_INT_N),
     .REQ_HSYNC_INT_N        (REQ_HSYNC_INT_N),
-    .REG_R19_HSYNC_INT_LINE (REG_R19_HSYNC_INT_LINE)
+    .FH_LEVEL               (FH_LEVEL),
+    .REG_R19_HSYNC_INT_LINE (REG_R19_HSYNC_INT_LINE),
+    .REG_R0_HSYNC_INT_EN    (REG_R0_HSYNC_INT_EN)
 );
+
+assign REQ_HSYNC_S1_N = REG_R0_HSYNC_INT_EN ? REQ_HSYNC_INT_N : ~FH_LEVEL;
 
 always_ff @(posedge CLK21M) begin
     if (PREDOTCOUNTER_X == 9'd255) begin
@@ -1060,7 +1066,7 @@ VDP_SPRITE U_SPRITE (
     .EIGHTDOTSTATE              (EIGHTDOTSTATE),
     .DOTCOUNTERX                (PREDOTCOUNTER_X),
     .DOTCOUNTERYP               (PREDOTCOUNTER_YP),
-    .BWINDOW_Y                  (BWINDOW_Y),
+    .BWINDOW_Y                  (PREWINDOW_Y_SP),   // same Y window as the VRAM arbiter
     .PVDPS0SPCOLLISIONINCIDENCE (VDPS0SPCOLLISIONINCIDENCE),
     .PVDPS0SPOVERMAPPED         (VDPS0SPOVERMAPPED),
     .PVDPS0SPOVERMAPPEDNUM      (VDPS0SPOVERMAPPEDNUM),
@@ -1149,7 +1155,7 @@ VDP_REGISTER U_VDP_REGISTER (
     .CLR_VSYNC_INT          (CLR_VSYNC_INT),
     .CLR_HSYNC_INT          (CLR_HSYNC_INT),
     .REQ_VSYNC_INT_N        (REQ_VSYNC_INT_N),
-    .REQ_HSYNC_INT_N        (REQ_HSYNC_INT_N),
+    .REQ_HSYNC_INT_N        (REQ_HSYNC_S1_N),
 
     .REG_R0_HSYNC_INT_EN    (REG_R0_HSYNC_INT_EN),
     .REG_R1_SP_SIZE         (REG_R1_SP_SIZE),

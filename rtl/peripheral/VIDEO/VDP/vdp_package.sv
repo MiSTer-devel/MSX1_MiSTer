@@ -136,6 +136,11 @@ package VDP_PACKAGE;
     // localparam int FIRST_LINE_212_PAL = DISPLAY_OFFSET_PAL + SCAN_LINE_OFFSET_212;
 
     localparam logic [10:0] LEFT_BORDER = 11'd235;
+    // Left border start on the video output (picture from H_CNT 257 with R#18 = 0), the
+    // openMSX reference point (tick 202) for VBLANK, VR and the end of the FH window
+    localparam logic [10:0] LEFT_BORDER_OUT = 11'd201;
+    // Clocks from PREDOTCOUNTER_X = 255 (ACTIVE_LINE) to the right border on the output
+    localparam logic [5:0] RIGHT_BORDER_DELAY = 6'd40;
     // localparam int DISPLAY_AREA = 1024;
 
     // localparam int VISIBLE_AREA_SX = LEFT_BORDER;

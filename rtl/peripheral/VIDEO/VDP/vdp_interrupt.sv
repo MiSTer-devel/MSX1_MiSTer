@@ -68,18 +68,41 @@ module VDP_INTERRUPT (
     input  logic          CLR_HSYNC_INT,
     output logic          REQ_VSYNC_INT_N,
     output logic          REQ_HSYNC_INT_N,
-    input  logic [7:0]    REG_R19_HSYNC_INT_LINE
+    output logic          FH_LEVEL,
+    input  logic [7:0]    REG_R19_HSYNC_INT_LINE,
+    input  logic          REG_R0_HSYNC_INT_EN
 );
 
     logic FF_VSYNC_INT_N;
     logic FF_HSYNC_INT_N;
     logic W_VSYNC_INTR_TIMING;
+    logic FF_ACTIVE_LINE;
+    logic [5:0] FF_HSCAN_CNT;
+    logic W_HSCAN;
+    logic FF_FH_LEVEL;
 
     assign REQ_VSYNC_INT_N = FF_VSYNC_INT_N;
     assign REQ_HSYNC_INT_N = FF_HSYNC_INT_N;
+    assign FH_LEVEL        = FF_FH_LEVEL;
 
-    // VSYNC INTERRUPT REQUEST
-    assign W_VSYNC_INTR_TIMING = (H_CNT == LEFT_BORDER) ? 1'b1 : 1'b0;
+    // VSYNC INTERRUPT REQUEST: start of the left border of line 192 / 212 (openMSX VSCAN)
+    assign W_VSYNC_INTR_TIMING = (H_CNT == LEFT_BORDER_OUT) ? 1'b1 : 1'b0;
+
+    // HSCAN (openMSX): the right border of the R#19 line on the output, RIGHT_BORDER_DELAY
+    // clocks after the line compare at the end of the pre-dot line (ACTIVE_LINE)
+    always_ff @(posedge CLK21M or posedge RESET) begin
+        if (RESET) begin
+            FF_ACTIVE_LINE <= 1'b0;
+            FF_HSCAN_CNT   <= '0;
+        end else begin
+            FF_ACTIVE_LINE <= ACTIVE_LINE;
+            if (ACTIVE_LINE && !FF_ACTIVE_LINE && Y_CNT == REG_R19_HSYNC_INT_LINE)
+                FF_HSCAN_CNT <= RIGHT_BORDER_DELAY;
+            else if (FF_HSCAN_CNT != '0)
+                FF_HSCAN_CNT <= FF_HSCAN_CNT - 1'b1;
+        end
+    end
+    assign W_HSCAN = FF_HSCAN_CNT == 6'd1;
 
     always_ff @(posedge CLK21M or posedge RESET) begin
         if (RESET) begin
@@ -100,13 +123,25 @@ module VDP_INTERRUPT (
         if (RESET) begin
             FF_HSYNC_INT_N <= 1'b1;
         end else begin
-            if (CLR_HSYNC_INT || (W_VSYNC_INTR_TIMING && V_BLANKING_START)) begin
-                // H-BLANKING INTERRUPT CLEAR
+            // FH is cleared by the CPU only (S#1 read, R#19 write, R#0 write with IE1), not at
+            // vertical blanking, and latched only while IE1 is on (openMSX execHScan)
+            if (CLR_HSYNC_INT) begin
                 FF_HSYNC_INT_N <= 1'b1;
-            end else if (ACTIVE_LINE && (Y_CNT == REG_R19_HSYNC_INT_LINE)) begin
-                // H-BLANKING INTERRUPT REQUEST
+            end else if (W_HSCAN && REG_R0_HSYNC_INT_EN) begin
                 FF_HSYNC_INT_N <= 1'b0;
             end
+        end
+    end
+
+    // FH as read with IE1 off: 1 from the right border of the R#19 line to the next left
+    // border, nothing latched (openMSX peekStatusReg, S#1)
+    always_ff @(posedge CLK21M or posedge RESET) begin
+        if (RESET) begin
+            FF_FH_LEVEL <= 1'b0;
+        end else if (W_HSCAN) begin
+            FF_FH_LEVEL <= 1'b1;
+        end else if (H_CNT == LEFT_BORDER_OUT) begin
+            FF_FH_LEVEL <= 1'b0;
         end
     end
 

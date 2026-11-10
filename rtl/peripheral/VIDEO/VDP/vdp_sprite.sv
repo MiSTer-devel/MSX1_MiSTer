@@ -438,7 +438,12 @@ module VDP_SPRITE (
     assign W_SP_OVERMAP = (FF_Y_TEST_LISTUP_ADDR[2] == 1'b1 && SPMODE2 == 1'b0) || FF_Y_TEST_LISTUP_ADDR[3];
 
     // [Y_TEST]表示中のラインか否か
-    assign W_ACTIVE =  BWINDOW_Y;
+    // Only lines whose Y-test target (YP + 1) is a display line, YP = -2..190 / -2..210:
+    // on border lines the 8-bit FF_CUR_Y aliases (sprites at Y = 230 hit YP -25..-18) and
+    // the arbiter grants no VRAM, so they collided on stale data (ghost S#0 C)
+    assign W_ACTIVE = BWINDOW_Y && ((DOTCOUNTERYP[8] && DOTCOUNTERYP[7:0] >= 8'd254) ||
+                                    (!DOTCOUNTERYP[8] && !REG_R9_Y_DOTS && DOTCOUNTERYP[7:0] <= 8'd190) ||
+                                    (!DOTCOUNTERYP[8] &&  REG_R9_Y_DOTS && DOTCOUNTERYP[7:0] <= 8'd210));
 
     // [SPWINDOW_Y]
     always_ff @(posedge CLK21M or posedge RESET) begin
@@ -460,7 +465,7 @@ module VDP_SPRITE (
             FF_Y_TEST_EN <= 1'b0;
         end else if (DOTSTATE == 2'b01) begin
             if (DOTCOUNTERX == 9'd0) begin
-                FF_Y_TEST_EN <= FF_SP_EN;
+                FF_Y_TEST_EN <= FF_SP_EN & W_ACTIVE;    // FF_SP_EN was sampled on the line before
             end else if (EIGHTDOTSTATE == 3'b110) begin
                 if (W_SP_OFF == 1'b1 || (W_SP_OVERMAP && W_TARGET_SP_EN == 1'b1) || FF_Y_TEST_SP_NUM == 5'b11111) begin
                     FF_Y_TEST_EN <= 1'b0;

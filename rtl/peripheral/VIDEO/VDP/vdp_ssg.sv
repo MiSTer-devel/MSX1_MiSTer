@@ -126,7 +126,7 @@ module VDP_SSG (
     logic [1:0] W_LINE_MODE;
     logic W_V_BLANKING_START;
     logic W_V_BLANKING_END;
-    logic [8:0] W_V_SYNC_INTR_START_LINE;
+    logic FF_VR;
 
     // Component instantiation for VDP_HVCOUNTER
     VDP_HVCOUNTER u_hvcounter (
@@ -157,7 +157,7 @@ module VDP_SSG (
     assign PREDOTCOUNTER_Y = FF_PRE_Y_CNT;
     assign PREDOTCOUNTER_YP = FF_MONITOR_LINE;
     assign HD = W_H_BLANK;
-    assign VD = W_V_BLANK;
+    assign VD = FF_VR;
     assign HSYNC = (W_H_CNT[1:0] == 2'b10 && FF_PRE_X_CNT == 9'b111111111) ? 1'b1 : 1'b0;
     assign V_BLANKING_START = W_V_BLANKING_START;
 
@@ -355,14 +355,16 @@ always_ff @(posedge CLK21M or posedge RESET) begin
     end
 end
 
-// VSYNC INTERRUPT REQUEST
-always_comb begin
-    case ({REG_R9_Y_DOTS, VDPR9PALMODE})
-        2'b00: W_V_SYNC_INTR_START_LINE = V_BLANKING_START_192_NTSC[8:0];
-        2'b10: W_V_SYNC_INTR_START_LINE = V_BLANKING_START_212_NTSC[8:0];
-        2'b01: W_V_SYNC_INTR_START_LINE = V_BLANKING_START_192_PAL[8:0];
-        2'b11: W_V_SYNC_INTR_START_LINE = V_BLANKING_START_212_PAL[8:0];
-    endcase
+// S#2 VR as openMSX: 0 from the left border of the line before the display to the end of
+// the display under the current LN (also with the display off); not the OFFSET_Y based
+// output blanking. At LEFT_BORDER_OUT the monitor line still holds the line before.
+always_ff @(posedge CLK21M or posedge RESET) begin
+    if (RESET) begin
+        FF_VR <= 1'b1;
+    end else if (W_H_CNT == LEFT_BORDER_OUT) begin
+        FF_VR <= !(FF_MONITOR_LINE == 9'h1FE || FF_MONITOR_LINE == 9'h1FF ||
+                   (!FF_MONITOR_LINE[8] && FF_MONITOR_LINE[7:0] < (REG_R9_Y_DOTS ? 8'd211 : 8'd191)));
+    end
 end
 
 // Generate V-BLANKING signals
@@ -370,8 +372,10 @@ always_comb begin
     W_V_BLANKING_END = ((W_V_CNT_IN_FIELD == {2'b00, (OFFSET_Y + LED_TV_Y_NTSC), (W_FIELD & REG_R9_INTERLACE_MODE)} && ~VDPR9PALMODE) ||
                         (W_V_CNT_IN_FIELD == {2'b00, (OFFSET_Y + LED_TV_Y_PAL),  (W_FIELD & REG_R9_INTERLACE_MODE)} && VDPR9PALMODE)) ? 1'b1 : 1'b0;
     
-    W_V_BLANKING_START = ((W_V_CNT_IN_FIELD == {(W_V_SYNC_INTR_START_LINE + {2'b00, LED_TV_Y_NTSC}), (W_FIELD & REG_R9_INTERLACE_MODE)} && ~VDPR9PALMODE) ||
-                          (W_V_CNT_IN_FIELD == {(W_V_SYNC_INTR_START_LINE + {2'b00, LED_TV_Y_PAL}), (W_FIELD & REG_R9_INTERLACE_MODE)} && VDPR9PALMODE)) ? 1'b1 : 1'b0;
+    // End of the display (openMSX VSCAN): line 192 / 212 starts. The monitor line counts
+    // up at H_CNT 219, so at LEFT_BORDER_OUT it still holds the last display line.
+    W_V_BLANKING_START = (REG_R9_Y_DOTS == 1'b0 && FF_MONITOR_LINE == 9'd191) ||
+                         (REG_R9_Y_DOTS == 1'b1 && FF_MONITOR_LINE == 9'd211);
 end
 
 endmodule

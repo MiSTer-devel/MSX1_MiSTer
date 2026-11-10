@@ -84,7 +84,7 @@ module dev_tms (
         .hblank_o(hblank),
         .vblank_o(vblank),
         .blank_n_o(blank_n),
-        .is_pal_i(io_device[0].param[0]),
+        .is_pal_i(~io_device[0].param[0]),      // MODE: 0 = PAL, 1 = NTSC (deviceParams.json)
         .ce_pix(ce_pix)
     );
 

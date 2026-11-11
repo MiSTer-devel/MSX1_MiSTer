@@ -41,7 +41,7 @@ assign sd_new.data_from_SD       = sd_q;        assign sd_old.data_from_SD      
 MSX::device_bus_t dev_new, dev_old;
 logic [7:0] data_new, data_old;
 logic       force_new, force_old;
-logic       main_new;                           // main_cs: new output, the reference has none (0)
+logic       main_new, main_old;
 
 mappers dut_new (
     .clock_bus(clock_bus), .cpu_bus(cpu_bus), .ext_SD_card_bus(sd_new), .flash_bus(flash_new),
@@ -53,7 +53,7 @@ mappers dut_new (
 
 mappers_old dut_old (
     .clock_bus(clock_bus), .cpu_bus(cpu_bus), .ext_SD_card_bus(sd_old), .flash_bus(flash_old),
-    .block_info(block_info), .device_bus(dev_old), .memory_bus(mem_old), .data(data_old),
+    .block_info(block_info), .device_bus(dev_old), .memory_bus(mem_old), .main_cs(main_old), .data(data_old),
     .data_to_mapper(data_to_mapper), .slot_expander_force_en(force_old),
     .ocm_megaSD_enable(megaSD_en), .ocm_slot1_mode(slot1_mode), .ocm_slot2_mode(slot2_mode),
     .ocm_ipl_en(ipl_en)
@@ -63,7 +63,7 @@ wire [191:0] obs_new = {main_new, mem_new.addr, mem_new.rnw, mem_new.ram_cs, mem
                         data_new, dev_new, force_new,
                         flash_new.base_addr, flash_new.addr, flash_new.data_to_flash, flash_new.we, flash_new.ce,
                         sd_new.rx, sd_new.tx, sd_new.data_to_SD};
-wire [191:0] obs_old = {1'b0, mem_old.addr, mem_old.rnw, mem_old.ram_cs, mem_old.sram_cs, mem_old.data,
+wire [191:0] obs_old = {main_old, mem_old.addr, mem_old.rnw, mem_old.ram_cs, mem_old.sram_cs, mem_old.data,
                         data_old, dev_old, force_old,
                         flash_old.base_addr, flash_old.addr, flash_old.data_to_flash, flash_old.we, flash_old.ce,
                         sd_old.rx, sd_old.tx, sd_old.data_to_SD};

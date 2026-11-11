@@ -28,6 +28,7 @@ module mappers (
     output                [7:0] data,               // Data output from the active mapper; defaults to FF if no mapper is active
     input                 [7:0] data_to_mapper,
     output                      slot_expander_force_en,
+    output                      mfrsd_expander_off, // MFRSD: slot expander off (register)
     input                       ocm_megaSD_enable,
     input                       ocm_slot1_mode,
     input                 [1:0] ocm_slot2_mode,
@@ -214,7 +215,8 @@ module mappers (
         .out(mapper_out[M_MFRSD]),
         .data_to_mapper(data_to_mapper),
         .device_out(device_out[D_MFRSD]),
-        .slot_expander_force_en(slot_expander_force_en)
+        .slot_expander_force_en(slot_expander_force_en),
+        .expander_off(mfrsd_expander_off)
     );
 
     ext_sd_card_if ext_SD_card_ese();

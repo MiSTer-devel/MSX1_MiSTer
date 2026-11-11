@@ -22,7 +22,7 @@ always #1 clk = ~clk;
 
 // ------------------------------------------------------------------ DDR3 model + ddram
 localparam int LAT = 2;
-localparam int unsigned ROM_A_ADDR = 32'hC00000, DB_ADDR = 32'h1600000, FW_ADDR = 32'h300000;
+localparam int unsigned ROM_A_ADDR = MSX::DDR3_ROM_A, DB_ADDR = MSX::DDR3_DB, FW_ADDR = MSX::DDR3_FW_PACK;
 byte unsigned pack[$], fw[$], rom[$], db[$];
 
 wire  [27:0] ddr3_addr;

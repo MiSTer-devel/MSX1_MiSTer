@@ -2,6 +2,10 @@
 // database entry. A ROM whose CRC32 is not in the database (or with no database loaded) is a
 // plain ROM, read linearly and placed by its MSX header (FW pack configurations 0x0000 /
 // 0x4000 / 0x8000); a ROM above 64 kB still needs the database. A database entry still wins.
+// Two ROMs with SRAM in slots A and B each get their own SRAM; blocks without SRAM see none (C9).
+// DDR3 as the HPS fills it: every file whole at its OSD address (CONF_STR of MSX1.sv, given by
+// run_cart_rom.sh), the later download wins where two overlap. A ROM A over 5 MB must not
+// destroy ROM B, a ROM over the area of its slot is refused (C8).
 // Run: wsl.exe -- bash rtl/tb/run_cart_rom.sh <Philips_VG_8020-00.msx> <CART_FW_EN.msx>
 //   OLD=<git rev>: memory_upload.sv of that revision
 module cart_rom_tb;
@@ -11,8 +15,9 @@ always #1 clk = ~clk;
 
 // ------------------------------------------------------------------ DDR3 model + ddram
 localparam int LAT = 5;
-localparam int unsigned ROM_A_ADDR = 32'hC00000, DB_ADDR = 32'h1600000, FW_ADDR = 32'h300000;
-byte unsigned pack[$], fw[$], rom[$], db[$];
+int unsigned ROM_A_ADDR, ROM_B_ADDR, DB_ADDR, FW_ADDR;        // from the OSD strings
+byte unsigned pack[$], fw[$], rom[$], rom_b[$], db[$];
+int          stamp_fw = 0, stamp_a = 0, stamp_b = 0, stamp_db = 0, stamp_n = 0;   // download order
 
 wire  [27:0] ddr3_addr;
 wire   [7:0] ddr3_dout;
@@ -33,11 +38,14 @@ ddram ddr (
 );
 
 function automatic byte unsigned ddr_byte(input int unsigned a);
-    if (a < pack.size())                              return pack[a];
-    if (a >= FW_ADDR && a - FW_ADDR < fw.size())      return fw[a - FW_ADDR];
-    if (a >= ROM_A_ADDR && a - ROM_A_ADDR < rom.size()) return rom[a - ROM_A_ADDR];
-    if (a >= DB_ADDR && a - DB_ADDR < db.size())      return db[a - DB_ADDR];
-    return 8'hFF;
+    int best = 0;
+    byte unsigned v = 8'hFF;
+    if (a < pack.size()) return pack[a];
+    if (a >= FW_ADDR    && a - FW_ADDR    < fw.size()    && stamp_fw > best) begin best = stamp_fw; v = fw[a - FW_ADDR];       end
+    if (a >= ROM_A_ADDR && a - ROM_A_ADDR < rom.size()   && stamp_a  > best) begin best = stamp_a;  v = rom[a - ROM_A_ADDR];   end
+    if (a >= ROM_B_ADDR && a - ROM_B_ADDR < rom_b.size() && stamp_b  > best) begin best = stamp_b;  v = rom_b[a - ROM_B_ADDR]; end
+    if (a >= DB_ADDR    && a - DB_ADDR    < db.size()    && stamp_db > best) begin best = stamp_db; v = db[a - DB_ADDR];       end
+    return v;
 endfunction
 
 logic [28:0] rd_addr;
@@ -127,6 +135,14 @@ function automatic logic [31:0] crc32(input byte unsigned d[$]);
 endfunction
 
 task automatic download(input int idx, input int unsigned size, input bit wait_upload);
+    stamp_n++;
+    case (idx)
+        2: stamp_fw = stamp_n;
+        3: stamp_a  = stamp_n;
+        4: stamp_b  = stamp_n;
+        6: stamp_db = stamp_n;
+        default: ;
+    endcase
     ioctl_index = 16'(idx); ioctl_download = 1;
     @(posedge clk); ioctl_addr = 27'(size);
     @(posedge clk); ioctl_download = 0;
@@ -222,12 +238,96 @@ task automatic check_ascii16x(input string what);
     $display("ok   %s", what);
 endtask
 
+// ROM A and ROM B in the database as ASCII8 with 8 kB SRAM (cart_device.json 36): slot 1 and
+// slot 2 blocks of the mapper point to two different SRAM entries of 8 kB, the other blocks to an
+// entry without SRAM
+task automatic check_sram_ab(input string what);
+    logic [31:0] ca, cb;
+    int ra = -1, rb = -1, bad = 0, err0 = errors;
+    make_rom(32768, 0, 16'h4010);
+    rom_b = rom;
+    foreach (rom_b[i]) rom_b[i] = rom_b[i] ^ 8'hA5;
+    ca = crc32(rom); cb = crc32(rom_b);
+    db = {ca[7:0], ca[15:8], ca[23:16], ca[31:24], 8'd36, 8'h00, 8'h00, 8'h00,
+          cb[7:0], cb[15:8], cb[23:16], cb[31:24], 8'd36, 8'h00, 8'h00, 8'h00};
+    download(6, db.size(), 0);
+    download(3, rom.size(), 1);
+    download(4, rom_b.size(), 1);
+    snapshot();
+    if (error !== ERR_NONE) begin errors++; $display("FAIL %s: error %0d", what, error); return; end
+    for (int i = 0; i < 64; i++) begin
+        MSX::block_t q = slot_layout[i];
+        if (q.mapper == MAPPER_ASCII8 && i[5:4] == 2'd1) begin
+            if (ra < 0) ra = q.ref_sram; else if (q.ref_sram != ra) bad++;
+        end else if (q.mapper == MAPPER_ASCII8 && i[5:4] == 2'd2) begin
+            if (rb < 0) rb = q.ref_sram; else if (q.ref_sram != rb) bad++;
+        end else if (q.mapper != MAPPER_NONE && lookup_SRAM[q.ref_sram].size != 0) begin
+            errors++; $display("FAIL %s: block %0d (mapper %0d) sees SRAM entry %0d", what, i, q.mapper, q.ref_sram);
+        end
+    end
+    if (ra < 0 || rb < 0 || bad) begin
+        errors++; $display("FAIL %s: ASCII8 blocks slot 1 ref %0d, slot 2 ref %0d, %0d inconsistent", what, ra, rb, bad);
+        return;
+    end
+    if (ra == rb) begin errors++; $display("FAIL %s: slots A and B share SRAM entry %0d", what, ra); end
+    if (lookup_SRAM[ra].size != 16'd8 || lookup_SRAM[rb].size != 16'd8) begin
+        errors++; $display("FAIL %s: SRAM sizes %0d / %0d kB", what, lookup_SRAM[ra].size, lookup_SRAM[rb].size);
+    end
+    if (lookup_SRAM[ra].addr == lookup_SRAM[rb].addr) begin
+        errors++; $display("FAIL %s: SRAM of A and B at the same address %07h", what, lookup_SRAM[ra].addr);
+    end
+    if (errors == err0) $display("ok   %s (SRAM entries %0d and %0d)", what, ra, rb);
+    rom_b = {};
+    download(4, 0, 1);
+endtask
+
+// C8: ROM B (32 kB plain, pages 1-2 of slot 2) loaded first, then a ROM A of 5.25 MB
+// (ASCII16-X in the database): ROM B must stay intact. Then a ROM A of 17 MB is refused.
+task automatic check_rom_areas(input string what);
+    localparam int BIG = 5 * 1048576 + 262144;
+    logic [31:0] crc;
+    int bad = 0, err0 = errors;
+    make_rom(32768, 0, 16'h4010);
+    rom_b = rom;
+    foreach (rom_b[i]) rom_b[i] = rom_b[i] ^ 8'h3C;
+    rom_b[0] = 8'h41; rom_b[1] = 8'h42;                 // header kept after the XOR
+    rom_b[16384] = 8'h00; rom_b[16385] = 8'h00;
+    make_rom(BIG, 0, 16'h4010);
+    crc = crc32(rom);
+    db = {crc[7:0], crc[15:8], crc[23:16], crc[31:24], 8'd57, 8'h00, 8'h00, 8'h00};
+    download(6, db.size(), 0);
+    download(4, rom_b.size(), 1);
+    download(3, rom.size(), 1);
+    snapshot();
+    if (error !== ERR_NONE) begin errors++; $display("FAIL %s: error %0d", what, error); return; end
+    for (int p = 1; p <= 2; p++) begin
+        MSX::block_t b = slot_layout[{2'd2, 2'd0, 2'(p)}];
+        int unsigned a = lookup_RAM[b.ref_ram].addr + 32'(b.offset_ram) * 16384;
+        for (int i = 0; i < 16384; i += 31)
+            if (!ram.exists(a + i) || ram[a + i] !== rom_b[(p - 1) * 16384 + i]) bad++;
+    end
+    if (bad) begin errors++; $display("FAIL %s: ROM B differs in %0d bytes (overwritten by ROM A)", what, bad); end
+    // a ROM over 16 MB is refused (the HPS has already written past the area of slot A)
+    rom = {}; for (int i = 0; i < 4096; i++) rom.push_back(8'(i));
+    download(3, 17 * 1048576, 0);
+    wait (upload);
+    wait (!upload || error != ERR_NONE);
+    repeat (10) @(posedge clk);
+    if (error !== ERR_ROM_TOO_BIG) begin errors++; $display("FAIL %s: 17 MB ROM A: error %0d (expected %0d)", what, error, ERR_ROM_TOO_BIG); end
+    if (errors == err0) $display("ok   %s", what);
+    rom = {}; rom_b = {};
+    download(3, 0, 0); download(4, 0, 1);
+endtask
+
 initial begin
     string pack_name, fw_name;
     int fd, c;
-    if (!$value$plusargs("pack=%s", pack_name) || !$value$plusargs("fw=%s", fw_name)) begin
-        $display("usage: +pack=<machine.msx> +fw=<CART_FW_EN.msx>"); $finish;
+    if (!$value$plusargs("pack=%s", pack_name) || !$value$plusargs("fw=%s", fw_name) ||
+        !$value$plusargs("rom_a=%h", ROM_A_ADDR) || !$value$plusargs("rom_b=%h", ROM_B_ADDR) ||
+        !$value$plusargs("db=%h", DB_ADDR) || !$value$plusargs("fwaddr=%h", FW_ADDR)) begin
+        $display("usage: +pack=<machine.msx> +fw=<CART_FW_EN.msx> +rom_a= +rom_b= +db= +fwaddr=<hex>"); $finish;
     end
+    $display("DDR3 areas: FW %07h, ROM A %07h, ROM B %07h, DB %07h", FW_ADDR, ROM_A_ADDR, ROM_B_ADDR, DB_ADDR);
     fd = $fopen(pack_name, "rb"); while ((c = $fgetc(fd)) != -1) pack.push_back(8'(c)); $fclose(fd);
     fd = $fopen(fw_name, "rb");   while ((c = $fgetc(fd)) != -1) fw.push_back(8'(c));   $fclose(fd);
     cart_conf[0].typ = CART_TYP_ROM;
@@ -265,6 +365,12 @@ initial begin
     // --- ASCII16-X: flash of 8 MB with the ROM image at its start
     make_rom(131072, 0, 16'h4010);  check_ascii16x("128 kB in DB as ASCII16-X");
     make_rom(100000, 0, 16'h4010);  check_ascii16x("100000 B in DB as ASCII16-X");
+
+    // --- C9: SRAM of ROM A and ROM B
+    check_sram_ab("ROM A and ROM B with SRAM");
+
+    // --- C8: areas of ROM A and ROM B in the DDR3
+    check_rom_areas("ROM A of 5.25 MB beside ROM B, ROM A of 17 MB");
 
     if (errors == 0) $display("PASS cart_rom_tb");
     else             $display("FAILED cart_rom_tb: %0d errors", errors);

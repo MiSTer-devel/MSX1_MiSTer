@@ -79,7 +79,7 @@ always_ff @(posedge clk) begin
 			STATE_INIT:
 				begin
 					if (buff_mem_ready && ~ram_rd && enable) begin
-						ram_a <= 28'h1700000;
+						ram_a <= MSX::DDR3_CAS;
 						output_on <= 0;
 						state <= STATE_SEARCH;
 						ram_rd <= 1;

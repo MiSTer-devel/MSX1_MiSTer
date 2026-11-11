@@ -381,7 +381,8 @@ module mapper_mfrsd (
     output MSX::mapper_out_t out,              // Mapper output, merged in mappers.sv
     output MSX::device_bus_t device_out,
     input                 [7:0] data_to_mapper, 
-    output                      slot_expander_force_en
+    output                      slot_expander_force_en,
+    output                      expander_off      // register: all of the slot is subslot 1
 );
 
     MSX::mfrsd_config_t config_reg;
@@ -393,6 +394,7 @@ module mapper_mfrsd (
     wire mfrds_cs = cpu_bus.mreq && (block_info.typ == MAPPER_MFRSD0 || block_info.typ == MAPPER_MFRSD1 || block_info.typ == MAPPER_MFRSD2 || block_info.typ == MAPPER_MFRSD3);
     
     assign slot_expander_force_en = config_reg.isSlotExpanderEnabled && mfrds_cs;
+    assign expander_off           = ~config_reg.isSlotExpanderEnabled;
 
     always_comb begin
         out = MSX::MAPPER_OUT_IDLE;

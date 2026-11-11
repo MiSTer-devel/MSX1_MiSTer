@@ -105,7 +105,7 @@ always_ff @(posedge clk_core) begin
             int unsigned a = {ddr_rd_addr[24:0], 3'(b)};
             DDRAM_DOUT[8*b +: 8] <= (a < pack.size()) ? pack[a] :
                 (a >= 32'h300000  && a - 32'h300000  < fwpk.size())  ? fwpk[a - 32'h300000] :
-                (a >= 32'hC00000  && a - 32'hC00000  < rom.size()) ? rom[a - 32'hC00000] :
+                (a >= MSX::DDR3_ROM_A && a - MSX::DDR3_ROM_A < rom.size()) ? rom[a - MSX::DDR3_ROM_A] :
                 (a >= 32'h1600000 && a - 32'h1600000 < db.size())  ? db[a - 32'h1600000] : 8'hFF;
         end
         DDRAM_DOUT_READY <= 1'b1;
@@ -162,20 +162,18 @@ assign sd_ch4.ack = ch4_done; assign sd_ch4.rdata = ch4_data;
 
 // the SDRAM controller starts ch4 accesses between the points where the CPU can ask for
 // memory: every ch1 request of the running machine must begin in a cpu_phase cycle
-// Not held to it: the first access after a reset (the OPL4 is still clearing its memories), and
-// writes: a write to FFFFh that maps RAM into page 3 reaches that RAM a clk later (the CPU
-// does not wait for a write).
-int  ch1_reqs = 0, ch1_off_phase = 0, ch1_at_reset = 0, ch1_late_wr = 0, since_reset = 0;
+// Not held to it: the first access after a reset (the OPL4 is still clearing its memories).
+// (A write to FFFFh that mapped RAM into page 3 used to reach that RAM a clk later: C1.)
+int  ch1_reqs = 0, ch1_off_phase = 0, ch1_at_reset = 0, since_reset = 0;
 always @(posedge clk_core) begin
     since_reset <= reset ? 0 : since_reset + 1;
     if (!sys.upload && !reset && sd_ch1.ram_cs && !ch1_q) begin
         ch1_reqs++;
         if (!cpu_phase && since_reset < 16) ch1_at_reset++;
-        else if (!cpu_phase && !sd_ch1.rnw) ch1_late_wr++;
         else if (!cpu_phase) begin
             ch1_off_phase++;
-            if (ch1_off_phase < 10) $display("%0t FAIL ch1 read outside cpu_phase, address %h, %0d clk after the reset, CPU address %h mreq %b iorq %b rd %b wr %b m1 %b",
-                $time, sd_ch1.addr, since_reset, sys.MSX.cpu_bus.addr, sys.MSX.cpu_bus.mreq, sys.MSX.cpu_bus.iorq, sys.MSX.cpu_bus.rd, sys.MSX.cpu_bus.wr, sys.MSX.cpu_bus.m1);
+            if (ch1_off_phase < 10) $display("%0t FAIL ch1 %s outside cpu_phase, address %h, %0d clk after the reset, CPU address %h mreq %b iorq %b rd %b wr %b m1 %b",
+                $time, sd_ch1.rnw ? "read" : "write", sd_ch1.addr, since_reset, sys.MSX.cpu_bus.addr, sys.MSX.cpu_bus.mreq, sys.MSX.cpu_bus.iorq, sys.MSX.cpu_bus.rd, sys.MSX.cpu_bus.wr, sys.MSX.cpu_bus.m1);
         end
     end
 end
@@ -611,8 +609,8 @@ initial begin
     if (tc_used && disk_m1 < 1000) begin errors++; $display("FAIL disk ROM does not run (%0d M1)", disk_m1); end
     if (!no_disk && lba0_reads == 0) begin errors++; $display("FAIL boot sector (LBA 0) not loaded"); end
     if (tc_used && !no_disk && reads_ok == 0) begin errors++; $display("FAIL no Read Data with a normal end"); end
-    $display("SDRAM ch1 requests of the machine: %0d, reads outside cpu_phase: %0d (writes: %0d, right after a reset: %0d)",
-             ch1_reqs, ch1_off_phase, ch1_late_wr, ch1_at_reset);
+    $display("SDRAM ch1 requests of the machine: %0d, outside cpu_phase: %0d (right after a reset: %0d)",
+             ch1_reqs, ch1_off_phase, ch1_at_reset);
     if (ch1_off_phase != 0) errors++;
     if (sys.io_device[DEV_OPL4][0].enable)
         $display("OPL4: %0d sample memory reads, %0d writes, sound output %0d .. %0d", ch4_reads, ch4_writes, audio_lo, audio_hi);

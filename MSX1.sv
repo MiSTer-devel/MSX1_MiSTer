@@ -243,11 +243,12 @@ reset_sync rst_sync_sdram (.clk(clk_sdram), .arst(~locked_sdram),          .rst(
 //  [39]     SRAM load
 //  [40]     tape input (file / ADC)
 //  [41]     border
-// Free: [28:26], [37:33], [127:42]
+// Free: [28:27], [37:33], [127:42]
 `include "build_id.v"
 localparam CONF_STR = {
    "MSX1;UART115200,MIDI;",
    "-;",
+   // load addresses = MSX::DDR3_* (package.sv)
    "FC1,MSX,Load ROM PACK,30000000;",
    "FC2,MSX,Load FW  PACK,30300000;",
    "FC6,DB,Load DB MAPPERS,31600000;",
@@ -258,10 +259,10 @@ localparam CONF_STR = {
    "h5S2,DSK,Mount Drive 2;",
    "H3-;",
    CONF_STR_SLOT_A,
-   "H1FS3,ROM,Load,30C00000;",
+   "H1FS3,ROM,Load,32000000;",
    "H3-;",
    CONF_STR_SLOT_B,
-   "H2F4,ROM,Load,31100000;",
+   "H2F4,ROM,Load,33000000;",
    "h0-;",
    "h0SC0,VHD,Load SD card;",
    "h3O[12],Reset after Mount,No,Yes;",
@@ -297,7 +298,7 @@ localparam CONF_STR = {
    "T[21],Reset;",
    "H3R[10],Reset & Detach ROM Cartridge;",
    "R[21],Reset and close OSD;",
-   "I,BAD MSX CONF,NOT SUPPORTED CONF,NOT SUPPORTED BLOCK,BAD MSX FW CONF,NOT FW CONF,DEVICE MISSING,Device not in this core build,No CRC32 DB,Not find CRC32 in DB,SMALL MEMORY,FDC already in machine;",
+   "I,BAD MSX CONF,NOT SUPPORTED CONF,NOT SUPPORTED BLOCK,BAD MSX FW CONF,NOT FW CONF,DEVICE MISSING,Device not in this core build,No CRC32 DB,Not find CRC32 in DB,SMALL MEMORY,FDC already in machine,ROM too big;",
    "V,v",`BUILD_DATE
 };
 

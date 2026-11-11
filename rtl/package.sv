@@ -38,7 +38,7 @@ typedef enum logic [5:0] {MAPPER_NONE, MAPPER_OFFSET, MAPPER_ASCII16, MAPPER_RTY
                           MAPPER_UNUSED} mapper_typ_t;
 typedef enum logic [3:0] {BLOCK_RAM, BLOCK_ROM, BLOCK_SRAM, BLOCK_DEVICE, BLOCK_MAPPER, BLOCK_CART, BLOCK_REF_MEM, BLOCK_REF_DEV, BLOCK_IO_DEVICE, BLOCK_EXPANDER, BLOCK_REF_SHARED_MEM, BLOCK_FLASH} block_t;
 typedef enum logic [2:0] {CONF_BLOCK, CONF_DEVICE, CONF_LAYOUT, CONF_CARTRIGE, CONF_BLOCK_FW, CONF_UNUSED5, CONF_UNUSED6, CONF_END} conf_t;
-typedef enum logic [3:0] {ERR_NONE, ERR_BAD_MSX_CONF, ERR_NOT_SUPPORTED_CONF, ERR_NOT_SUPPORTED_BLOCK, ERR_BAD_MSX_FW_CONF, ERR_NOT_FW_CONF, ERR_DEVICE_MISSING, ERR_MISSING_SOURCE, ERR_NO_CRC_DB, ERR_NO_CRC_FOUND, ERR_NO_MEMORY, ERR_FDC_PRESENT} error_t;
+typedef enum logic [3:0] {ERR_NONE, ERR_BAD_MSX_CONF, ERR_NOT_SUPPORTED_CONF, ERR_NOT_SUPPORTED_BLOCK, ERR_BAD_MSX_FW_CONF, ERR_NOT_FW_CONF, ERR_DEVICE_MISSING, ERR_MISSING_SOURCE, ERR_NO_CRC_DB, ERR_NO_CRC_FOUND, ERR_NO_MEMORY, ERR_FDC_PRESENT, ERR_ROM_TOO_BIG} error_t;
 
 interface cpu_regs_if();
     wire [15:0] AF;
@@ -550,6 +550,17 @@ package MSX;
 
     // clk_core frequency in Hz (pll outclk_1). The only place it is defined.
     localparam int CLK_CORE_HZ = 21477270;
+
+    // DDR3 areas of the OSD files, offset from 0x30000000 (ddram.sv). The HPS writes a file
+    // whole at its address: the load addresses in CONF_STR (MSX1.sv) must be these.
+    // Map and sizes: doc/konfigurace.md "Oblasti v DDR3".
+    localparam logic [27:0] DDR3_ROM_PACK = 28'h0000000;   //  3 MB
+    localparam logic [27:0] DDR3_FW_PACK  = 28'h0300000;   // 19 MB
+    localparam logic [27:0] DDR3_DB       = 28'h1600000;   //  1 MB  mapper database (CRC32)
+    localparam logic [27:0] DDR3_CAS      = 28'h1700000;   //  9 MB
+    localparam logic [27:0] DDR3_ROM_A    = 28'h2000000;   // 16 MB
+    localparam logic [27:0] DDR3_ROM_B    = 28'h3000000;   // 16 MB
+    localparam logic [26:0] ROM_MAX       = 27'h1000000;   // larger ROM: ERR_ROM_TOO_BIG
 
     // ---------------------------------------------------------------- synthesized copies
     // The one place to set how many copies of a device are built (io_device keeps 3 slots

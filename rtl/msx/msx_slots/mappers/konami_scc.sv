@@ -93,26 +93,31 @@ module mapper_konami_scc (
     wire scc_area                    = area_scc_plus_mode_scc_plus || area_scc_plus_mode_scc || area_scc_mode;
     
     // Bank selection logic based on the current address range
-    wire [7:0] bank_base;
+    wire [7:0] bank_reg;
     wire       is_ram_segment;
-    assign {bank_base, is_ram_segment} = (cpu_bus.addr[15:13] == 3'b010) ? {bank1[block_info.id], isRamSegment1[block_info.id]} :  // Bank 1 for 4000-5FFFh
+    assign {bank_reg, is_ram_segment} = (cpu_bus.addr[15:13] == 3'b010) ? {bank1[block_info.id], isRamSegment1[block_info.id]} :  // Bank 1 for 4000-5FFFh
                                          (cpu_bus.addr[15:13] == 3'b011) ? {bank2[block_info.id], isRamSegment2[block_info.id]} :  // Bank 2 for 6000-7FFFh
                                          (cpu_bus.addr[15:13] == 3'b100) ? {bank3[block_info.id], isRamSegment3[block_info.id]} :  // Bank 3 for 8000-9FFFh
                                                                            {bank4[block_info.id], isRamSegment4[block_info.id]} ;  // Bank 4 for A000-BFFFh
 
+    // SCC+ 128 KB: 16 blocks, higher bank numbers mirror (openMSX subtype "expanded")
+    wire [7:0] bank_base = sccType ? {4'b0, bank_reg[3:0]} : bank_reg;
+
     // Generate RAM address based on bank and lower address bits
     wire [26:0] ram_addr = {6'b0, bank_base, cpu_bus.addr[12:0]};
 
-    // Output enable signal: active only if address is mapped and not in SCC area
-    wire oe = cs && mapped && ~scc_area && (is_ram_segment || sccType == 1'b0) && (cpu_bus.rd || cpu_bus.wr);
+    // As openMSX MSXSCCPlusCart: memory is readable in every segment, the RAM mode controls
+    // writes only. A write in a RAM segment goes to the RAM, not to the SCC or a bank register.
+    wire ram_wr = cpu_bus.wr && is_ram_segment && ~sccModeRegAccess;
+    wire oe     = cs && mapped && ((cpu_bus.rd && ~scc_area) || ram_wr);
 
     // Output assignments to the `out` interface
     assign out.addr   = oe ? ram_addr : {27{1'b1}};   // Output address, or '1 if not enabled
     assign out.ram_cs = oe;                           // RAM chip select signal
-    assign out.rnw    = ~(cpu_bus.wr && is_ram_segment && ~sccModeRegAccess);
+    assign out.rnw    = ~ram_wr;
 
     assign device_out.mode  = cs ? soundMode[block_info.id] : 1'b1;
-    assign device_out.en    = cs && scc_area;
+    assign device_out.en    = cs && scc_area && ~(cpu_bus.wr && is_ram_segment);
     assign device_out.param = cs ? sccType : 1'b1;
 
     // outputs not used by this mapper: neutral for the merge in mappers.sv

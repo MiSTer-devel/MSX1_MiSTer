@@ -38,7 +38,7 @@ logic clk = 0;
 always #1 clk = ~clk;
 
 // ------------------------------------------------------------------ DDR3 contents
-localparam int unsigned ROM_A_ADDR = 32'hC00000, ROM_B_ADDR = 32'h1100000, DB_ADDR = 32'h1600000, FW_ADDR = 32'h300000;
+localparam int unsigned ROM_A_ADDR = MSX::DDR3_ROM_A, ROM_B_ADDR = MSX::DDR3_ROM_B, DB_ADDR = MSX::DDR3_DB, FW_ADDR = MSX::DDR3_FW_PACK;
 localparam int NROM = 16, NDB = 8;
 byte unsigned pack[$], fw[$], db[$], roma[$], romb[$];
 byte unsigned pack_f[$], fw_f[$];

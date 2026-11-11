@@ -48,10 +48,11 @@ module msx_slots (
 
     wire [1:0] active_subslot;
     wire       subslot_output_rq;
+    wire       subslot_cs;
     wire [7:0] subslot_data;
 
-
-    //TODO zjistit jak zápis a čtení ovlivňuje ostatní. Paměť, atd. dle  MFRSD nedojde k zápisu do RAM a čtení z RAM. (Write není blokováno v MFRSD)
+    // FFFF of an expanded slot is the subslot register only: neither the memory nor the mapper
+    // below sees the access (openMSX MSXCPUInterface, confirmed on turbo R GT).
     subslot subslot
     (
         .cpu_bus(cpu_bus),
@@ -60,10 +61,42 @@ module msx_slots (
         .active_subslot(active_subslot),
         .expander_force_en(slot_expander_force_en),
         .output_rq(subslot_output_rq),
+        .cs(subslot_cs),
         .active_slot(active_slot)
     );
 
-    assign layout_id = {active_slot, active_subslot, cpu_bus.addr[15:14]};
+    // rd/wr hidden, mreq kept: MFRSD derives slot_expander_force_en from mreq (no loop)
+    cpu_bus_if cpu_bus_mappers(cpu_bus.clk, cpu_bus.reset);
+    assign cpu_bus_mappers.mreq   = cpu_bus.mreq;
+    assign cpu_bus_mappers.iorq   = cpu_bus.iorq;
+    assign cpu_bus_mappers.rd     = cpu_bus.rd & ~subslot_cs;
+    assign cpu_bus_mappers.wr     = cpu_bus.wr & ~subslot_cs;
+    assign cpu_bus_mappers.m1     = cpu_bus.m1;
+    assign cpu_bus_mappers.halt   = cpu_bus.halt;
+    assign cpu_bus_mappers.rfsh   = cpu_bus.rfsh;
+    assign cpu_bus_mappers.addr   = cpu_bus.addr;
+    assign cpu_bus_mappers.data   = cpu_bus.data;
+    assign cpu_bus_mappers.req    = cpu_bus.req;
+    assign cpu_bus_mappers.int_rq = cpu_bus.int_rq;
+
+    // MFRSD with its expander off: the whole slot is subslot 1 (openMSX getSubSlot), the
+    // register keeps its last value. The slot is taken from any access to an MFRSD block
+    // (the write that turns the expander off is one); registered, so no loop through the layout.
+    wire       mfrsd_expander_off;
+    logic      mfrsd_seen;
+    logic [1:0] mfrsd_slot;
+    always_ff @(posedge cpu_bus.clk) begin
+        if (cpu_bus.reset)
+            mfrsd_seen <= 1'b0;
+        else if (cpu_bus.mreq && (active_block.mapper == MAPPER_MFRSD0 || active_block.mapper == MAPPER_MFRSD1 ||
+                                  active_block.mapper == MAPPER_MFRSD2 || active_block.mapper == MAPPER_MFRSD3)) begin
+            mfrsd_seen <= 1'b1;
+            mfrsd_slot <= active_slot;
+        end
+    end
+    wire [1:0] layout_subslot = (mfrsd_expander_off && mfrsd_seen && active_slot == mfrsd_slot) ? 2'd1 : active_subslot;
+
+    assign layout_id = {active_slot, layout_subslot, cpu_bus.addr[15:14]};
     MSX::lookup_SRAM_t active_SRAM;
 
     assign active_SRAM = lookup_SRAM[active_block.ref_sram];
@@ -89,7 +122,7 @@ module msx_slots (
     assign memory_bus.addr    = (memory_bus_mappers.sram_cs ? 27'(base_sram) : main_cs ? main_RAM.addr : base_ram) + memory_bus_mappers.addr;
     assign memory_bus.rnw     = memory_bus_mappers.rnw | (memory_bus_mappers.ram_cs & ram_ro);
     assign memory_bus.data    = cpu_bus.data;
-    assign memory_bus.ram_cs  = ~subslot_output_rq && (memory_bus_mappers.ram_cs || memory_bus_mappers.sram_cs || main_cs);
+    assign memory_bus.ram_cs  = ~subslot_cs && (memory_bus_mappers.ram_cs || memory_bus_mappers.sram_cs || main_cs);
     assign memory_bus.sram_cs = '0;
 
     assign memory_bus_mappers.q = memory_bus.q;
@@ -107,7 +140,7 @@ module msx_slots (
     wire slot_expander_force_en;
     mappers mappers_inst (
         .clock_bus(clock_bus),
-        .cpu_bus(cpu_bus),
+        .cpu_bus(cpu_bus_mappers),
         .device_bus(device_bus),
         .memory_bus(memory_bus_mappers),
         .main_cs(main_cs),
@@ -117,6 +150,7 @@ module msx_slots (
         .data(mapper_data),
         .data_to_mapper(data_to_mapper),
         .slot_expander_force_en(slot_expander_force_en),
+        .mfrsd_expander_off(mfrsd_expander_off),
         .ocm_megaSD_enable(ocm_megaSD_enable),
         .ocm_slot1_mode(ocm_slot1_mode),
         .ocm_slot2_mode(ocm_slot2_mode),

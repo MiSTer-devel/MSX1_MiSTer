@@ -38,7 +38,7 @@ ddram ddr (
 );
 
 // ------------------------------------------------------------------ CAS image
-localparam logic [27:0] BASE = 28'h1700000;
+localparam logic [27:0] BASE = MSX::DDR3_CAS;
 byte image[$];
 byte unsigned exp_block[2][$];
 

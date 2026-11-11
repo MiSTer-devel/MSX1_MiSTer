@@ -146,7 +146,7 @@ assign ch3_dout = ch3_saved_a0 ? ch3_saved_data[15:8] : ch3_saved_data[7:0];
 
 always @(posedge clk) begin
     reg [CAS_LATENCY+BURST_LENGTH+1:0] data_ready_delay1, data_ready_delay2, data_ready_delay3, data_ready_delay4;
-    reg        ch4_req_1, ch4_rq, ch4_rnw_1, ch4_cap;
+    reg        ch4_req_1, ch4_rq, ch4_rnw_1, ch2_cap, ch3_cap, ch4_cap;
     reg [26:0] ch4_addr_1;
     reg  [7:0] ch4_din_1;
 
@@ -164,6 +164,7 @@ always @(posedge clk) begin
     reg  [7:0] ch1_din_1,ch2_din_1,ch3_din_1;
     
     reg        doRefresh_1;
+    reg        share_go;
     
     ch2_req_1 <= ch2_req;
     ch3_req_1 <= ch3_req;
@@ -181,12 +182,14 @@ always @(posedge clk) begin
     end
     if (ch2_req & ~ch2_req_1) begin
         ch2_rq <= 1;
+        ch2_ready  <= 0;    // at once: a read may wait for share_go
         ch2_rnw_1  <= ch2_rnw;
         ch2_addr_1 <= ch2_addr;
         ch2_din_1  <= ch2_din;
     end
     if (ch3_req & ~ch3_req_1) begin
         ch3_rq <= 1;
+        ch3_ready  <= 0;
         ch3_rnw_1  <= ch3_rnw;
         ch3_addr_1 <= ch3_addr;
         ch3_din_1  <= ch3_din;
@@ -211,20 +214,22 @@ always @(posedge clk) begin
     data_ready_delay4 <= data_ready_delay4>>1;
 
 
-    // ch4 read data goes through the register of ch1 (the one in the I/O cell) and is copied
-    // from it a clk later; ch4 reads only while the CPU does not use that register (ch4_go)
-    if(data_ready_delay1[CAS_LATENCY+BURST_LENGTH-1] | data_ready_delay4[CAS_LATENCY+BURST_LENGTH-1]) ch1_saved_data <= SDRAM_DQ;
+    // SDRAM_DQ has one register only, ch1_saved_data in the I/O cell. Read data of ch2-ch4 is
+    // copied from it a clk later; they read only while the CPU does not use it (share_go).
+    if(data_ready_delay1[CAS_LATENCY+BURST_LENGTH-1] | data_ready_delay2[CAS_LATENCY+BURST_LENGTH-1] |
+       data_ready_delay3[CAS_LATENCY+BURST_LENGTH-1] | data_ready_delay4[CAS_LATENCY+BURST_LENGTH-1]) ch1_saved_data <= SDRAM_DQ;
+    ch2_cap <= data_ready_delay2[CAS_LATENCY+BURST_LENGTH-1];
+    ch3_cap <= data_ready_delay3[CAS_LATENCY+BURST_LENGTH-1];
     ch4_cap <= data_ready_delay4[CAS_LATENCY+BURST_LENGTH-1];
+    if(ch2_cap) begin ch2_saved_data <= ch1_saved_data; ch2_ready <= 1; end
+    if(ch3_cap) begin ch3_saved_data <= ch1_saved_data; ch3_ready <= 1; end
     if(ch4_cap) begin ch4_dout <= ch1_saved_data; ch4_done <= 1; end
     if(data_ready_delay1[CAS_LATENCY+BURST_LENGTH-1]) memory_bus_ch1.sdram_ready <= 1;
 
-    if(data_ready_delay2[CAS_LATENCY+BURST_LENGTH-1]) ch2_saved_data <= SDRAM_DQ;
-	if(data_ready_delay2[CAS_LATENCY+BURST_LENGTH-1]) ch2_ready <= 1;
-	
-	if(data_ready_delay3[CAS_LATENCY+BURST_LENGTH-1]) ch3_saved_data <= SDRAM_DQ;
-	if(data_ready_delay3[CAS_LATENCY+BURST_LENGTH-1]) ch3_ready <= 1;
-
     SDRAM_DQ <= 16'bz;
+
+    // no CPU access under way or due, no refresh due before the access ends
+    share_go = ~ch1_req_1 & ph_free & (refresh_count < cycles_per_refresh - 14'd16);
 
     command <= CMD_NOP;
     case (state)
@@ -298,8 +303,8 @@ always @(posedge clk) begin
                 state      <= STATE_WAIT;
                 memory_bus_ch1.sdram_ready  <= 0;
             end
-            else if(ch2_rq) begin
-				if (ch2_rnw)
+            else if(ch2_rq & (~ch2_rnw_1 | share_go)) begin
+				if (ch2_rnw_1)      // captured, as saved_wr (DQM must match the command)
                     {cas_addr[12:9],SDRAM_BA,SDRAM_A,cas_addr[8:0]} <= {2'b00, 1'b1, ch2_addr_1[25:1]};
                 else
                     {cas_addr[12:9],SDRAM_BA,SDRAM_A,cas_addr[8:0]} <= {~ch2_addr_1[0],ch2_addr_1[0], 1'b1, ch2_addr_1[25:1]};
@@ -313,14 +318,14 @@ always @(posedge clk) begin
                 state      <= STATE_WAIT;
 				ch2_ready  <= 0;
             end
-            else if(ch3_rq) begin
+            else if(ch3_rq & (~ch3_rnw_1 | share_go)) begin
                 chip       <= ch3_addr_1[26];
                 saved_data <= {ch3_din_1,ch3_din_1};
                 saved_wr   <= ~ch3_rnw_1;
 				ch3_saved_a0 <= ch3_addr_1[0];
                 ch         <= 2;
                 ch3_rq     <= 0;
-                if (ch3_rnw) 
+                if (ch3_rnw_1)
                     {cas_addr[12:9],SDRAM_BA,SDRAM_A,cas_addr[8:0]} <= {2'b00, 1'b1, ch3_addr_1[25:1]};
                 else
                     {cas_addr[12:9],SDRAM_BA,SDRAM_A,cas_addr[8:0]} <= {~ch3_addr_1[0],ch3_addr_1[0], 1'b1, ch3_addr_1[25:1]};
@@ -328,8 +333,7 @@ always @(posedge clk) begin
                 state      <= STATE_WAIT;
 				ch3_ready  <= 0;
             end
-            // ch4_go: no CPU access under way or due, no refresh due before the access ends
-            else if(ch4_rq & ~ch1_req_1 & ph_free & (refresh_count < cycles_per_refresh - 14'd16)) begin
+            else if(ch4_rq & share_go) begin
                 if (ch4_rnw_1)
                     {cas_addr[12:9],SDRAM_BA,SDRAM_A,cas_addr[8:0]} <= {2'b00, 1'b1, ch4_addr_1[25:1]};
                 else

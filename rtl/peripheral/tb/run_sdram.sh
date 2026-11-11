@@ -7,6 +7,9 @@ DUT=${1:-../sdram.sv}
 DEFS=""; [ -n "$OLD" ] && DEFS="+define+OLD"
 [ -n "$1" ] && [ -z "$CH4" ] && DEFS="$DEFS +define+NO_CH4"    # other sdram.sv: without ch4 unless CH4=1
 OUT=$(mktemp -d)
+# C6: SDRAM_DQ may feed one register only (ch1_saved_data, placed in the I/O cell)
+NDQ=$(grep -cE '<=\s*SDRAM_DQ\s*;' "$DUT" || true)
+[ "$NDQ" = 1 ] || echo "FAIL SDRAM_DQ registered in $NDQ places (one I/O cell register only)"
 # Verilator workarounds on a copy (controller logic unchanged):
 #  - no procedural tristate: SDRAM_DQ split into input (reads) and SDRAM_DQ_drv (writes)
 #  - no initializer on a variable declared inside always (state = STATE_STARTUP = 0 anyway)

@@ -23,7 +23,8 @@ module subslot (
     input                   expander_force_en,        // Enable signals for the expander
     output            [7:0] data,           // Data output
     output            [1:0] active_subslot, // Currently active subslot
-    output                  output_rq      // Chip select signal
+    output                  output_rq,     // Read of the register (data priority)
+    output                  cs             // Any access to the register: hides the memory below
 );
 
     // Array to store mapper slot data for 4 slots
@@ -61,7 +62,7 @@ module subslot (
     // Select the active subslot based on the block and the current mapper_slot value
     assign active_subslot = mapper_slot[active_slot][(3'd2 * block) +: 2];  
 
-    // Chip select output signal
     assign output_rq = mapper_rd;
+    assign cs        = mapper_cs;
 
 endmodule

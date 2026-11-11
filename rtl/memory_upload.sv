@@ -51,8 +51,8 @@ module memory_upload
     typedef enum logic [2:0] { size_MSX_PACK, size_FW_PACK, size_ROM_A, size_ROM_B, size_CRC } size_idx_t;
 
     // Parametry
-    localparam DDR3_BASE_FW_ADDR = 28'h300000;
-    localparam DDR3_CRC32_TABLE_ADDR = 28'h1600000;
+    localparam DDR3_BASE_FW_ADDR = MSX::DDR3_FW_PACK;
+    localparam DDR3_CRC32_TABLE_ADDR = MSX::DDR3_DB;
     localparam logic [2:0] CONF_SIZE = 7;           // Conf block size for computer 8 bytes - 1 byte
 
     // Stavový signál, který indikuje, že jsem v režimu upload. Resetujeme core a RAM přístup pro UPLOAD
@@ -251,7 +251,11 @@ module memory_upload
             if (hdr_cnt[16:2] == 15'h1000) hdr4[hdr_cnt[1:0]] <= ddr3_dout;
         end
     end
-    wire  [26:0] cart_size = ioctl_size[cart_id ? size_ROM_B : size_ROM_A];
+    // ROM size of a cartridge slot; selecting the value, not the index (Quartus 10027)
+    wire  [26:0] rom_size_a = ioctl_size[size_ROM_A];
+    wire  [26:0] rom_size_b = ioctl_size[size_ROM_B];
+    wire  [26:0] cart_size  = cart_id ? rom_size_b : rom_size_a;
+    wire  [26:0] conf_rom_size = conf[3][0] ? rom_size_b : rom_size_a;   // BLOCK_CART record
     wire         ab0       = hdr0[0] == 8'h41 && hdr0[1] == 8'h42;
     wire         ab4       = cart_size > 27'h4000 && hdr4[0] == 8'h41 && hdr4[1] == 8'h42;
     wire         plain_ok  = cart_size <= 27'h10000;             // more needs a mapper
@@ -442,7 +446,8 @@ module memory_upload
                         ddr3_request             <= '1;
                         msx_config.cpu           <= cpu_t'(conf[3][7:6]);
                         msx_config.wait_count    <= conf[3][5:3];
-                        msx_config.cpu_clock_sel <= conf[3][2:0];
+                        // XML cpu_frequency 0 3.58, 1 5.39, 2 10.7 MHz -> msx_cpu clock_sel (01 10.7, 10 5.39)
+                        msx_config.cpu_clock_sel <= {conf[3][2], conf[3][0], conf[3][1]};
                     end else begin
                         error <= ERR_BAD_MSX_CONF;
                         state <= STATE_IDLE;
@@ -568,16 +573,13 @@ module memory_upload
                             state                    <= STATE_FILL_RAM;
                         end
                         BLOCK_SRAM: begin
-                            // TODO: Určení reference
-                            // 0 - ROM
-                            // 1 - Extension A
-                            // 2 - Extension B
-                            // 3 - Computer CMOS
+                            // lookup_SRAM entry: 0 - none (default of every block), 1 - cartridge
+                            // slot A, 2 - slot B (ROM or FW pack), 3 - computer CMOS (not yet)
                             next_state <= STATE_LOAD_CONF;   // Defaultně neděláme nic
                             state <= STATE_READ_CONF;
 
                             if (fw_space) begin   // Zatím umíme pouze CART SRAM
-                                if ((ref_sram == 2'd0 && lookup_SRAM[ref_sram].size == '0) || ref_sram != 2'd0) begin  // Jedná se o ROM SRAM?
+                                if (ref_sram != 2'd0) begin
                                     $display("BLOCK SRAM ref_SRAM:%x addr:%x size %d", ref_sram, ram_addr, {conf[3],10'd0});
                                     lookup_SRAM[ref_sram].addr <= ram_addr;               // Uložíme adresu RAM
                                     lookup_SRAM[ref_sram].size <= {8'd0, conf[3]};        // Uložíme velikost RAM
@@ -643,22 +645,26 @@ module memory_upload
                             if (fdc_cart_off && !conf[3][0]) begin
                                 $display("BLOCK CART 0 LEFT OUT: the machine has its own FDC");
                             end else if (cart_conf[conf[3][0]].typ == CART_TYP_ROM) begin
-                                if (ioctl_size[conf[3][0] ? size_ROM_B : size_ROM_A] > '0) begin
-                                    $display("BLOCK CART %d LOAD START ref: %d addr:%x size:%x - %x", conf[3][0], ref_ram, ram_addr, ioctl_size[conf[3][0] ? size_ROM_B : size_ROM_A], ioctl_size[conf[3][0] ? size_ROM_B : size_ROM_A][26:14]);
+                                if (conf_rom_size > MSX::ROM_MAX) begin
+                                    $display("BLOCK CART %d: ROM over the DDR3 area of its slot", conf[3][0]);
+                                    error <= ERR_ROM_TOO_BIG;
+                                    state <= STATE_STOP;
+                                end else if (conf_rom_size > '0) begin
+                                    $display("BLOCK CART %d LOAD START ref: %d addr:%x size:%x - %x", conf[3][0], ref_ram, ram_addr, conf_rom_size, conf_rom_size[26:14]);
                                     ram_we                   = 1'b1;
                                     ram_d.addr               = ram_addr;
-                                    ram_d.size               = {3'b0, ioctl_size[conf[3][0] ? size_ROM_B : size_ROM_A][26:13]};
+                                    ram_d.size               = {3'b0, conf_rom_size[26:13]};
                                     ram_d.ro                 = 1'b1;
                                     state                    <= STATE_FILL_RAM;                                             // Načítáme ROM
                                     next_state               <= STATE_SEARCH_CRC32_INIT;                                    // Po nahrání budeme hledat CRC
                                     save_addr                <= ddr3_addr - 1'b1;                                           // Uchováme adresu -1 kvůli již načtenému prefetch bajtu
-                                    ddr3_addr                <= conf[3][0] ? 28'h1100000 : 28'hC00000;                      // Adresa ROM v DDR
-                                    data_size                <= ioctl_size[conf[3][0] ? size_ROM_B : size_ROM_A][24:0];                 // Velikost ROM
+                                    ddr3_addr                <= conf[3][0] ? MSX::DDR3_ROM_B : MSX::DDR3_ROM_A;             // Adresa ROM v DDR
+                                    data_size                <= conf_rom_size[24:0];                 // Velikost ROM
                                     ddr3_rd                  <= '1;                                                         // Prefetch
                                     ref_add                  <= '1;                                                         // Ukládáme referenci
                                     crc_en                   <= '1;                                                         // Počítáme CRC
                                     pattern                  <= PATTERN_DDR;                                                // Ukládáme z ROM
-                                    ref_sram                 <= 2'd0;
+                                    ref_sram                 <= conf[3][0] ? 2'd2 : 2'd1;                                   // SRAM of its slot (entry 0 = none)
                                 end
                             end else begin                                                                // Neni ROM jdeme do FW
                                 if (ioctl_size[size_FW_PACK] > '0) begin                                  // Máme FW?

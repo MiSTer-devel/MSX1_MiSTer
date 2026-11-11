@@ -60,7 +60,7 @@ Machine works if you use below disk.rom
     <secondary slot="0">
       <block start="1" count="1">
         <memory SHA1="75f5f0a5a2e8f0935f33bb3cf07b83dd3e5f3347" filename="CPC-40038" skip="32768" size="16384">ROM</memory>
-        <device style="National" fdd_count="2">WD2793</device>
+        <device style="National" fdd_count="1">WD2793</device>   <!-- openMSX: 1 drive -->
       </block>
     </secondary>
   </primary>

@@ -20,16 +20,17 @@ Pro plnou funkci jádro potřebuje také **konfiguraci rozšiřujících modulů
 Třetím konfiguračním souborem je **databáze ROM podle CRC32** (*DB MAPPERS*), která známým kontrolním součtům přiřazuje správný typ mapperu. Jádro tak pro každý načtený obraz ROM samo vybere vhodný mapper.
 
 ## Podporované modely MSX
-**[Podporované modely MSX](ComputersModel.cs.md)** – 66 definic strojů od 16 výrobců:
+**[Podporované modely MSX](ComputersModel.cs.md)** – 224 definic strojů od 36 výrobců:
 
 | Generace | Strojů |
 |---|---|
-| MSX1 | 43 (40 s VDP TMS99xx, 3 stroje Yamaha s V9938 a BIOSem MSX1) |
-| MSX2 | 21 |
+| MSX1 | 135 (124 s VDP TMS99xx, 11 s V9938 a BIOSem MSX1) |
+| MSX2 | 80 |
+| MSX2+ | 7 |
 | MSX turbo R | 1 (Panasonic FS-A1ST; FS-A1GT není podporován) |
 | 1chipMSX / OCM (třída MSX2+) | 1 |
 
-Definice žádného továrního stroje MSX2+ neexistuje. Obrazy ROM strojů nejsou součástí tohoto repozitáře, viz [Začínáme](#začínáme).
+Deset strojů z openMSX potřebuje hardware, který jádro zatím nemá; jsou vypsané na konci seznamu modelů. Obrazy ROM strojů nejsou součástí tohoto repozitáře, viz [Začínáme](#začínáme).
 
 ## Začínáme
 Jádro potřebuje **alespoň balíček stroje** (ROM PACK). Zbytek závisí na tom, co chcete spustit. Soubory dejte na SD kartu MiSTeru do `/media/fat/games/MSX1/`:

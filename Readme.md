@@ -20,16 +20,17 @@ For full functionality, the core also relies on an **extension module configurat
 The third configuration file is a **CRC32-based ROM database** (the *DB MAPPERS*), which maps known ROM checksums to their correct mapper types. This allows the core to automatically select the appropriate ROM mapper for each loaded image.
 
 ## Supported MSX Models
-**[Supported MSX models](ComputersModel.md)** – 66 machine definitions from 16 manufacturers:
+**[Supported MSX models](ComputersModel.md)** – 224 machine definitions from 36 manufacturers:
 
 | Generation | Machines |
 |---|---|
-| MSX1 | 43 (40 with a TMS99xx VDP, 3 Yamaha machines with a V9938 and an MSX1 BIOS) |
-| MSX2 | 21 |
+| MSX1 | 135 (124 with a TMS99xx VDP, 11 with a V9938 and an MSX1 BIOS) |
+| MSX2 | 80 |
+| MSX2+ | 7 |
 | MSX turbo R | 1 (Panasonic FS-A1ST; the FS-A1GT is not supported) |
 | 1chipMSX / OCM (MSX2+ class) | 1 |
 
-There is no factory MSX2+ machine definition. The ROM dumps of the machines are not part of this repository; see [Getting started](#getting-started).
+Ten openMSX machines need hardware the core does not have yet; they are listed at the end of the model list. The ROM dumps of the machines are not part of this repository; see [Getting started](#getting-started).
 
 ## Getting Started
 The core needs **at least a machine pack** (ROM PACK). Everything else depends on what you want to run. Put the files on the MiSTer SD card into `/media/fat/games/MSX1/`:

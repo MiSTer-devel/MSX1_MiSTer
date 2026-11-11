@@ -24,7 +24,7 @@ Machine works if you use below disk.rom
   <device mask="0xF8" port="0xA0" system="true">PSG</device>
   <device mask="0xF8" port="0xA8">PPI</device>
   <device mask="0xFE" port="0xB4">RTC</device>
-  <device mask="0xD8" port="0xD8" ROM_SHA1="22d5f4e522250dc5eb17e15b68f4a51bb752cba1">KANJI</device>
+  <device mask="0xFE" port="0xD8" ROM_SHA1="22d5f4e522250dc5eb17e15b68f4a51bb752cba1" param="1">KANJI</device>
   <kbd_layout>/yX/cWdlZv//ZP//cHMh////YP9hRgH///9XUCZUAv//MFUxMgQD//+AUzNRRwX//0MnNTRWBv///0I3UgcQ//8iQDZEABH//yMkQRdFEv///yD/FRP//2Ngdxb/FP//////////df///////////////////3L/dv//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////Yv//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////hIH///+Cg4b/h4X///////90//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////8=</kbd_layout>
   <primary slot="0">
     <secondary slot="0">
@@ -61,6 +61,9 @@ Machine works if you use below disk.rom
       <block start="1" count="1">
         <memory SHA1="75f5f0a5a2e8f0935f33bb3cf07b83dd3e5f3347" filename="CPC-40038" skip="32768" size="16384">ROM</memory>
         <device style="National" fdd_count="1">WD2793</device>   <!-- openMSX: 1 drive -->
+      </block>
+      <block start="2" count="1">
+        <ref to_block="1">MEMORY</ref>
       </block>
     </secondary>
   </primary>

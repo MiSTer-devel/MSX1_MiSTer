@@ -19,7 +19,7 @@
       <block start="0" count="2">
         <memory SHA1="0340707c5de2310dcf5e569b7db4c6a6a5590cb7" filename = "IC125.BIN" size="32768" skip = "32768">ROM</memory>
       </block>
-      <block start="2" count="2">
+      <block start="2" count="1">  <!-- openMSX: Arabic ROM only in pages 1-2 -->
         <ref to_block="0">MEMORY</ref>
       </block>
     </secondary>

@@ -39,6 +39,9 @@
         <memory SHA1="bd0ad648d728c691fcee08eaaaa95e15e29c0d0d" filename="ax350iif_disk.rom">ROM</memory>
         <device style="National" fdd_count="1">WD2793</device>
       </block>
+      <block start="2" count="1">
+        <ref to_block="1">MEMORY</ref>
+      </block>
     </secondary>
     <secondary slot="2">
       <block>  <!-- Main RAM -->

@@ -45,7 +45,10 @@
       <block start="0" count="1">
         <ref to_block="1">DEVICE</ref>
       </block>
-      <block start="2" count="2">
+      <block start="2" count="1">
+        <ref to_block="1">DEVICE</ref>
+      </block>
+      <block start="3" count="1">
         <ref to_block="1">DEVICE</ref>
       </block>
     </secondary>

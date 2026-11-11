@@ -32,7 +32,7 @@ CreateCRC: vampier.db (CRC32 -> FW ID)                                          
 | `cart_device.json` | `cart_typ_t` | FW IDs: 0-13 menu cartridges, 20-57 ROM mappers selected by the DB |
 | `deviceParams.json` | `io_device.param` use of each device module | named device parameters, see section 2.6 |
 
-Run all tools from inside `tools/CreateMSXpack`: the JSON tables and `ROM`, `Extension`, `MSX` are opened by relative name (`createDev.py` also uses a temporary `ROM.bin` in the current directory).
+Run all tools from inside `tools/CreateMSXpack`: the JSON tables and `ROM` (unless `--rom-dir`), `Extension`, `MSX` are opened by relative name (`createDev.py` also uses a temporary `ROM.bin` in the current directory).
 
 ## 2. Machine XML (`Computer/<Vendor>/<Machine>.xml`)
 
@@ -336,7 +336,7 @@ The OSD item value is converted to `cart_typ_t` in `rtl/msx_config.sv`, and the 
 9. A pack is written even when ROMs are missing; only a missing top-level device `ROM_SHA1` deletes it. Check the console.
 10. `<sram>` works only in FW configurations; a machine XML cannot declare SRAM.
 11. `expander_wo` is stored but ignored by the RTL.
-12. Run the tools from inside `tools/CreateMSXpack`; `createDev.py` has no argparse, so `--help` builds the packs.
+12. Run the tools from inside `tools/CreateMSXpack` (JSON tables by relative name). The ROM folder can be elsewhere: `--rom-dir` in both tools.
 13. Both extension XMLs must be edited together.
 
 ## 7. Console messages

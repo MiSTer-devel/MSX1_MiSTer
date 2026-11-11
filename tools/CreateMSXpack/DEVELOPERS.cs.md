@@ -32,7 +32,7 @@ CreateCRC: vampier.db (CRC32 -> FW ID)                                          
 | `cart_device.json` | `cart_typ_t` | FW ID: 0-13 cartridge z nabídky, 20-57 mappery ROM vybírané podle DB |
 | `deviceParams.json` | použití `io_device.param` v modulu každého zařízení | pojmenované parametry zařízení, viz oddíl 2.6 |
 
-Všechny nástroje spouštějte zevnitř `tools/CreateMSXpack`: tabulky JSON a `ROM`, `Extension`, `MSX` se otevírají relativním názvem (`createDev.py` navíc používá dočasný `ROM.bin` v aktuální složce).
+Všechny nástroje spouštějte zevnitř `tools/CreateMSXpack`: tabulky JSON a `ROM` (není-li `--rom-dir`), `Extension`, `MSX` se otevírají relativním názvem (`createDev.py` navíc používá dočasný `ROM.bin` v aktuální složce).
 
 ## 2. XML počítače (`Computer/<Vendor>/<Machine>.xml`)
 
@@ -336,7 +336,7 @@ Hodnota položky OSD se převede na `cart_typ_t` v `rtl/msx_config.sv` a zavadě
 9. Pack se zapíše i při chybějících ROM; smaže se jen při chybějící ROM `ROM_SHA1` zařízení nejvyšší úrovně. Kontrolujte konzoli.
 10. `<sram>` funguje jen ve FW konfiguracích; XML počítače nemůže deklarovat SRAM.
 11. `expander_wo` se uloží, ale RTL ho ignoruje.
-12. Nástroje spouštějte zevnitř `tools/CreateMSXpack`; `createDev.py` nemá argparse, takže `--help` sestaví packy.
+12. Nástroje spouštějte zevnitř `tools/CreateMSXpack` (tabulky JSON podle relativního názvu). Složka s ROM může být jinde: `--rom-dir` v obou nástrojích.
 13. Obě XML rozšíření se musí upravovat společně.
 
 ## 7. Zprávy v konzoli

@@ -24,7 +24,7 @@ You need a machine pack and, practically always, a FW pack (even an empty cartri
 
 ## Prepare the ROM dumps
 
-1. Put your ROM dumps into `tools/CreateMSXpack/ROM/`. Sub-folders are fine, the folder is searched recursively.
+1. Put your ROM dumps into `tools/CreateMSXpack/ROM/`, or keep them anywhere else and pass the folder with `--rom-dir` (both tools, see [Build the packs](#build-the-packs)). Sub-folders are fine, the folder is searched recursively.
 2. File names and extensions do not matter. **ROMs are recognised by the SHA1 of the whole file.** You need exactly the dump the tool expects (the same dumps openMSX uses as system ROMs).
 3. Which ROMs are needed for which machine is listed in [Appendix A](#appendix-a-rom-images-per-machine) and in the [firmware ROM table](#firmware-roms-for-the-fw-pack) below. Missing ROMs are only reported, see [Troubleshooting](#troubleshooting).
 
@@ -173,6 +173,15 @@ python createDev.py         # -> MSX/CART_FW_EN.msx and MSX/CART_FW_JP.msx
 
 On Linux/macOS use `python3`.
 
+ROMs kept outside the tool folder (absolute path, or relative to the current directory):
+
+```
+python createComp.py --rom-dir D:/MSX/roms
+python createDev.py  --rom-dir D:/MSX/roms
+```
+
+Both tools print their options with `--help`.
+
 ### createComp.py options
 
 ```
@@ -198,9 +207,19 @@ python createComp.py --xml-dir Computer/Philips --output-dir MSX
 
 ### createDev.py
 
-`createDev.py` has **no options**. It always reads `ROM/` and `Extension/` and writes to `MSX/`.
+```
+usage: createDev.py [-h] [--rom-dir ROM_DIR]
 
-> **Warning:** `python createDev.py --help` does not print any help. It builds the packs.
+Build the cartridge FW packs: Extension/*.xml -> MSX/<name>.msx. Run from the
+CreateMSXpack directory (JSON tables are read from the current directory).
+
+options:
+  -h, --help         show this help message and exit
+  --rom-dir ROM_DIR  Path to the ROM files directory, searched recursively,
+                     files matched by SHA1 (default: ROM)
+```
+
+It always reads `Extension/` and writes to `MSX/`; only the ROM folder can be changed. A ROM folder that does not exist stops the tool with an error.
 
 ## Copy to the SD card
 
@@ -228,7 +247,7 @@ Load the FW pack and the machine pack (and the DB if you use big ROM cartridges)
 | `<machine name>` (plain line) | The XML was read and the pack is being written. The following lines belong to this machine. |
 | `ROM SHA1 not found: <sha1> (ROM name: <file>) in slot s/ss` | No file with that SHA1 in the ROM folder. The pack is still written but without this ROM and will not boot. Add the right dump (see Appendix A). |
 | `ROM missing! SHA1 <sha1> not find. Computer SKIP` | A KANJI font ROM is missing, the pack of this machine is **not** written (it is deleted). Affects Daewoo_CPC-400S, National_FS-4600F, Panasonic_FS-A1F, Panasonic_FS-A1ST. |
-| `WARNING:__main__:Missing ROM. SHA1: ...` (createDev) | Firmware ROM of an extension not found. The cartridge is generated without its ROM: FM-PAC, GM2 and the FDC cartridge lack firmware, MoonSound ends with `NOT FW CONF` in the core. |
+| `WARNING:__main__:Missing ROM '<file>' for cartridge <NAME>. SHA1: ...` (createDev) | Firmware ROM of an extension not found (file name and cartridge as in `Extension/*.xml`, see [Firmware ROMs](#firmware-roms-for-the-fw-pack)). The cartridge is generated without its ROM: FM-PAC, GM2 and the FDC cartridge lack firmware, MoonSound ends with `NOT FW CONF` in the core. |
 | `INFO:__main__:NAME: KONAMI index: 34` (createDev) | Normal progress message. The index is in hex. |
 | `Error: unknown ...`, `Unknown block elements`, `FW name: X SKIP. Not in cart_device.json`, `Device '<x>' nenalezeno` | Problem in the XML or JSON tables (only when you edited them). See [DEVELOPERS.md](DEVELOPERS.md). |
 

@@ -49,7 +49,7 @@ How to build the packs and the database:
 - [CreateMSXpack – building the ROM PACK and FW PACK](tools/CreateMSXpack/README.md)
 - Developers (machine XML format, adding devices): [DEVELOPERS.md](tools/CreateMSXpack/DEVELOPERS.md)
 
-In short: install **Python 3**, put the ROM binaries into the `ROM` directory of `tools/CreateMSXpack` (files are matched by SHA1, names do not matter), then run `python3 createComp.py` (machines, see `--help` for options) and `python3 createDev.py` (cartridges). The `.msx` files appear in `MSX/`.
+In short: install **Python 3**, put the ROM binaries into the `ROM` directory of `tools/CreateMSXpack` or pass another folder with `--rom-dir` (files are matched by SHA1, names do not matter), then run `python3 createComp.py` (machines) and `python3 createDev.py` (cartridges); `--help` lists the options. The `.msx` files appear in `MSX/`.
 
 SDRAM: the MoonSound, ASCII16-X, MegaFlashROM and the 1chipMSX (4 MB mapper) need the SDRAM module. Whether small MSX1 configurations run without it, and the required SDRAM size, has not been verified.
 

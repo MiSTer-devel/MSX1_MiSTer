@@ -49,7 +49,7 @@ Jak balíčky a databázi vytvořit:
 - [CreateMSXpack – tvorba ROM PACK a FW PACK](tools/CreateMSXpack/README.cs.md)
 - Pro vývojáře (formát XML stroje, přidávání zařízení): [DEVELOPERS.cs.md](tools/CreateMSXpack/DEVELOPERS.cs.md)
 
-Stručně: nainstalujte **Python 3**, ROM dejte do adresáře `ROM` v `tools/CreateMSXpack` (soubory se hledají podle SHA1, na názvech nezáleží) a spusťte `python3 createComp.py` (stroje, volby viz `--help`) a `python3 createDev.py` (cartridge). Soubory `.msx` vzniknou v `MSX/`.
+Stručně: nainstalujte **Python 3**, ROM dejte do adresáře `ROM` v `tools/CreateMSXpack` nebo jinou složku předejte volbou `--rom-dir` (soubory se hledají podle SHA1, na názvech nezáleží) a spusťte `python3 createComp.py` (stroje) a `python3 createDev.py` (cartridge); volby vypíše `--help`. Soubory `.msx` vzniknou v `MSX/`.
 
 SDRAM: MoonSound, ASCII16-X, MegaFlashROM a 1chipMSX (mapper 4 MB) potřebují modul SDRAM. Zda malé konfigurace MSX1 běží bez něj a jaká velikost SDRAM je potřeba, nebylo ověřeno.
 

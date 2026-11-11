@@ -24,7 +24,7 @@ Potřebujete pack počítače a prakticky vždy i FW pack (potřebuje ho i práz
 
 ## Příprava dumpů ROM
 
-1. Dumpy ROM vložte do `tools/CreateMSXpack/ROM/`. Podsložky jsou v pořádku, složka se prohledává rekurzivně.
+1. Dumpy ROM vložte do `tools/CreateMSXpack/ROM/`, nebo je mějte kdekoli jinde a složku předejte volbou `--rom-dir` (oba nástroje, viz [Sestavení packů](#sestavení-packů)). Podsložky jsou v pořádku, složka se prohledává rekurzivně.
 2. Názvy souborů ani přípony nejsou důležité. **ROM se rozpoznávají podle SHA1 celého souboru.** Potřebujete přesně ten dump, který nástroj očekává (stejné dumpy, jaké používá openMSX jako systémové ROM).
 3. Které ROM jsou potřeba pro který počítač, je v [příloze A](#appendix-a-rom-images-per-machine) a v [tabulce firmwarových ROM](#firmware-roms-for-the-fw-pack) níže. Chybějící ROM se jen oznámí, viz [Řešení potíží](#řešení-potíží).
 
@@ -173,6 +173,15 @@ python createDev.py         # -> MSX/CART_FW_EN.msx and MSX/CART_FW_JP.msx
 
 V Linuxu/macOS použijte `python3`.
 
+ROM uložené mimo složku nástroje (absolutní cesta, nebo relativní k aktuální složce):
+
+```
+python createComp.py --rom-dir D:/MSX/roms
+python createDev.py  --rom-dir D:/MSX/roms
+```
+
+Oba nástroje vypíšou své volby s `--help`.
+
 ### Volby createComp.py
 
 ```
@@ -198,9 +207,19 @@ python createComp.py --xml-dir Computer/Philips --output-dir MSX
 
 ### createDev.py
 
-`createDev.py` **nemá žádné volby**. Vždy čte `ROM/` a `Extension/` a zapisuje do `MSX/`.
+```
+usage: createDev.py [-h] [--rom-dir ROM_DIR]
 
-> **Pozor:** `python createDev.py --help` nevypíše žádnou nápovědu. Sestaví packy.
+Build the cartridge FW packs: Extension/*.xml -> MSX/<name>.msx. Run from the
+CreateMSXpack directory (JSON tables are read from the current directory).
+
+options:
+  -h, --help         show this help message and exit
+  --rom-dir ROM_DIR  Path to the ROM files directory, searched recursively,
+                     files matched by SHA1 (default: ROM)
+```
+
+Vždy čte `Extension/` a zapisuje do `MSX/`, měnit jde jen složka s ROM. Neexistující složka s ROM nástroj zastaví s chybou.
 
 ## Kopírování na SD kartu
 
@@ -228,7 +247,7 @@ Načtěte FW pack a pack počítače (a DB, pokud používáte velké ROM cartri
 | `<machine name>` (samostatný řádek) | XML bylo přečteno a pack se zapisuje. Následující řádky patří tomuto počítači. |
 | `ROM SHA1 not found: <sha1> (ROM name: <file>) in slot s/ss` | Ve složce ROM není soubor s tímto SHA1. Pack se přesto zapíše, ale bez této ROM a nenabootuje. Doplňte správný dump (viz příloha A). |
 | `ROM missing! SHA1 <sha1> not find. Computer SKIP` | Chybí ROM s fontem KANJI, pack tohoto počítače se **nezapíše** (je smazán). Týká se Daewoo_CPC-400S, National_FS-4600F, Panasonic_FS-A1F, Panasonic_FS-A1ST. |
-| `WARNING:__main__:Missing ROM. SHA1: ...` (createDev) | Firmwarová ROM rozšíření nenalezena. Cartridge se vygeneruje bez své ROM: FM-PAC, GM2 a FDC cartridge nemají firmware, MoonSound v jádře skončí chybou `NOT FW CONF`. |
+| `WARNING:__main__:Missing ROM '<soubor>' for cartridge <NAME>. SHA1: ...` (createDev) | Firmwarová ROM rozšíření nenalezena (název souboru a cartridge podle `Extension/*.xml`, viz [Firmwarové ROM](#firmwarové-rom-pro-fw-pack)). Cartridge se vygeneruje bez své ROM: FM-PAC, GM2 a FDC cartridge nemají firmware, MoonSound v jádře skončí chybou `NOT FW CONF`. |
 | `INFO:__main__:NAME: KONAMI index: 34` (createDev) | Běžná informační zpráva. Index je v šestnáctkové soustavě. |
 | `Error: unknown ...`, `Unknown block elements`, `FW name: X SKIP. Not in cart_device.json`, `Device '<x>' nenalezeno` | Problém v XML nebo v tabulkách JSON (jen když jste je upravovali). Viz [DEVELOPERS.cs.md](DEVELOPERS.cs.md). |
 

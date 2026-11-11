@@ -326,6 +326,8 @@ logic PREWINDOW_SP;
 
 // FOR FRAME ZONE
 logic BWINDOW_X;
+logic OWINDOW_X;
+logic OWINDOW_Y;
 logic BWINDOW_Y;
 logic BWINDOW;
 logic FF_HBLANK;
@@ -586,6 +588,8 @@ VDP_SSG U_SSG (
     .PREWINDOW_Y_SP         (PREWINDOW_Y_SP),
     .FIELD                  (FIELD),
     .WINDOW_X               (WINDOW_X),
+    .OWINDOW_X              (OWINDOW_X),
+    .OWINDOW_Y              (OWINDOW_Y),
     .PVIDEODHCLK            (PVIDEODHCLK),
     .PVIDEODLCLK            (PVIDEODLCLK),
     .IVIDEOVS_N             (IVIDEOVS_N),
@@ -668,8 +672,8 @@ always_ff @(posedge CLK21M or posedge RESET) begin
             FF_HBLANK <= ~BWINDOW_X;
             FF_VBLANK <= ~BWINDOW_Y;
         end else begin
-            FF_HBLANK <= ~WINDOW_X;
-            FF_VBLANK <= ~PREWINDOW_Y;
+            FF_HBLANK <= ~OWINDOW_X;
+            FF_VBLANK <= ~OWINDOW_Y;
         end
     end
 end

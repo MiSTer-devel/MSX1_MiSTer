@@ -75,6 +75,8 @@ module VDP_SSG (
     output logic PREWINDOW_Y_SP,
     output logic FIELD,
     output logic WINDOW_X,
+    output logic OWINDOW_X,             // output window without the border, fixed on the screen
+    output logic OWINDOW_Y,
     output logic PVIDEODHCLK,
     output logic PVIDEODLCLK,
     output logic IVIDEOVS_N,
@@ -364,6 +366,47 @@ always_ff @(posedge CLK21M or posedge RESET) begin
     end else if (W_H_CNT == LEFT_BORDER_OUT) begin
         FF_VR <= !(FF_MONITOR_LINE == 9'h1FE || FF_MONITOR_LINE == 9'h1FF ||
                    (!FF_MONITOR_LINE[8] && FF_MONITOR_LINE[7:0] < (REG_R9_Y_DOTS ? 8'd211 : 8'd191)));
+    end
+end
+
+// Output window without the border (HBLANK / VBLANK of the core with the border off): the
+// place of the picture with R#18 = 0, no scroll and no mask. It must not follow the picture:
+// the scaler would hide every move by R#18 / R#27 and rescale a masked or scrolled line.
+logic [6:0]  W_OWIN_X0;
+logic [10:0] W_OWIN_BASE;
+logic [8:0]  FF_OUT_LINE, W_OUT_LINE_NEXT;
+assign W_OWIN_X0   = OFFSET_X + (VDPR9PALMODE ? LED_TV_X_PAL : LED_TV_X_NTSC);
+assign W_OWIN_BASE = {2'b00, W_OWIN_X0, 2'b10};         // X counter load (R#25 MSK = 0)
+assign W_OUT_LINE_NEXT = (FF_OUT_LINE == 9'd255) ? FF_OUT_LINE : FF_OUT_LINE + 9'd1;
+
+always_ff @(posedge CLK21M or posedge RESET) begin
+    if (RESET) begin
+        OWINDOW_X   <= 1'b0;
+        OWINDOW_Y   <= 1'b0;
+        FF_OUT_LINE <= 9'b0;
+    end else begin
+        // WINDOW_X of an unadjusted line: 67 clocks after the load, 256 pixels
+        if (W_H_CNT == W_OWIN_BASE + 11'd67)        OWINDOW_X <= 1'b1;
+        else if (W_H_CNT == W_OWIN_BASE + 11'd1091) OWINDOW_X <= 1'b0;
+
+        // the monitor line without R#18, stepped where W_HSYNC is on an unadjusted line
+        if (W_H_CNT == W_OWIN_BASE + 11'd32) begin
+            if (W_V_BLANKING_END) begin
+                case ({VDPR9PALMODE, REG_R9_Y_DOTS})
+                    2'b00: FF_OUT_LINE <= 9'b111100110;
+                    2'b01: FF_OUT_LINE <= 9'b111110000;
+                    2'b10: FF_OUT_LINE <= 9'b111001011;
+                    2'b11: FF_OUT_LINE <= 9'b111010101;
+                endcase
+            end else begin
+                if (W_OUT_LINE_NEXT == 9'd0)
+                    OWINDOW_Y <= 1'b1;
+                else if ((REG_R9_Y_DOTS == 1'b0 && W_OUT_LINE_NEXT == 9'd192) ||
+                         (REG_R9_Y_DOTS == 1'b1 && W_OUT_LINE_NEXT == 9'd212))
+                    OWINDOW_Y <= 1'b0;
+                FF_OUT_LINE <= W_OUT_LINE_NEXT;
+            end
+        end
     end
 end
 

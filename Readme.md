@@ -81,6 +81,12 @@ Use `python3 createComp.py --help` to see options for specifying custom paths.
 5. To create a configuration for expansion modules, run: ```python3 createDev.py```  
 6. Place the resulting .MSX configuration files into your MiSTer at: `/media/fat/games/MSX1/`
 
+## Acknowledgements
+- [muhanpong/MSX1_MiSTer](https://github.com/muhanpong/MSX1_MiSTer) (branch `nextz80_v9990`) – a fork of this core. Its bug analyses and reports from real hardware pointed out faults in the flash emulation and the pitfalls of the ASCII16-X mapper and the MoonSound. No code was taken from it; the implementations here are independent.
+- [openMSX](https://openmsx.org/) – reference for the behaviour of the ASCII16-X mapper and its flash chip, of the OPL4 (YMF278B) wave part, bus interface and timers, and of the V99x8 timing.
+- [Grauw](https://www.grauw.nl/projects/ascii-x/ascii16-x/) – specification of the ASCII16-X mapper.
+- [Nuked OPL3](https://github.com/nukeykt/Nuked-OPL3) by Nuke.YKT – the OPL3 model the FM part of the MoonSound is checked against, sample by sample. Its source (LGPL-2.1-or-later) is used by the test only (`rtl/peripheral/SOUND/opl4/tb/nuked`).
+
 ## License
 This core is licensed under the GNU General Public License, version 3 or later
 (see `LICENSE`, `SPDX-License-Identifier: GPL-3.0-or-later` in the source headers).

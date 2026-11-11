@@ -1,0 +1,45 @@
+<?xml version="1.0" ?>
+<!-- Spectravideo SVI-738 X'PRESS (PL) (MSX), converted from openMSX share/machines.
+     Not in the core: PrinterPort, MSX-RS232. -->
+<msxConfig>
+  <cpu>Z80</cpu>                   <!-- Z80 --> 
+  <wait_count>1</wait_count>       <!-- 0 - 3 -->  
+  <cpu_frequency>0</cpu_frequency> <!-- 0-3.58, 1-5.39, 2-10.7-->  
+  <device mask="0xFC" port="0x98" VDP_ID="V9938">V99xx</device>
+  <device mask="0xF8" port="0xA0" system="true">PSG</device>
+  <device mask="0xF8" port="0xA8">PPI</device>
+  <kbd_layout>/yX/cWdlZv//ZP//cHMh////YP9hRgH///9XUCZUAv//MFUxMgQD//+AUzNRRwX//0MnNTRWBv///0I3UgcQ//8iQDZEABH//yMkQRdFEv///yD/FRP//2Ngdxb/FP//////////df///////////////////3L/dv//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////Yv//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////hIH///+Cg4b/h4X///////90//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////8=</kbd_layout>
+  <primary slot="0">
+    <secondary slot="0">
+      <block start="0" count="2">  <!-- MSX BIOS with BASIC ROM -->
+        <memory SHA1="c90077ed84133a947841e07856e71133ba779da6" filename="svi-738_pl_basic-bios1.rom">ROM</memory>
+      </block>
+    </secondary>
+  </primary>
+  <primary slot="1">
+    <secondary slot="0">
+      <block start="0">  <!-- Main RAM -->
+        <memory size="65536" pattern="1">RAM</memory>
+      </block>
+    </secondary>
+  </primary>
+  <primary slot="3">
+    <secondary slot="1">
+      <block start="1" count="1">  <!-- Memory Mapped FDC -->
+        <memory SHA1="99a40266bc296cef1d432cb0caa8df1a7e570be4" filename="svi-738_disk.rom">ROM</memory>
+        <device style="National" fdd_count="1" single_sided="true">WD2793</device>
+      </block>
+      <block start="2" count="1">  <!-- Memory Mapped FDC (mirror) -->
+        <ref to_block="1">MEMORY</ref>
+      </block>
+    </secondary>
+  </primary>
+  <!-- Location of external slots at the end of the XML definition -->
+  <primary slot="2">
+    <secondary slot="0">
+      <block start="0">
+        <cart>A</cart>
+      </block>
+    </secondary>
+  </primary>
+</msxConfig>

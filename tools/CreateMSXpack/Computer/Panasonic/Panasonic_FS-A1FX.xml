@@ -1,0 +1,68 @@
+<?xml version="1.0" ?>
+<!-- Panasonic FS-A1FX (MSX2+), converted from openMSX share/machines.
+     Not in the core: PrinterPort, Matsushita. -->
+<msxConfig>
+  <cpu>Z80</cpu>                   <!-- Z80 --> 
+  <wait_count>1</wait_count>       <!-- 0 - 3 -->  
+  <cpu_frequency>0</cpu_frequency> <!-- 0-3.58, 1-5.39, 2-10.7-->  
+  <device mask="0xFC" port="0x98" VDP_ID="V9958">V99xx</device>
+  <device mask="0xF8" port="0xA0" system="true">PSG</device>
+  <device mask="0xF8" port="0xA8">PPI</device>
+  <device mask="0xFE" port="0xB4">RTC</device>
+  <device mask="0xFF" port="0xF4" inverted="true">RESET_STATUS</device>
+  <device mask="0xFE" port="0xD8" ROM_SHA1="e0e99cd91e88ce2676445663f832c835d74d6fd4">KANJI</device>
+  <kbd_layout>/yX/cWdlZv//ZP//cHMh////YP9hRgH///9XUCZUAv//MFUxMgQD//+AUzNRRwX//0MnNTRWBv///0I3UgcQ//8iQDZEABH//yMkQRdFEv///yD/FRP//2Ngdxb/FP//////////df///////////////////3L/dv//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////Yv//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////hIH///+Cg4b/h4X///////90//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////8=</kbd_layout>
+  <primary slot="0">
+    <secondary slot="0">
+      <block start="0" count="2">  <!-- MSX BIOS with BASIC ROM -->
+        <memory SHA1="623cbca109b6410df08ee7062150a6bda4b5d5d4" filename="fs-a1fx_IC16.rom" skip="0x30000" size="32768">ROM</memory>
+      </block>
+    </secondary>
+  </primary>
+  <primary slot="3">
+    <secondary slot="0">
+      <block start="0">  <!-- Main RAM -->
+        <memory size="65536" pattern="5">RAM</memory>
+        <mapper>MSX2_RAM</mapper>
+        <device mask="0xFC" port="0xFC" size="65536">MEM_MAPPER</device>
+      </block>
+    </secondary>
+    <secondary slot="1">
+      <block start="0" count="1">  <!-- MSX Sub ROM -->
+        <memory SHA1="623cbca109b6410df08ee7062150a6bda4b5d5d4" filename="fs-a1fx_IC16.rom" skip="0x38000" size="16384">ROM</memory>
+      </block>
+      <block start="1" count="2">  <!-- MSX Kanji Driver with BASIC -->
+        <memory SHA1="623cbca109b6410df08ee7062150a6bda4b5d5d4" filename="fs-a1fx_IC16.rom" skip="0x28000" size="32768">ROM</memory>
+      </block>
+    </secondary>
+    <secondary slot="2">
+      <block start="1" count="1">  <!-- Memory Mapped FDC -->
+        <memory SHA1="623cbca109b6410df08ee7062150a6bda4b5d5d4" filename="fs-a1fx_IC16.rom" skip="0x3C000" size="16384">ROM</memory>
+        <device ioRegs="7FF8" fdd_count="1">TC8566AF</device>
+      </block>
+      <block start="2" count="1">  <!-- Memory Mapped FDC (registers) -->
+        <ref to_block="1">DEVICE</ref>
+      </block>
+    </secondary>
+    <secondary slot="3">
+      <block start="1" count="2">  <!-- A1 Cockpit -->
+        <memory SHA1="623cbca109b6410df08ee7062150a6bda4b5d5d4" filename="fs-a1fx_IC16.rom" skip="0x20000" size="32768">ROM</memory>
+      </block>
+    </secondary>
+  </primary>
+  <!-- Location of external slots at the end of the XML definition -->
+  <primary slot="1">
+    <secondary slot="0">
+      <block start="0">
+        <cart>A</cart>
+      </block>
+    </secondary>
+  </primary>
+  <primary slot="2">
+    <secondary slot="0">
+      <block start="0">
+        <cart>B</cart>
+      </block>
+    </secondary>
+  </primary>
+</msxConfig>

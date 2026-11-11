@@ -1,0 +1,73 @@
+<?xml version="1.0" ?>
+<!-- Yamaha AX500 (MSX2), converted from openMSX share/machines.
+     Not in the core: S1985, PrinterPort. -->
+<msxConfig>
+  <cpu>Z80</cpu>                   <!-- Z80 --> 
+  <wait_count>1</wait_count>       <!-- 0 - 3 -->  
+  <cpu_frequency>0</cpu_frequency> <!-- 0-3.58, 1-5.39, 2-10.7-->  
+  <device mask="0xFC" port="0x98" VDP_ID="V9938">V99xx</device>
+  <device mask="0xF8" port="0xA0" system="true">PSG</device>
+  <device mask="0xF8" port="0xA8">PPI</device>
+  <device mask="0xFE" port="0xB4">RTC</device>
+  <kbd_layout>/yX/cWdlZv//ZP//cHMh////YP9hRgH///9XUCZUAv//MFUxMgQD//+AUzNRRwX//0MnNTRWBv///0I3UgcQ//8iQDZEABH//yMkQRdFEv///yD/FRP//2Ngdxb/FP//////////df///////////////////3L/dv//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////Yv//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////hIH///+Cg4b/h4X///////90//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////8=</kbd_layout>
+  <primary slot="0">
+    <secondary slot="0">
+      <block start="0" count="2">  <!-- MSX BIOS with BASIC ROM -->
+        <memory SHA1="dd1b577ea3ea69de84a68d311261392881f9eac3" filename="ax500_basic-bios2.rom">ROM</memory>
+      </block>
+    </secondary>
+    <secondary slot="1">
+      <block start="1" count="2">  <!-- Arabic BASIC -->
+        <memory SHA1="92bac0b2995f54f0eebf167cd447361a6a4923eb" filename="ax500_arabic.rom">ROM</memory>
+      </block>
+    </secondary>
+    <secondary slot="2">
+      <block start="1" count="2">  <!-- Arabic Word Processor -->
+        <memory SHA1="8674d000a52ec01fd80c8cb7cbaa66d4c3ca5cf7" filename="ax500_swp.rom">ROM</memory>
+      </block>
+    </secondary>
+    <secondary slot="3">
+      <block start="0" count="3">  <!-- Sakhr Files -->
+        <memory SHA1="8e889999ecec302f05d3bd0a0f127b489fcf3739" filename="ax500_sakhr_files.rom">ROM</memory>
+      </block>
+    </secondary>
+  </primary>
+  <primary slot="3">
+    <secondary slot="0">
+      <block start="0">  <!-- Painter & Graphic BIOS -->
+        <memory SHA1="80872d997d18e1a633e70b9da35a0d28113073e5" filename="ax500_painter.rom">ROM</memory>
+      </block>
+    </secondary>
+    <secondary slot="1">
+      <block start="0" count="1">  <!-- MSX Sub ROM -->
+        <memory SHA1="7f86af13e81259a0db8f70d8a7e026fb918ee652" filename="ax500_msx2sub.rom">ROM</memory>
+      </block>
+      <block start="1" count="1">  <!-- Memory Mapped FDC -->
+        <memory SHA1="a953bef071b603d6280bdf7ab6249c2e6f1a4cd8" filename="ax500_disk.rom">ROM</memory>
+        <device style="National" fdd_count="2">WD2793</device>
+      </block>
+    </secondary>
+    <secondary slot="2">
+      <block start="0">  <!-- Main RAM -->
+        <memory size="262144" pattern="1">RAM</memory>
+        <mapper>MSX2_RAM</mapper>
+        <device mask="0xFC" port="0xFC" size="262144">MEM_MAPPER</device>
+      </block>
+    </secondary>
+  </primary>
+  <!-- Location of external slots at the end of the XML definition -->
+  <primary slot="1">
+    <secondary slot="0">
+      <block start="0">
+        <cart>A</cart>
+      </block>
+    </secondary>
+  </primary>
+  <primary slot="2">
+    <secondary slot="0">
+      <block start="0">
+        <cart>B</cart>
+      </block>
+    </secondary>
+  </primary>
+</msxConfig>

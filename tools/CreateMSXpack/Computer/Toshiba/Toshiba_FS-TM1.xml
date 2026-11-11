@@ -1,0 +1,57 @@
+<?xml version="1.0" ?>
+<!-- Toshiba FS-TM1 (MSX2), converted from openMSX share/machines.
+     Not in the core: S1985, PrinterPort. -->
+<msxConfig>
+  <cpu>Z80</cpu>                   <!-- Z80 --> 
+  <wait_count>1</wait_count>       <!-- 0 - 3 -->  
+  <cpu_frequency>0</cpu_frequency> <!-- 0-3.58, 1-5.39, 2-10.7-->  
+  <device mask="0xFC" port="0x98" VDP_ID="V9938">V99xx</device>
+  <device mask="0xF8" port="0xA0" system="true">PSG</device>
+  <device mask="0xF8" port="0xA8">PPI</device>
+  <device mask="0xFE" port="0xB4">RTC</device>
+  <kbd_layout>/yX/cWdlZv//ZP//cHMh////YP9hRgH///9XUCZUAv//MFUxMgQD//+AUzNRRwX//0MnNTRWBv///0I3UgcQ//8iQDZEABH//yMkQRdFEv///yD/FRP//2Ngdxb/FP//////////df///////////////////3L/dv//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////Yv//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////hIH///+Cg4b/h4X///////90//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////8=</kbd_layout>
+  <primary slot="0">
+    <secondary slot="0">
+      <block start="0" count="2">  <!-- MSX BIOS with BASIC ROM -->
+        <memory SHA1="7a69e9b9595f3b0060155f4b419c915d4d9d8ca1" filename="fs-tm1_basic-bios2.rom">ROM</memory>
+      </block>
+    </secondary>
+  </primary>
+  <primary slot="3">
+    <secondary slot="0">
+      <block start="0">  <!-- Main RAM -->
+        <memory size="65536" pattern="1">RAM</memory>
+        <mapper>MSX2_RAM</mapper>
+        <device mask="0xFC" port="0xFC" size="65536">MEM_MAPPER</device>
+      </block>
+    </secondary>
+    <secondary slot="1">
+      <block start="0" count="1">  <!-- MSX Sub ROM -->
+        <memory SHA1="a4bdbdb20bf9fd3c492a890fbf541bf092eaa8e1" filename="fs-tm1_msx2sub.rom">ROM</memory>
+      </block>
+      <block start="1" count="2">  <!-- Utility Part 1 -->
+        <memory SHA1="30737040d90c136d34dd409fe579bc4cca11c469" filename="fs-tm1_utility1.rom">ROM</memory>
+      </block>
+    </secondary>
+    <secondary slot="3">
+      <block start="1" count="2">  <!-- Utility Part 2 -->
+        <memory SHA1="ff6e07d3976b0874164fae680ae028d598752049" filename="fs-tm1_utility2.rom">ROM</memory>
+      </block>
+    </secondary>
+  </primary>
+  <!-- Location of external slots at the end of the XML definition -->
+  <primary slot="1">
+    <secondary slot="0">
+      <block start="0">
+        <cart>A</cart>
+      </block>
+    </secondary>
+  </primary>
+  <primary slot="2">
+    <secondary slot="0">
+      <block start="0">
+        <cart>B</cart>
+      </block>
+    </secondary>
+  </primary>
+</msxConfig>

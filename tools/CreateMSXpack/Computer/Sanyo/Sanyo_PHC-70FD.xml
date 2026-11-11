@@ -1,0 +1,72 @@
+<?xml version="1.0" ?>
+<!-- Sanyo PHC-70FD (MSX2+), converted from openMSX share/machines.
+     Not in the core: PrinterPort, Matsushita. -->
+<msxConfig>
+  <cpu>Z80</cpu>                   <!-- Z80 --> 
+  <wait_count>1</wait_count>       <!-- 0 - 3 -->  
+  <cpu_frequency>0</cpu_frequency> <!-- 0-3.58, 1-5.39, 2-10.7-->  
+  <device mask="0xFC" port="0x98" VDP_ID="V9958">V99xx</device>
+  <device mask="0xF8" port="0xA0" system="true">PSG</device>
+  <device mask="0xF8" port="0xA8">PPI</device>
+  <device mask="0xFE" port="0xB4">RTC</device>
+  <device mask="0xFE" port="0x7C">OPLL</device>                     <!-- MSX-MUSIC -->
+  <device mask="0xFF" port="0xF4" inverted="true">RESET_STATUS</device>
+  <device mask="0xFC" port="0xD8" ROM_SHA1="84a645becec0a25d3ab7a909cde1b242699a8662">KANJI</device>
+  <kbd_layout>/yX/cWdlZv//ZP//cHMh////YP9hRgH///9XUCZUAv//MFUxMgQD//+AUzNRRwX//0MnNTRWBv///0I3UgcQ//8iQDZEABH//yMkQRdFEv///yD/FRP//2Ngdxb/FP//////////df///////////////////3L/dv//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////Yv//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////hIH///+Cg4b/h4X///////90//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////8=</kbd_layout>
+  <primary slot="0">
+    <secondary slot="0">
+      <block start="0" count="2">  <!-- MSX BIOS with BASIC ROM -->
+        <memory SHA1="b6f2ca2e8a18d6c7cd326cb8d1a1d7d747f23059" filename="Sanyo_PHC-70FD.rom" skip="0x10000" size="32768">ROM</memory>
+      </block>
+    </secondary>
+  </primary>
+  <primary slot="3">
+    <secondary slot="0">
+      <block start="0">  <!-- Main RAM -->
+        <memory size="65536" pattern="1">RAM</memory>
+        <mapper>MSX2_RAM</mapper>
+        <device mask="0xFC" port="0xFC" size="65536">MEM_MAPPER</device>
+      </block>
+    </secondary>
+    <secondary slot="1">
+      <block start="0" count="1">  <!-- MSX Sub ROM -->
+        <memory SHA1="b6f2ca2e8a18d6c7cd326cb8d1a1d7d747f23059" filename="Sanyo_PHC-70FD.rom" skip="0x18000" size="16384">ROM</memory>
+      </block>
+      <block start="1" count="2">  <!-- MSX Kanji Driver with BASIC -->
+        <memory SHA1="b6f2ca2e8a18d6c7cd326cb8d1a1d7d747f23059" filename="Sanyo_PHC-70FD.rom" skip="0x8000" size="32768">ROM</memory>
+      </block>
+    </secondary>
+    <secondary slot="2">
+      <block start="1" count="1">  <!-- Memory Mapped FDC -->
+        <memory SHA1="b6f2ca2e8a18d6c7cd326cb8d1a1d7d747f23059" filename="Sanyo_PHC-70FD.rom" skip="0x1C000" size="16384">ROM</memory>
+        <device ioRegs="7FF8" fdd_count="1">TC8566AF</device>
+      </block>
+      <block start="2" count="1">  <!-- Memory Mapped FDC (registers) -->
+        <ref to_block="1">DEVICE</ref>
+      </block>
+    </secondary>
+    <secondary slot="3">
+      <block start="1" count="1">  <!-- MSX Music -->
+        <memory SHA1="b6f2ca2e8a18d6c7cd326cb8d1a1d7d747f23059" filename="Sanyo_PHC-70FD.rom" size="16384">ROM</memory>
+      </block>
+      <block start="2" count="1">  <!-- BASIC'n 2.0 -->
+        <memory SHA1="b6f2ca2e8a18d6c7cd326cb8d1a1d7d747f23059" filename="Sanyo_PHC-70FD.rom" skip="0x4000" size="16384">ROM</memory>
+      </block>
+    </secondary>
+  </primary>
+  <!-- Location of external slots at the end of the XML definition -->
+  <primary slot="1">
+    <secondary slot="0">
+      <block start="0">
+        <cart>A</cart>
+      </block>
+    </secondary>
+  </primary>
+  <primary slot="2">
+    <secondary slot="0">
+      <block start="0">
+        <cart>B</cart>
+      </block>
+    </secondary>
+  </primary>
+</msxConfig>

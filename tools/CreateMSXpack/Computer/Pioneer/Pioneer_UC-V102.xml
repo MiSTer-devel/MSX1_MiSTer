@@ -1,0 +1,58 @@
+<?xml version="1.0" ?>
+<!-- Pioneer UC-V102 (MSX2), converted from openMSX share/machines.
+     Not in the core: S1985, PrinterPort, MSX-RS232. -->
+<msxConfig>
+  <cpu>Z80</cpu>                   <!-- Z80 --> 
+  <wait_count>1</wait_count>       <!-- 0 - 3 -->  
+  <cpu_frequency>0</cpu_frequency> <!-- 0-3.58, 1-5.39, 2-10.7-->  
+  <device mask="0xFC" port="0x98" VDP_ID="V9938">V99xx</device>
+  <device mask="0xF8" port="0xA0" system="true">PSG</device>
+  <device mask="0xF8" port="0xA8">PPI</device>
+  <device mask="0xFE" port="0xB4">RTC</device>
+  <device mask="0xFE" port="0xD8" ROM_SHA1="db03211b7db46899df41db2b1dfbec972109a967">KANJI</device>
+  <kbd_layout>/yX/cWdlZv//ZP//cHMh////YP9hRgH///9XUCZUAv//MFUxMgQD//+AUzNRRwX//0MnNTRWBv///0I3UgcQ//8iQDZEABH//yMkQRdFEv///yD/FRP//2Ngdxb/FP//////////df///////////////////3L/dv//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////Yv//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////hIH///+Cg4b/h4X///////90//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////8=</kbd_layout>
+  <primary slot="0">
+    <secondary slot="0">
+      <block start="0" count="2">  <!-- MSX BIOS with BASIC ROM -->
+        <memory SHA1="c1e46c00f1e38fc9e0ab487bf0513bd93ce61f3f" filename="uc-v102_basic-bios2.rom">ROM</memory>
+      </block>
+    </secondary>
+    <secondary slot="1">
+      <block start="0" count="1">  <!-- MSX Sub ROM -->
+        <memory SHA1="0fbd45ef3dd7bb82d4c31f1947884f411f1ca344" filename="uc-v102_msx2sub.rom">ROM</memory>
+      </block>
+    </secondary>
+    <secondary slot="2">
+      <block start="0">  <!-- Main RAM -->
+        <memory size="65536" pattern="1">RAM</memory>
+        <mapper>MSX2_RAM</mapper>
+        <device mask="0xFC" port="0xFC" size="65536">MEM_MAPPER</device>
+      </block>
+    </secondary>
+  </primary>
+  <primary slot="3" expander="1">
+    <secondary slot="0">
+      <block start="1" count="1">  <!-- Memory Mapped FDC -->
+        <memory SHA1="f7c3ac138918a493eb91628ed88cf37999059579" filename="uc-v102_disk.rom">ROM</memory>
+        <device style="Philips" fdd_count="2">WD2793</device>
+      </block>
+      <block start="0" count="1">  <!-- Memory Mapped FDC (registers) -->
+        <ref to_block="1">DEVICE</ref>
+      </block>
+      <block start="2" count="1">  <!-- Memory Mapped FDC (registers) -->
+        <ref to_block="1">DEVICE</ref>
+      </block>
+      <block start="3" count="1">  <!-- Memory Mapped FDC (registers) -->
+        <ref to_block="1">DEVICE</ref>
+      </block>
+    </secondary>
+  </primary>
+  <!-- Location of external slots at the end of the XML definition -->
+  <primary slot="1">
+    <secondary slot="0">
+      <block start="0">
+        <cart>A</cart>
+      </block>
+    </secondary>
+  </primary>
+</msxConfig>

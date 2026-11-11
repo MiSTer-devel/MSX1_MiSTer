@@ -1,0 +1,51 @@
+<?xml version="1.0" ?>
+<!-- Daewoo CPC-300E (MSX2), converted from openMSX share/machines.
+     Not in the core: S1985, PrinterPort. -->
+<msxConfig>
+  <cpu>Z80</cpu>                   <!-- Z80 --> 
+  <wait_count>1</wait_count>       <!-- 0 - 3 -->  
+  <cpu_frequency>0</cpu_frequency> <!-- 0-3.58, 1-5.39, 2-10.7-->  
+  <device mask="0xFC" port="0x98" VDP_ID="V9938">V99xx</device>
+  <device mask="0xF8" port="0xA0" system="true">PSG</device>
+  <device mask="0xF8" port="0xA8">PPI</device>
+  <kbd_layout>/yX/cWdlZv//ZP//cHMh////YP9hRgH///9XUCZUAv//MFUxMgQD//+AUzNRRwX//0MnNTRWBv///0I3UgcQ//8iQDZEABH//yMkQRdFEv///yD/FRP//2Ngdxb/FP//////////df///////////////////3L/dv//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////Yv//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////hIH///+Cg4b/h4X///////90//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////8=</kbd_layout>
+  <primary slot="0">
+    <secondary slot="0">
+      <block start="0" count="2">  <!-- MSX BIOS with BASIC ROM -->
+        <memory SHA1="affa3c5cd8db79a1450ad8a7f405a425b251653d" filename="cpc-300e_basic-bios2.rom">ROM</memory>
+      </block>
+    </secondary>
+    <secondary slot="1">
+      <block start="1" count="2">  <!-- MSX Hangul Driver -->
+        <memory SHA1="47a9d9a24e4fc6f9467c6e7d61a02d45f5a753ef" filename="cpc-300e_hangul.rom">ROM</memory>
+      </block>
+    </secondary>
+    <secondary slot="2">
+      <block start="0">  <!-- Main RAM -->
+        <memory size="65536" pattern="1">RAM</memory>
+        <mapper>MSX2_RAM</mapper>
+        <device mask="0xFC" port="0xFC" size="65536">MEM_MAPPER</device>
+      </block>
+    </secondary>
+    <secondary slot="3">
+      <block start="0" count="2">  <!-- MSX Sub ROM -->
+        <memory SHA1="09f7d788698a23aa7eec140237e907d4c37cbfe0" filename="cpc-300e_msx2sub.rom">ROM</memory>
+      </block>
+    </secondary>
+  </primary>
+  <!-- Location of external slots at the end of the XML definition -->
+  <primary slot="1">
+    <secondary slot="0">
+      <block start="0">
+        <cart>A</cart>
+      </block>
+    </secondary>
+  </primary>
+  <primary slot="3">
+    <secondary slot="0">
+      <block start="0">
+        <cart>B</cart>
+      </block>
+    </secondary>
+  </primary>
+</msxConfig>

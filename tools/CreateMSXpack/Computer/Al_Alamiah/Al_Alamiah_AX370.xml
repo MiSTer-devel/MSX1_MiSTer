@@ -1,0 +1,76 @@
+<?xml version="1.0" ?>
+<!-- Al Alamiah AX370 (MSX2), converted from openMSX share/machines.
+     Not in the core: PrinterPort. -->
+<msxConfig>
+  <cpu>Z80</cpu>                   <!-- Z80 --> 
+  <wait_count>1</wait_count>       <!-- 0 - 3 -->  
+  <cpu_frequency>0</cpu_frequency> <!-- 0-3.58, 1-5.39, 2-10.7-->  
+  <device mask="0xFC" port="0x98" VDP_ID="V9958">V99xx</device>
+  <device mask="0xF8" port="0xA0" system="true">PSG</device>
+  <device mask="0xF8" port="0xA8">PPI</device>
+  <device mask="0xFE" port="0xB4">RTC</device>
+  <kbd_layout>/yX/cWdlZv//ZP//cHMh////YP9hRgH///9XUCZUAv//MFUxMgQD//+AUzNRRwX//0MnNTRWBv///0I3UgcQ//8iQDZEABH//yMkQRdFEv///yD/FRP//2Ngdxb/FP//////////df///////////////////3L/dv//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////Yv//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////hIH///+Cg4b/h4X///////90//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////8=</kbd_layout>
+  <primary slot="0">
+    <secondary slot="0">
+      <block start="0" count="2">  <!-- MSX BIOS with BASIC ROM -->
+        <memory SHA1="35195ab67c289a0b470883464df66bc6ea5b00d3" filename="ax370_basic-bios2.rom">ROM</memory>
+      </block>
+    </secondary>
+    <secondary slot="1">
+      <block start="1" count="2">  <!-- Al Alamiah BASIC 2.03 ROM -->
+        <memory SHA1="0c08e799a7cf130ae2b9bc93f28bd4959cee6fdc" filename="ax370_rom01.rom">ROM</memory>
+      </block>
+    </secondary>
+    <secondary slot="2">
+      <block start="1" count="2">  <!-- Sakhr Word Processor -->
+        <memory SHA1="4b4508131dca6d811694ae6379f41364c477de58" filename="ax370_swp.rom">ROM</memory>
+      </block>
+    </secondary>
+    <secondary slot="3">
+      <block start="1" count="2">  <!-- Sakhr BASIC -->
+        <memory SHA1="8167117a003824220c36775682acbb36b3733c5e" filename="ax370_sb.rom">ROM</memory>
+      </block>
+    </secondary>
+  </primary>
+  <primary slot="3">
+    <secondary slot="0">
+      <block start="0" count="1">  <!-- MSX Sub ROM -->
+        <memory SHA1="ee9c6a073766bef2220a57372f5c0dbfc6e55c8c" filename="ax370_msx2sub.rom">ROM</memory>
+      </block>
+      <block start="1" count="1">  <!-- Memory Mapped FDC -->
+        <memory SHA1="9efa744be8355675e7bfdd3976bbbfaf85d62e1d" filename="ax370_disk.rom">ROM</memory>
+        <device ioRegs="7FF8" fdd_count="1">TC8566AF</device>
+      </block>
+      <block start="2" count="1">  <!-- Memory Mapped FDC (registers) -->
+        <ref to_block="1">DEVICE</ref>
+      </block>
+    </secondary>
+    <secondary slot="1">
+      <block start="0">  <!-- Painter -->
+        <memory SHA1="1c9a5867d39f6f02a0a4ef291904623e2521c2c5" filename="ax370_painter.rom">ROM</memory>
+      </block>
+    </secondary>
+    <secondary slot="3">
+      <block start="0">  <!-- Main RAM -->
+        <memory size="131072" pattern="1">RAM</memory>
+        <mapper>MSX2_RAM</mapper>
+        <device mask="0xFC" port="0xFC" size="131072">MEM_MAPPER</device>
+      </block>
+    </secondary>
+  </primary>
+  <!-- Location of external slots at the end of the XML definition -->
+  <primary slot="1">
+    <secondary slot="0">
+      <block start="0">
+        <cart>A</cart>
+      </block>
+    </secondary>
+  </primary>
+  <primary slot="2">
+    <secondary slot="0">
+      <block start="0">
+        <cart>B</cart>
+      </block>
+    </secondary>
+  </primary>
+</msxConfig>

@@ -1,0 +1,60 @@
+<?xml version="1.0" ?>
+<!-- Sony HB-F9S (MSX2), converted from openMSX share/machines.
+     Not in the core: S1985, PrinterPort. -->
+<msxConfig>
+  <cpu>Z80</cpu>                   <!-- Z80 --> 
+  <wait_count>1</wait_count>       <!-- 0 - 3 -->  
+  <cpu_frequency>0</cpu_frequency> <!-- 0-3.58, 1-5.39, 2-10.7-->  
+  <device mask="0xFC" port="0x98" VDP_ID="V9938">V99xx</device>
+  <device mask="0xF8" port="0xA0" system="true">PSG</device>
+  <device mask="0xF8" port="0xA8">PPI</device>
+  <device mask="0xFE" port="0xB4">RTC</device>
+  <kbd_layout>/yX/cWdlZv//ZP//cHMh////YP9hRgH///9XUCZUAv//MFUxMgQD//+AUzNRRwX//0MnNTRWBv///0I3UgcQ//8iQDZEABH//yMkQRdFEv///yD/FRP//2Ngdxb/FP//////////df///////////////////3L/dv//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////Yv//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////hIH///+Cg4b/h4X///////90//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////8=</kbd_layout>
+  <primary slot="0">
+    <secondary slot="0">
+      <block start="0" count="2">  <!-- MSX BIOS with BASIC ROM -->
+        <memory SHA1="4811956f878c3e03da46317f787cdc4bebc86f47" filename="hb-f9s_IC11.rom">ROM</memory>
+      </block>
+    </secondary>
+  </primary>
+  <primary slot="3">
+    <secondary slot="0">
+      <block start="0" count="1">  <!-- MSX Sub ROM -->
+        <memory SHA1="1166a93d7185ba024bdf2bfa9a30e1c447fb6db1" filename="hb-f9s_IC12.rom" size="16384">ROM</memory>
+      </block>
+      <block start="1" count="1">  <!-- Memovision 2 -->
+        <memory SHA1="1166a93d7185ba024bdf2bfa9a30e1c447fb6db1" filename="hb-f9s_IC12.rom" skip="0x4000" size="16384">ROM</memory>
+      </block>
+    </secondary>
+    <secondary slot="1">
+      <block start="1" count="1">  <!-- Memovision 1/1 -->
+        <memory SHA1="7efac54dd8f580f3b7809ab35db4ae58f0eb84d1" filename="hb-f9s_IC13.rom" skip="0x4000" size="16384">ROM</memory>
+      </block>
+      <block start="2" count="1">  <!-- Memovision 1/2 -->
+        <memory SHA1="7efac54dd8f580f3b7809ab35db4ae58f0eb84d1" filename="hb-f9s_IC13.rom" size="16384">ROM</memory>
+      </block>
+    </secondary>
+    <secondary slot="2">
+      <block start="0">  <!-- Main RAM -->
+        <memory size="131072" pattern="2">RAM</memory>
+        <mapper>MSX2_RAM</mapper>
+        <device mask="0xFC" port="0xFC" size="131072">MEM_MAPPER</device>
+      </block>
+    </secondary>
+  </primary>
+  <!-- Location of external slots at the end of the XML definition -->
+  <primary slot="1">
+    <secondary slot="0">
+      <block start="0">
+        <cart>A</cart>
+      </block>
+    </secondary>
+  </primary>
+  <primary slot="2">
+    <secondary slot="0">
+      <block start="0">
+        <cart>B</cart>
+      </block>
+    </secondary>
+  </primary>
+</msxConfig>

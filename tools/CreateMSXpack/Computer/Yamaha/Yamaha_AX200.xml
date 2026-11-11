@@ -1,0 +1,57 @@
+<?xml version="1.0" ?>
+<!-- Yamaha AX200 (MSX), converted from openMSX share/machines.
+     Not in the core: PrinterPort. -->
+<msxConfig>
+  <cpu>Z80</cpu>                   <!-- Z80 --> 
+  <wait_count>1</wait_count>       <!-- 0 - 3 -->  
+  <cpu_frequency>0</cpu_frequency> <!-- 0-3.58, 1-5.39, 2-10.7-->  
+  <device mask="0xFC" port="0x98" VDP_ID="V9938">V99xx</device>
+  <device mask="0xF8" port="0xA0" system="true">PSG</device>
+  <device mask="0xF8" port="0xA8">PPI</device>
+  <kbd_layout>/yX/cWdlZv//ZP//cHMh////YP9hRgH///9XUCZUAv//MFUxMgQD//+AUzNRRwX//0MnNTRWBv///0I3UgcQ//8iQDZEABH//yMkQRdFEv///yD/FRP//2Ngdxb/FP//////////df///////////////////3L/dv//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////Yv//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////hIH///+Cg4b/h4X///////90//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////8=</kbd_layout>
+  <primary slot="0">
+    <secondary slot="0">
+      <block start="0" count="2">  <!-- MSX BIOS with BASIC ROM -->
+        <memory SHA1="079c018739c37485f3d64ef2145a0267fce6e20e" filename="ax200_basic-bios1.rom">ROM</memory>
+      </block>
+      <block start="2" count="2">  <!-- Main RAM page 2, 3 -->
+        <memory size="32768" pattern="1">RAM</memory>
+      </block>
+    </secondary>
+    <secondary slot="2">
+      <block start="0" count="2">  <!-- Main RAM page 0, 1 -->
+        <memory size="32768" pattern="1">RAM</memory>
+      </block>
+    </secondary>
+    <secondary slot="3">
+      <block start="1" count="2">  <!-- Arabic ROM -->
+        <memory SHA1="7574cc5655805ea316011a8123b064917f06f83c" filename="ax200_arabic.rom">ROM</memory>
+      </block>
+    </secondary>
+  </primary>
+  <primary slot="3">
+    <secondary slot="0">
+      <block start="0">  <!-- Yamaha SFG-05 -->
+        <memory SHA1="fcc385b90c65575e29fc009aa00b5120fc4c251a" filename="sfg-05.rom">ROM</memory>
+        <mapper>YAMAHA_SFG</mapper>
+        <device variant="YM2164">OPM</device>
+        <device variant="SFG-05">YM2148</device>
+      </block>
+    </secondary>
+  </primary>
+  <!-- Location of external slots at the end of the XML definition -->
+  <primary slot="1">
+    <secondary slot="0">
+      <block start="0">
+        <cart>A</cart>
+      </block>
+    </secondary>
+  </primary>
+  <primary slot="2">
+    <secondary slot="0">
+      <block start="0">
+        <cart>B</cart>
+      </block>
+    </secondary>
+  </primary>
+</msxConfig>

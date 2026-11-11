@@ -1,0 +1,61 @@
+<?xml version="1.0" ?>
+<!-- Sony HB-G900AP (MSX2), converted from openMSX share/machines.
+     Not in the core: S1985, PrinterPort, MSX-RS232. -->
+<msxConfig>
+  <cpu>Z80</cpu>                   <!-- Z80 --> 
+  <wait_count>1</wait_count>       <!-- 0 - 3 -->  
+  <cpu_frequency>0</cpu_frequency> <!-- 0-3.58, 1-5.39, 2-10.7-->  
+  <device mask="0xFC" port="0x98" VDP_ID="V9938">V99xx</device>
+  <device mask="0xF8" port="0xA0" system="true">PSG</device>
+  <device mask="0xF8" port="0xA8">PPI</device>
+  <device mask="0xFE" port="0xB4">RTC</device>
+  <kbd_layout>/yX/cWdlZv//ZP//cHMh////YP9hRgH///9XUCZUAv//MFUxMgQD//+AUzNRRwX//0MnNTRWBv///0I3UgcQ//8iQDZEABH//yMkQRdFEv///yD/FRP//2Ngdxb/FP//////////df///////////////////3L/dv//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////Yv//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////hIH///+Cg4b/h4X///////90//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////8=</kbd_layout>
+  <primary slot="0">
+    <secondary slot="0">
+      <block start="0" count="2">  <!-- MSX BIOS with BASIC ROM -->
+        <memory SHA1="0de3c802057560560a03d7965fcc4cff69f8575c" filename="hb-g900ap_basic-bios2.rom">ROM</memory>
+      </block>
+    </secondary>
+    <secondary slot="1">
+      <block start="0" count="1">  <!-- MSX Sub ROM -->
+        <memory SHA1="3288894e1be6af705871499b23c85732dbc40993" filename="hb-g900ap_msx2sub.rom">ROM</memory>
+      </block>
+      <block start="1" count="1">  <!-- Memory Mapped FDC -->
+        <memory SHA1="12f2cc79b3d09723840bae774be48c0d721ec1c6" filename="hb-g900ap_disk.rom">ROM</memory>
+        <device style="Sony" fdd_count="1">WD2793</device>
+      </block>
+      <block start="2" count="1">  <!-- Memory Mapped FDC (registers) -->
+        <ref to_block="1">DEVICE</ref>
+      </block>
+    </secondary>
+    <secondary slot="3">
+      <block start="1" count="1">  <!-- Video Utility -->
+        <memory SHA1="6bb18cd2d69f124ad0c7c23a13eb0d2139037696" filename="hb-g900ap_video-utility.rom">ROM</memory>
+      </block>
+    </secondary>
+  </primary>
+  <primary slot="3" expander="1">
+    <secondary slot="0">
+      <block start="0">  <!-- Main RAM -->
+        <memory size="524288" pattern="1">RAM</memory>
+        <mapper>MSX2_RAM</mapper>
+        <device mask="0xFC" port="0xFC" size="524288">MEM_MAPPER</device>
+      </block>
+    </secondary>
+  </primary>
+  <!-- Location of external slots at the end of the XML definition -->
+  <primary slot="1">
+    <secondary slot="0">
+      <block start="0">
+        <cart>A</cart>
+      </block>
+    </secondary>
+  </primary>
+  <primary slot="2">
+    <secondary slot="0">
+      <block start="0">
+        <cart>B</cart>
+      </block>
+    </secondary>
+  </primary>
+</msxConfig>

@@ -1,0 +1,60 @@
+<?xml version="1.0" ?>
+<!-- Sony HB-F1II (MSX2), converted from openMSX share/machines.
+     Not in the core: S1985, PrinterPort. -->
+<msxConfig>
+  <cpu>Z80</cpu>                   <!-- Z80 --> 
+  <wait_count>1</wait_count>       <!-- 0 - 3 -->  
+  <cpu_frequency>0</cpu_frequency> <!-- 0-3.58, 1-5.39, 2-10.7-->  
+  <device mask="0xFC" port="0x98" VDP_ID="V9938">V99xx</device>
+  <device mask="0xF8" port="0xA0" system="true">PSG</device>
+  <device mask="0xF8" port="0xA8">PPI</device>
+  <device mask="0xFE" port="0xB4">RTC</device>
+  <kbd_layout>/yX/cWdlZv//ZP//cHMh////YP9hRgH///9XUCZUAv//MFUxMgQD//+AUzNRRwX//0MnNTRWBv///0I3UgcQ//8iQDZEABH//yMkQRdFEv///yD/FRP//2Ngdxb/FP//////////df///////////////////3L/dv//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////Yv//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////hIH///+Cg4b/h4X///////90//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////8=</kbd_layout>
+  <primary slot="0">
+    <secondary slot="0">
+      <block start="0" count="2">  <!-- MSX BIOS with BASIC ROM -->
+        <memory SHA1="0081ea0d25bc5cd8d70b60ad8cfdc7307812c0fd" filename="hb-f1ii_basic-bios2.rom">ROM</memory>
+      </block>
+    </secondary>
+  </primary>
+  <primary slot="3">
+    <secondary slot="0">
+      <block start="0" count="1">  <!-- MSX Sub ROM -->
+        <memory SHA1="0fbd45ef3dd7bb82d4c31f1947884f411f1ca344" filename="hb-f1ii_msx2sub.rom">ROM</memory>
+      </block>
+      <block start="1" count="1">  <!-- Firmware 1 -->
+        <memory SHA1="30d914cda2180889a40a3328e0a0c1327f4eaa10" filename="hb-f1ii_firmware1.rom">ROM</memory>
+      </block>
+    </secondary>
+    <secondary slot="1">
+      <block start="1" count="2">  <!-- Firmware 2 -->
+        <memory SHA1="ed2fea5c2a3c2e58d4f69f9d636e08574486a2b1" filename="hb-f1ii_firmware2.rom">ROM</memory>
+      </block>
+    </secondary>
+    <secondary slot="2">
+      <block start="1" count="2">  <!-- Firmware 3 -->
+        <memory SHA1="917d1c079e03c4a44de864f123d03c4e32c8daae" filename="hb-f1ii_firmware3.rom">ROM</memory>
+      </block>
+    </secondary>
+    <secondary slot="3">
+      <block start="0">  <!-- Main RAM -->
+        <memory size="65536" pattern="1">RAM</memory>
+      </block>
+    </secondary>
+  </primary>
+  <!-- Location of external slots at the end of the XML definition -->
+  <primary slot="1">
+    <secondary slot="0">
+      <block start="0">
+        <cart>A</cart>
+      </block>
+    </secondary>
+  </primary>
+  <primary slot="2">
+    <secondary slot="0">
+      <block start="0">
+        <cart>B</cart>
+      </block>
+    </secondary>
+  </primary>
+</msxConfig>

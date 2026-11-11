@@ -1,0 +1,57 @@
+<?xml version="1.0" ?>
+<!-- Sony HB-11 (MSX), converted from openMSX share/machines.
+     Not in the core: PrinterPort. -->
+<msxConfig>
+  <cpu>Z80</cpu>                   <!-- Z80 --> 
+  <wait_count>1</wait_count>       <!-- 0 - 3 -->  
+  <cpu_frequency>0</cpu_frequency> <!-- 0-3.58, 1-5.39, 2-10.7-->  
+  <device mask="0xFE" port="0x98" MODE="NTSC">TMS99xx</device>
+  <device mask="0xF8" port="0xA0" system="true">PSG</device>
+  <device mask="0xF8" port="0xA8">PPI</device>
+  <device mask="0xFE" port="0xD8" ROM_SHA1="6acaf2eeb57f65f7408235d5e07b7563229de799">KANJI</device>
+  <kbd_layout>/yX/cWdlZv//ZP//cHMh////YP9hRgH///9XUCZUAv//MFUxMgQD//+AUzNRRwX//0MnNTRWBv///0I3UgcQ//8iQDZEABH//yMkQRdFEv///yD/FRP//2Ngdxb/FP//////////df///////////////////3L/dv//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////Yv//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////hIH///+Cg4b/h4X///////90//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////8=</kbd_layout>
+  <primary slot="0">
+    <secondary slot="0">
+      <block start="0" count="2">  <!-- MSX BIOS with BASIC ROM -->
+        <memory SHA1="6716404cf248f92d672fa4c54c9c07f47990b011" filename="hb-11_basic-bios1.rom">ROM</memory>
+      </block>
+    </secondary>
+  </primary>
+  <primary slot="3">
+    <secondary slot="0">
+      <block start="1" count="2">  <!-- Firmware 1 -->
+        <memory SHA1="21baaf52bc5355417d810dd479679482bb9a45a0" filename="hb-11_firmware_1.rom">ROM</memory>
+      </block>
+    </secondary>
+    <secondary slot="1">
+      <block start="1" count="2">  <!-- Firmware 2 -->
+        <memory SHA1="4ee80ca1645c1f3c01fd04c3ceb6f78d44fc13c0" filename="hb-11_firmware_2.rom">ROM</memory>
+      </block>
+    </secondary>
+    <secondary slot="2">
+      <block start="0">  <!-- Main RAM -->
+        <memory size="65536" pattern="5">RAM</memory>
+      </block>
+    </secondary>
+    <secondary slot="3">
+      <block start="1" count="2">  <!-- Firmware 3 -->
+        <memory SHA1="8a827cf0cddce2c98c6c6cdd830e7791eb9a28cf" filename="hb-11_firmware_3.rom">ROM</memory>
+      </block>
+    </secondary>
+  </primary>
+  <!-- Location of external slots at the end of the XML definition -->
+  <primary slot="1">
+    <secondary slot="0">
+      <block start="0">
+        <cart>A</cart>
+      </block>
+    </secondary>
+  </primary>
+  <primary slot="2">
+    <secondary slot="0">
+      <block start="0">
+        <cart>B</cart>
+      </block>
+    </secondary>
+  </primary>
+</msxConfig>

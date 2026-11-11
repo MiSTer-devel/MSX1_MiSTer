@@ -75,6 +75,16 @@
       <mapper>ASCII16X</mapper>
     </block>
   </fw>
+  <fw name="NEO8">
+    <block>
+      <mapper>NEO8</mapper>
+    </block>
+  </fw>
+  <fw name="NEO16">
+    <block>
+      <mapper>NEO16</mapper>
+    </block>
+  </fw>
   <fw name="RTYPE">
     <block>
       <mapper>RTYPE</mapper>   

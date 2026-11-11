@@ -3,7 +3,7 @@
 [English](Readme.md) | **Česky**
 
 > [!CAUTION]
-> **Upozornění (WIP)**: Toto jádro je ve vývoji (**Work in Progress**). Některé součásti jsou rozpracované a mohou obsahovat ladicí výstupy nebo experimentální funkce. Některé funkce zatím nemusí fungovat stoprocentně. Nejnovější přídavky (mapper ASCII16-X, MoonSound) nebyly vyzkoušeny na skutečném hardware a časování V99x8, R800 a řadič TC8566AF také nejsou na hardware ověřeny. Viz [Známá omezení](#známá-omezení).
+> **Upozornění (WIP)**: Toto jádro je ve vývoji (**Work in Progress**). Některé součásti jsou rozpracované a mohou obsahovat ladicí výstupy nebo experimentální funkce. Některé funkce zatím nemusí fungovat stoprocentně. Nejnovější přídavky (mappery ASCII16-X, NEO-8 a NEO-16, MoonSound) nebyly vyzkoušeny na skutečném hardware a časování V99x8, R800 a řadič TC8566AF také nejsou na hardware ověřeny. Viz [Známá omezení](#známá-omezení).
 
 ## Přehled jádra
 Jádro (na MiSTeru se stále jmenuje `MSX1`, proto složka `games/MSX1`) není přímou syntézou konkrétního počítače MSX. Poskytuje **dynamicky konfigurovatelné hardwarové prostředí**, které se za běhu sestaví z vybrané definice (*ROM PACK*). Každá definice stroje obsahuje nejen zapojení hardware, ale i příslušný **obsah ROM.** Jádro umí spustit:
@@ -120,7 +120,7 @@ Jádro obsahuje tyto hardwarové moduly:
 Neimplementováno: MSX-AUDIO, MSX-MIDI, V9990 / GFX9000, tiskárna, pádla, světelná pistole, RS-232.
 
 ## Podporované ROM mappery
-ROM cartridge se k mapperu přiřazují podle databáze CRC32 (`vampier.db`, 8074 záznamů, vytvořená nástrojem [tools/CreateCRC](tools/CreateCRC/README.cs.md) z dumpu [romdb.vampier.net](https://romdb.vampier.net/)). ROM, které v databázi nejsou a mají do 64 KB, se umístí jako obyčejná ROM (první řádky tabulky).
+ROM cartridge se k mapperu přiřazují podle databáze CRC32 (`vampier.db`, 8096 záznamů, vytvořená nástrojem [tools/CreateCRC](tools/CreateCRC/README.cs.md) z dumpu [romdb.vampier.net](https://romdb.vampier.net/)). ROM, které v databázi nejsou a mají do 64 KB, se umístí jako obyčejná ROM (první řádky tabulky).
 
 | Mapper (název v DB) | Popis |
 |---|---|
@@ -134,6 +134,7 @@ ROM cartridge se k mapperu přiřazují podle databáze CRC32 (`vampier.db`, 807
 | `ASCII16` | mapper ASCII 16 KB |
 | `ASCII16SRAM2`, `ASCII16SRAM8` | mapper ASCII 16 KB se 2 / 8 KB SRAM |
 | `ASCII16-X` | mapper [ASCII16-X](https://www.grauw.nl/projects/ascii-x/ascii16-x/) s 8 MB flash ROM (změny se neukládají) |
+| `NEO-8`, `NEO-16` | mappery NEO-8 (šest bank 8 KB) a NEO-16 (tři banky 16 KB) s 12bitovým číslem banky, ROM do 16 MB |
 | `R-Type` | mapper R-Type |
 | `Wizardry` | Wizardry (varianta ASCII 8 KB s SRAM) |
 | `KoeiSRAM32` | hry KOEI s 32 KB SRAM |
@@ -145,7 +146,7 @@ ROM cartridge se k mapperu přiřazují podle databáze CRC32 (`vampier.db`, 807
 | `SuperSwangi`, `MSXWrite` | speciální varianty ASCII 16 KB |
 | `Synthesizer` | obyčejná ROM s DAC Konami Synthesizer |
 
-Typy ROM z databáze, pro které jádro nemá konfiguraci, se do `vampier.db` nezapisují (asi 30 typů, 90 ROM, např. NEO-8/16, Yamanooto, MatraCompilation, Namco, Manbow2). Taková ROM do 64 KB poběží jako obyčejná ROM, větší skončí hláškou *Not find CRC32 in DB*. Úplný seznam s počty je v [tools/CreateCRC/report.md](tools/CreateCRC/report.md). Nepodporováno je také MSX-DOS2 a MU-PACK.
+Typy ROM z databáze, pro které jádro nemá konfiguraci, se do `vampier.db` nezapisují (27 typů, 71 ROM, např. Yamanooto, MatraCompilation, Namco, Manbow2). Taková ROM do 64 KB poběží jako obyčejná ROM, větší skončí hláškou *Not find CRC32 in DB*. Úplný seznam s počty je v [tools/CreateCRC/report.md](tools/CreateCRC/report.md). Nepodporováno je také MSX-DOS2 a MU-PACK.
 
 Mappery uvnitř stroje (National FS-4600F, Yamaha SFG, Panasonic turbo R, paměťový mapper, ESE RAM) vycházejí z definice stroje a nelze je volit.
 
@@ -194,7 +195,7 @@ Jádro se integruje s MiSTerFPGA a podporuje tyto funkce platformy:
 
 ## Poděkování
 - [muhanpong/MSX1_MiSTer](https://github.com/muhanpong/MSX1_MiSTer) (větev `nextz80_v9990`) – fork tohoto jádra. Jeho analýzy chyb a hlášení ze skutečného hardware upozornily na chyby v emulaci flash a na úskalí mapperu ASCII16-X a MoonSound. Žádný kód z něj nebyl převzat; zdejší implementace jsou nezávislé.
-- [openMSX](https://openmsx.org/) – reference pro chování mapperu ASCII16-X a jeho flash čipu, vlnové části OPL4 (YMF278B), sběrnicového rozhraní a časovačů a časování V99x8.
+- [openMSX](https://openmsx.org/) – reference pro chování mapperu ASCII16-X a jeho flash čipu, mapperů NEO-8 a NEO-16, vlnové části OPL4 (YMF278B), sběrnicového rozhraní a časovačů a časování V99x8.
 - [Grauw](https://www.grauw.nl/projects/ascii-x/ascii16-x/) – specifikace mapperu ASCII16-X.
 - [Nuked OPL3](https://github.com/nukeykt/Nuked-OPL3) od Nuke.YKT – model OPL3, proti kterému se FM část MoonSound kontroluje vzorek po vzorku. Jeho zdroj (LGPL-2.1-or-later) používá pouze test (`rtl/peripheral/SOUND/opl4/tb/nuked`).
 

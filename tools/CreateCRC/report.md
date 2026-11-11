@@ -1,7 +1,7 @@
 # Mapper database report
 
 Source: `https://romdb.vampier.net/Archive/sql-msxromdb.zip`  
-Records in `vampier.db`: **8074** (previous file: 8074; added 0, removed 0, changed 0)  
+Records in `vampier.db`: **8096** (previous file: 8074; added 22, removed 0, changed 0)  
 Mirrored/Normal start address: 3765 from the header, 480 guessed (no header at 0, placed at 0000h like the core does without a record)  
 Overrides: 53 lines, 0 give the same as the dump (`--prune` removes them)
 
@@ -24,7 +24,9 @@ Overrides: 53 lines, 0 give the same as the dump (`--prune` removes them)
 | 16kb | 23 | 25 |  | 16kb |
 | KOEI | 54 | 24 |  | KoeiSRAM32 |
 | ASCII8SRAM8 | 36 | 16 |  | ASCII8SRAM8 |
+| NEO8 | 58 | 13 |  | NEO-8 |
 | ASCII16SRAM2 | 33 | 10 |  | ASCII16SRAM2 |
+| NEO16 | 59 | 9 |  | NEO-16 |
 | RTYPE | 49 | 8 |  | R-Type |
 | Synthesizer | 41 | 8 |  | Synthesizer |
 | ASCII16SRAM8 | 34 | 5 |  | ASCII16SRAM8 |
@@ -44,9 +46,7 @@ ROM types of the dump without a FW configuration. They are not in the database: 
 
 | DB type | ROMs | games | over 64 kB | max kB | examples |
 |---|---|---|---|---|---|
-| NEO-8 | 13 | 2 | 13 | 15032 | File-Hunter.com - Easter Eggs, Second Reality |
 | YAMANOOTO | 12 | 4 | 12 | 8192 | Konami Neo-Ultimate Collection, Nightstalker, Tech Demo - Xenon 2 Megablast, ... |
-| NEO-16 | 9 | 7 | 9 | 16240 | Monkey Island 2 LeChuck's Revenge, Puzzle Mania XXXL, Puzzle Mania XXXS, ... |
 | MatraCompilation | 6 | 5 | 6 | 512 | Cardwork Orange, Casio GPM-Compilation Volumen 1, Casio GPM-Compilation Volumen 2, ... |
 | Namco | 6 | 6 | 0 | 16 | Bosconian, Dig Dug, Galaga, ... |
 | manbow2 | 6 | 2 | 6 | 512 | Lotus F3, Manbow 2 |

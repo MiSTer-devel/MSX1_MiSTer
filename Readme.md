@@ -3,7 +3,7 @@
 **English** | [Česky](Readme.cs.md)
 
 > [!CAUTION]
-> **WIP Notice**: This core is currently in **WIP (Work in Progress)** status. Some components are still under development and may include debug outputs or experimental features. Certain functionalities may not yet work 100% as intended. The latest additions (ASCII16-X mapper, MoonSound) have not been tested on real hardware, and V99x8 timing, the R800 and the TC8566AF controller are not verified on hardware either. See [Known limitations](#known-limitations).
+> **WIP Notice**: This core is currently in **WIP (Work in Progress)** status. Some components are still under development and may include debug outputs or experimental features. Certain functionalities may not yet work 100% as intended. The latest additions (ASCII16-X, NEO-8 and NEO-16 mappers, MoonSound) have not been tested on real hardware, and V99x8 timing, the R800 and the TC8566AF controller are not verified on hardware either. See [Known limitations](#known-limitations).
 
 ## Core Overview
 The core (its MiSTer name is still `MSX1`, hence the folder `games/MSX1`) is not a direct synthesis of a specific MSX computer model. Instead, it provides a **dynamically configurable hardware environment** that is built at run time from a selected definition (a *ROM PACK*). Each machine definition includes not only the hardware setup but also the corresponding **ROM binary content.** The core can run:
@@ -120,7 +120,7 @@ The core includes the following hardware modules:
 Not implemented: MSX-AUDIO, MSX-MIDI, V9990 / GFX9000, printer, paddles, light gun, RS-232.
 
 ## Supported ROM Mappers
-Cartridge ROMs are assigned to a mapper by the CRC32 database (`vampier.db`, 8074 entries, built by [tools/CreateCRC](tools/CreateCRC/README.md) from the [romdb.vampier.net](https://romdb.vampier.net/) dump). ROMs not in the database and up to 64 KB are placed as plain ROM (see the first rows).
+Cartridge ROMs are assigned to a mapper by the CRC32 database (`vampier.db`, 8096 entries, built by [tools/CreateCRC](tools/CreateCRC/README.md) from the [romdb.vampier.net](https://romdb.vampier.net/) dump). ROMs not in the database and up to 64 KB are placed as plain ROM (see the first rows).
 
 | Mapper (name in the DB) | Description |
 |---|---|
@@ -134,6 +134,7 @@ Cartridge ROMs are assigned to a mapper by the CRC32 database (`vampier.db`, 807
 | `ASCII16` | ASCII 16 KB mapper |
 | `ASCII16SRAM2`, `ASCII16SRAM8` | ASCII 16 KB mapper with 2 / 8 KB SRAM |
 | `ASCII16-X` | [ASCII16-X](https://www.grauw.nl/projects/ascii-x/ascii16-x/) mapper with an 8 MB flash ROM (changes are not saved) |
+| `NEO-8`, `NEO-16` | NEO-8 (six 8 KB banks) and NEO-16 (three 16 KB banks) mappers with 12-bit bank numbers, ROMs up to 16 MB |
 | `R-Type` | R-Type mapper |
 | `Wizardry` | Wizardry (ASCII 8 KB variant with SRAM) |
 | `KoeiSRAM32` | KOEI games with 32 KB SRAM |
@@ -145,7 +146,7 @@ Cartridge ROMs are assigned to a mapper by the CRC32 database (`vampier.db`, 807
 | `SuperSwangi`, `MSXWrite` | special ASCII 16 KB variants |
 | `Synthesizer` | plain ROM with the Konami Synthesizer DAC |
 
-ROM types of the database without a configuration in the core are not written into `vampier.db` (about 30 types, 90 ROMs, e.g. NEO-8/16, Yamanooto, MatraCompilation, Namco, Manbow2). Such a ROM up to 64 KB runs as plain ROM, a bigger one stops with *Not find CRC32 in DB*. The full list with counts is in [tools/CreateCRC/report.md](tools/CreateCRC/report.md). Also not supported: MSX-DOS2, MU-PACK.
+ROM types of the database without a configuration in the core are not written into `vampier.db` (27 types, 71 ROMs, e.g. Yamanooto, MatraCompilation, Namco, Manbow2). Such a ROM up to 64 KB runs as plain ROM, a bigger one stops with *Not find CRC32 in DB*. The full list with counts is in [tools/CreateCRC/report.md](tools/CreateCRC/report.md). Also not supported: MSX-DOS2, MU-PACK.
 
 Machine-internal mappers (National FS-4600F, Yamaha SFG, Panasonic turbo R, memory mapper, ESE RAM) come from the machine definition and are not selectable.
 
@@ -194,7 +195,7 @@ The core integrates with MiSTerFPGA and supports the following features provided
 
 ## Acknowledgements
 - [muhanpong/MSX1_MiSTer](https://github.com/muhanpong/MSX1_MiSTer) (branch `nextz80_v9990`) – a fork of this core. Its bug analyses and reports from real hardware pointed out faults in the flash emulation and the pitfalls of the ASCII16-X mapper and the MoonSound. No code was taken from it; the implementations here are independent.
-- [openMSX](https://openmsx.org/) – reference for the behaviour of the ASCII16-X mapper and its flash chip, of the OPL4 (YMF278B) wave part, bus interface and timers, and of the V99x8 timing.
+- [openMSX](https://openmsx.org/) – reference for the behaviour of the ASCII16-X mapper and its flash chip, of the NEO-8 and NEO-16 mappers, of the OPL4 (YMF278B) wave part, bus interface and timers, and of the V99x8 timing.
 - [Grauw](https://www.grauw.nl/projects/ascii-x/ascii16-x/) – specification of the ASCII16-X mapper.
 - [Nuked OPL3](https://github.com/nukeykt/Nuked-OPL3) by Nuke.YKT – the OPL3 model the FM part of the MoonSound is checked against, sample by sample. Its source (LGPL-2.1-or-later) is used by the test only (`rtl/peripheral/SOUND/opl4/tb/nuked`).
 

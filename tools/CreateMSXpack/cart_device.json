@@ -38,5 +38,7 @@
   "KOEI": 54,
   "GM2_ROM": 55,
   "KonamiSCC": 56,
-  "ASCII16X": 57
+  "ASCII16X": 57,
+  "NEO8": 58,
+  "NEO16": 59
 }

@@ -27,6 +27,8 @@
     "ASCII16SRAM2":  "ASCII16SRAM2",
     "ASCII16SRAM8":  "ASCII16SRAM8",
     "ASCII16-X":     "ASCII16X",
+    "NEO-8":         "NEO8",
+    "NEO-16":        "NEO16",
     "R-Type":        "RTYPE",
     "Wizardry":      "WIZARDRY",
     "KoeiSRAM32":    "KOEI",

@@ -39,5 +39,7 @@
   "PANASONIC_RAM" : 37,
   "DRAM" : 38,
   "ASCII16X" : 39,
-  "HIDDEN" : 40
+  "HIDDEN" : 40,
+  "NEO8" : 41,
+  "NEO16" : 42
 }

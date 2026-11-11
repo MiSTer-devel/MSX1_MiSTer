@@ -43,7 +43,7 @@ module mappers (
         M_OFFSET, M_MIRROR, M_MSX2_RAM, M_ASCII8, M_ASCII16, M_GENERIC8K, M_GENERIC16K,
         M_FM_PAC, M_YAMAHA_SFG, M_KONAMI, M_KONAMI_SCC, M_GM2, M_CROSS_BLAIM, M_NATIONAL,
         M_HARRY_FOX, M_ZEMINA80, M_ZEMINA90, M_MFRSD, M_ESE_RAM, M_MEGA_RAM, M_OCM_IPL,
-        M_TURBOR_FDC, M_PANASONIC, M_DRAM, M_ASCII16X,
+        M_TURBOR_FDC, M_PANASONIC, M_DRAM, M_ASCII16X, M_NEO,
         M_COUNT
     } mapper_idx_t;
 
@@ -90,6 +90,12 @@ module mappers (
         .cpu_bus(cpu_bus),
         .block_info(block_info),
         .out(mapper_out[M_GENERIC8K])
+    );
+
+    mapper_neo neo (
+        .cpu_bus(cpu_bus),
+        .block_info(block_info),
+        .out(mapper_out[M_NEO])
     );
 
     mapper_generic16k mapper_generic16k (

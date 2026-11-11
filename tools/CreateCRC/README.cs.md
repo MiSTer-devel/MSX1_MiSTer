@@ -2,129 +2,141 @@
 
 [English](README.md) | **Česky**
 
-Zpět na [nástroje](../README.cs.md) | [hlavní Readme](../../Readme.md).
+Zpět na [nástroje](../README.cs.md) | [hlavní Readme](../../Readme.cs.md).
 
 ## Účel
 
-Jádro musí vědět, jaký mapper ROM cartridge používá. U ROM větších než 64 kB se to uhodnout
-nedá, proto jádro hledá CRC32 ROM v databázi. Databáze je soubor `vampier.db`, který se v OSD
-nahrává položkou **Load DB MAPPERS**. Skripty v této složce ji vyrábějí.
+Jádro musí vědět, jaký mapper ROM cartridge používá. U ROM větších než 64 kB se to uhodnout nedá,
+proto jádro hledá CRC32 ROM v databázi. Databáze je soubor `vampier.db`, který se v OSD nahrává
+přes **Load DB MAPPERS**. `createDB.py` ji vyrobí z veřejné databáze ROM
+[romdb.vampier.net](https://romdb.vampier.net/) (SQL dump `sql-msxromdb.zip`).
 
 Bez databáze:
-- ROM do 64 kB s hlavičkou `AB` se pořád spustí jako plain ROM;
+- ROM do 64 kB poběží jako obyčejná ROM, umístěná podle hlavičky `AB`;
 - větší ROM skončí hláškou OSD `No CRC32 DB`;
-- větší ROM, jejíž CRC32 není v nahrané databázi, skončí hláškou `Not find CRC32 in DB`.
+- větší ROM, jejíž CRC32 v nahrané databázi není, skončí hláškou `Not find CRC32 in DB`.
 
-## Musím ji stavět?
+## Musím ji vyrábět?
 
 **Ne, jako uživatel ne.** V repozitáři je hotový `vampier.db`; zkopíruj ho na SD kartu
-(`/media/fat/games/MSX1/`) a nahraj přes Load DB MAPPERS. Kopíruj `vampier.db`, **ne**
-`mappers.db` (to je starý výstup zastaralého skriptu `crc32.py`).
+(`/media/fat/games/MSX1/`) a nahraj přes Load DB MAPPERS.
 
-Přestavuj ji jen když chceš přidat ROM, změnit mapper ROM nebo přidat nový typ mapperu.
+Znovu ji vyrob, když online databáze obsahuje nové ROM, když chceš změnit mapper některé ROM, nebo
+po přidání nového mapperu do jádra.
 
-## Požadavky
+## Předpoklady
 
 - Python 3.8 nebo novější, jen standardní knihovna.
-- Internet pro `createDB.py` (stahuje veřejnou databázi z romdb.vampier.net).
-- Skripty spouštěj z této složky (`tools/CreateCRC`): soubory otevírají relativním jménem.
+- Internet (dump se stahuje), nebo stažený soubor `sql-msxromdb.zip` / `.sql`.
 
-## Soubory a skripty
+## Soubory
 
-| Soubor | Role |
+| Soubor | Úloha |
 |---|---|
-| `createDB.py` | **Hlavní generátor.** Stáhne `https://romdb.vampier.net/Archive//msxcoreromdb.txt` (řádky `CRC32 <mezera> jméno mapperu`), přimíchá `mappersOverride.txt` (přepis vyhrává podle řetězce CRC), **přepíše** `mappersSplit.txt` sloučeným seznamem, zapíše `vampier.db` pro jména nalezená v `mappers.json` a vypíše tabulky „Known mappers“ / „Unknown mappers“. Bez voleb. Obsahuje i zbytkový ladicí výpis `NALEZENO` pro jedno CRC. |
-| `mappers.json` | Jméno mapperu v databázi → `[FW ID, b5, b6, b7]`. FW ID je číslo konfigurace cartridge ve FW packu. Aliasy: `Normal` = 26, `basic` = 28, `GenericKonami` = 25 (Generic8kB), `Mirrored0000/4000/8000` = 26/27/28. |
-| `mappersOverride.txt` | Tvoje doplňky a přepisy, jeden `CRC32<TAB>jméno` na řádek. **Edituje se ručně.** |
-| `mappersSplit.txt` | Sloučený seznam z posledního běhu `createDB.py` (CRC velkými písmeny, tabulátor). Vstup pro `sort.py`. Při každém běhu se přepíše. |
-| `vampier.db` | Výstup. Tohle jde na SD kartu. |
-| `crc32toTxt.py` | Projde složku s ROM (`.ROM .rom .BIN .bin`, rekurzivně) a pro ROM do 64 kB zapíše řádky `CRC32<TAB>mapper`: `0x0000`, `0x4000` nebo `0x8000` podle hlavičky `AB`, nebo `ASCII16-X`, když bajty 16–23 jsou `ASCII16X`. Větší ROM ohlásí (`Chyba při zpracování souboru ...`) a přeskočí. |
-| `crc32.py` | Zastaralý generátor `mappers.db`. Nepoužívat (viz Úskalí). |
-| `mappers.db`, `mappers2.json` | Starý výstup / stará varianta `mappers.json`. Nepoužité. |
-| `sort.py` | Pomůcka: přesune ROM z `ROM/` do `ROM_NALEZENO/<mapper>/` podle CRC z `mappersSplit.txt`. Soubory **přesouvá**. |
-| `platform.py`, `platform.txt` | Pomůcka: přesune ROM z `ROM/` do `ROM_NALEZENO/<platforma>/` podle SHA1 z `platform.txt`. Soubory **přesouvá**. |
+| `createDB.py` | Generátor. |
+| `romtypes.json` | Typ ROM z online databáze → konfigurace FW packu. **Jediný soubor, který se mění při přidání mapperu.** |
+| `mappersOverride.txt` | Výjimky pro jednotlivé ROM, uplatní se nakonec. Edituje se ručně. |
+| `vampier.db` | Výstup pro jádro. Tohle jde na SD kartu. |
+| `report.md` | Výstup: podporované a nepodporované mappery s počty (viz níže). |
 
-### createDB.py
+## Použití
 
 ```
+python createDB.py [--source SOURCE] [--output OUTPUT] [--report REPORT]
+                   [--list LIST] [--roms ROMS] [--prune]
+```
+
+| Volba | Význam |
+|---|---|
+| `--source` | URL, `.zip` nebo `.sql` s dumpem. Výchozí `https://romdb.vampier.net/Archive/sql-msxromdb.zip`. |
+| `--output` | Soubor databáze. Výchozí `vampier.db`. |
+| `--report` | Soubor reportu. Výchozí `report.md`; report se zároveň vypíše. |
+| `--list SOUBOR` | Zapíše navíc každý záznam jako text: CRC32, konfigurace FW, typ ROM, velikost v kB, platforma, název. Hodí se k porovnání dvou sestavení. |
+| `--roms ADRESÁŘ` | Adresář s tvými ROM (prohledává se rekurzivně). Zrcadlené ROM bez hlavičky na offsetu 0 se pak umístí podle skutečné hlavičky na 4000h místo odhadu. |
+| `--prune` | Odstraní z `mappersOverride.txt` řádky, které už dává dump. |
+
+Běžné spuštění:
+```
+cd tools/CreateCRC
 python createDB.py
 ```
+Pak zkopíruj `vampier.db` na SD kartu a nahraj přes Load DB MAPPERS.
 
-Bez voleb. Vstup: stažený soubor, `mappersOverride.txt`, `mappers.json`. Výstup: `vampier.db`,
-`mappersSplit.txt`. Na konci si přečti seznam „Unknown mappers“: tato jména nejsou v
-`mappers.json`, takže se jejich záznamy zahodí (ROM do 64 kB pak běží jako plain ROM, větší
-selžou).
+## Jak se databáze sestaví
 
-### crc32toTxt.py
+1. SQL dump se načte do SQLite v paměti. Při načítání jsou povolené jen tabulky a vkládání
+   (žádné `ATTACH`, `PRAGMA` a podobně).
+2. Ponechají se ROM s CRC32, aktivní, platforem uvedených v `romtypes.json` (`MSX`, `MSX2`,
+   `MSX2Plus`, `MSX Turbo-R`), do 16 MB. Vynechají se jiné platformy (ColecoVision, SG-1000, SVI)
+   a typy v `ignore` (`System` = ROM BIOSů, `auto` = nezařazené).
+3. Typ ROM se převede podle `romtypes.json`. Typ, jehož konfigurace FW neexistuje, se nezapíše;
+   report ho uvede mezi nepodporovanými.
+4. ROM typu `Mirrored` a `Normal` nemají v dumpu adresu. Ta se určí z prvních bajtů ROM
+   (`StartBytes` v dumpu): `AB` + INIT v 8000h–BFFFh (nebo INIT 0 a ukazatel BASIC TEXT na 8000h)
+   → 8000h; INIT v 0001h–3FFFh → 0000h; jinak 4000h. Bez hlavičky na offsetu 0 jde ROM na 0000h,
+   stejně jako to udělá jádro bez záznamu (`--roms` dá přesnou odpověď).
+5. Nakonec se uplatní `mappersOverride.txt`.
+6. Záznamy se zapíšou seřazené podle CRC32.
 
-Skutečný výstup nápovědy:
+## Report
 
-```
-usage: crc32toTxt.py [-h] [--rom-dir ROM_DIR] [--output OUTPUT]
+`report.md` má dvě hlavní sekce, každou seřazenou podle počtu ROM:
 
-Process ROM auto, Mirrored, Normal mappers and detect start
+- **Supported** (podporované): pro každou konfiguraci FW počet ROM, kolik z nich je z výjimek
+  a které typy ROM z dumpu na ni vedou.
+- **Not supported** (nepodporované): typy ROM z dumpu, pro které jádro nemá konfiguraci, s počtem
+  ROM a her, kolik jich má **přes 64 kB** (ty bez mapperu nepoběží vůbec), největší velikostí
+  a příklady titulů. To je seznam mapperů, které stojí za to přidat do jádra: čím víc ROM přes
+  64 kB, tím víc se to vyplatí.
 
-options:
-  -h, --help         show this help message and exit
-  --rom-dir ROM_DIR  Path to the ROM files directory (default:
-                     c:/Project/_OBSAH/ROMS)
-  --output OUTPUT    Path to the output file (default: mappersOverride.txt)
-```
+Hlavička reportu porovná nový soubor s předchozím `vampier.db` (přidané, odebrané a změněné
+záznamy). Na konci je, co se z dumpu vynechalo a proč.
 
-Příklad (výstup jde do nového souboru, ne přes tvůj seznam přepisů):
+## Přidání mapperu
 
-```
-python crc32toTxt.py --rom-dir C:\roms\new --output new.txt
-```
+Když má FW pack pro mapper konfiguraci (`<fw name="...">` v `../CreateMSXpack/Extension/*.xml`
+a její ID v `../CreateMSXpack/cart_device.json`), stačí jeden řádek:
 
-## Jak přidat nebo přepsat mapper ROM
+1. V `romtypes.json`, sekce `types`, přidej `"TypROM": "název fw"`, např. `"Namco": "NAMCO"`.
+   `TypROM` je název z tabulky „Not supported“ v reportu.
+2. Spusť `python createDB.py` a zkontroluj, že se typ přesunul do „Supported“.
+3. Je-li konfigurace ve FW packu nová, znovu sestav FW pack (`createDev.py`) a oba soubory
+   zkopíruj na SD kartu.
 
-1. Zjisti CRC32 **celého souboru ROM** jako 8 hexadecimálních číslic velkými písmeny. U malé ROM
-   ho zapíše `crc32toTxt.py --rom-dir <adresář> --output new.txt` spolu s odhadnutým mapperem;
-   stejně dobře poslouží jiný nástroj na CRC32. Piš velkými písmeny: klíč při slučování je
-   doslovný řetězec, takže `99c1fdb4` a `99C1FDB4` by byly dva různé záznamy.
-2. Na konec `mappersOverride.txt` připiš řádek `CRC32<TAB>JménoMapperu`. `JménoMapperu` musí být
-   klíč v `mappers.json` (například `ASCII16-X`, `Konami`, `KonamiSCC`, `ASCII8SRAM8`,
-   `Mirrored4000`, `0x4000`).
-3. Spusť `python createDB.py` a zkontroluj seznam „Unknown mappers“.
-4. Nový `vampier.db` zkopíruj na SD kartu a nahraj přes Load DB MAPPERS.
-
-Záznam v databázi má přednost před rozpoznáním plain ROM podle hlavičky. ROM, která má běžet jako
-plain ROM (například ROM `vdptest`), proto v databázi **být nesmí**.
-
-Chceš-li použít mapper, který v `mappers.json` ještě není, musí mít nejdřív konfiguraci ve FW
-packu a pak záznam v `mappers.json` s jejím číslem. To je práce pro vývojáře, viz
+Je-li mapper nový hardware, nejdřív je potřeba práce v RTL a ve FW, viz
 [../CreateMSXpack/DEVELOPERS.cs.md](../CreateMSXpack/DEVELOPERS.cs.md).
+
+Typ, jehož adresa závisí na hlavičce, se zapíše jako
+`{"by_header": ["konfigurace na 0000h", "konfigurace na 4000h", "konfigurace na 8000h"]}`.
+
+## Oprava mapperu jedné ROM
+
+Přidej řádek do `mappersOverride.txt`:
+```
+CRC32<TAB>název
+```
+`název` je typ ROM z `romtypes.json` (např. `Mirrored8000`) nebo název konfigurace FW (např.
+`0x4000`, `KONAMI`). Řádky začínající `#` jsou komentáře. Neznámé názvy skript ohlásí a vynechá.
+
+Záznam v databázi má přednost před rozpoznáním obyčejné ROM podle hlavičky. ROM, která má běžet
+jako obyčejná ROM (například ROM `vdptest`), proto v databázi **být nesmí**.
 
 ## Formát záznamu databáze
 
-`vampier.db` je prostá posloupnost 8bajtových záznamů bez hlavičky:
+`vampier.db` je prostá posloupnost 8bajtových záznamů bez hlavičky, seřazená podle CRC32:
 
 | Bajty | Obsah |
 |---|---|
-| 0–3 | CRC32 ROM, 32bitové little endian |
-| 4 | FW ID (první hodnota v `mappers.json`): konfigurace cartridge, která se použije |
-| 5–7 | zbylé tři hodnoty z `mappers.json` |
+| 0–3 | CRC32 celého souboru ROM, 32 bitů little endian |
+| 4 | FW ID: číslo konfigurace cartridge ve FW packu (`cart_device.json`) |
+| 5–7 | 0 (jádro je nepoužívá) |
 
-Jádro používá jen CRC32 a FW ID; bajty 5–7 se k volbě mapperu nepoužívají.
+Jádro prochází soubor od začátku a vezme první shodu; soubor smí mít až 1 MB.
 
-## Úskalí
+## Poznámky
 
-- **`crc32toTxt.py` bez `--output` přepíše `mappersOverride.txt`** (nesloučí). Vždy zadej
-  `--output` a soubor s přepisy si zálohuj.
-- **`crc32.py` je zastaralý.** Mapper bere z `[jména]` v názvu souboru ROM, má pevně zadanou
-  složku s ROM a **neznámá jména připisuje do `mappers.json` s novými ID**, čímž rozbije vazbu ID
-  na konfigurace. Použij `createDB.py`.
-- **`platform.py` zastíní standardní modul `platform`**, když Python běží s touto složkou jako
-  složkou skriptu nebo jako aktuálním adresářem. Jiný skript či balíček, který odsud importuje
-  `platform`, spustí tento soubor. Jiné pythonovské nástroje spouštěj z jiné složky.
-- **ID mapperů bez konfigurace cartridge.** `mappers.json` mapuje některá jména na ID, pro která
-  FW pack dnes konfiguraci nemá: Arc 37, MatraInk 38, MatraCompilation 39, playball 43,
-  AlQuranDecoded 44, Majutsushi 45, SuperLodeRunner 46, Halnote 47, NettouYakyuu 48 (22 záznamů
-  v `vampier.db`) a `"vv NERESENO vv"` = 3. ROM uvedené pod těmito jmény dostanou prázdnou
-  konfiguraci. Co pak slot ukáže, nebylo ověřeno.
-- **Jména neznámá `mappers.json`** `createDB.py` zahodí (například `Mirrored`, `Page2`, `8kB`,
-  `auto`); ROM do 64 kB pak běží jako plain ROM.
-- `crc32toTxt.py` má výchozí složku s ROM, která existuje jen na autorově počítači; vždy zadej
-  `--rom-dir`.
-- `sort.py` a `platform.py` soubory z `ROM/` přesouvají; zkus je na kopii.
+- Dump obsahuje i sloupce s osobními údaji (IP adresy, adresy firem). Skript čte jen typ ROM,
+  CRC32, velikost, první bajty, platformu a název. Dump necommituj; `.gitignore` v této složce
+  vylučuje `*.sql` a `*.zip`.
+- Adresa zrcadlených ROM nad 16 kB bez hlavičky na offsetu 0 je bez `--roms` odhad (počet je
+  v reportu). U ROM do 16 kB se všechny tři zrcadlené varianty chovají stejně.

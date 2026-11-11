@@ -120,13 +120,13 @@ The core includes the following hardware modules:
 Not implemented: MSX-AUDIO, MSX-MIDI, V9990 / GFX9000, printer, paddles, light gun, RS-232.
 
 ## Supported ROM Mappers
-Cartridge ROMs are assigned to a mapper by the CRC32 database (`vampier.db`, 4109 entries, built by `tools/CreateCRC`). ROMs not in the database and up to 64 KB are placed as plain ROM (see the first rows).
+Cartridge ROMs are assigned to a mapper by the CRC32 database (`vampier.db`, 8074 entries, built by [tools/CreateCRC](tools/CreateCRC/README.md) from the [romdb.vampier.net](https://romdb.vampier.net/) dump). ROMs not in the database and up to 64 KB are placed as plain ROM (see the first rows).
 
 | Mapper (name in the DB) | Description |
 |---|---|
-| plain ROM (`0x0000`, `0x4000`, `0x8000`) | ROM placed at that address; also the fallback without a database |
-| mirrored ROM (`Mirrored0000`, `Mirrored4000`, `Mirrored8000`, `Normal`) | plain ROM mirrored over the address space |
-| `16kb`, `GenericKonami` | generic 16 KB and generic 8 KB bank switching |
+| plain ROM (`0x0000`, `0x4000`, `0x8000`, `Page12`, `Page2`, `Normal`) | ROM placed at that address; also the fallback without a database |
+| mirrored ROM (`Mirrored`, `Mirrored0000`, `Mirrored4000`, `Mirrored8000`) | plain ROM mirrored over the address space; the start address of `Mirrored` comes from the ROM header |
+| `16kb`, `8kB` | generic 16 KB and generic 8 KB bank switching |
 | `Konami` | standard Konami mapper (8 KB banks) |
 | `KonamiSCC` | Konami mapper with SCC sound |
 | `ASCII8` | ASCII 8 KB mapper |
@@ -145,7 +145,7 @@ Cartridge ROMs are assigned to a mapper by the CRC32 database (`vampier.db`, 410
 | `SuperSwangi`, `MSXWrite` | special ASCII 16 KB variants |
 | `Synthesizer` | plain ROM with the Konami Synthesizer DAC |
 
-A few database types (`Arc`, `MatraInk`, `MatraCompilation`, `playball`, `AlQuranDecoded`, `Majutsushi`, `SuperLodeRunner`, `Halnote`, `NettouYakyuu`) have no configuration in the core; what happens with such a ROM is not verified. Not supported: Yamanooto, NEO-8/16, MSX-DOS2, MU-PACK.
+ROM types of the database without a configuration in the core are not written into `vampier.db` (about 30 types, 90 ROMs, e.g. NEO-8/16, Yamanooto, MatraCompilation, Namco, Manbow2). Such a ROM up to 64 KB runs as plain ROM, a bigger one stops with *Not find CRC32 in DB*. The full list with counts is in [tools/CreateCRC/report.md](tools/CreateCRC/report.md). Also not supported: MSX-DOS2, MU-PACK.
 
 Machine-internal mappers (National FS-4600F, Yamaha SFG, Panasonic turbo R, memory mapper, ESE RAM) come from the machine definition and are not selectable.
 

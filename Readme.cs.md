@@ -120,13 +120,13 @@ Jádro obsahuje tyto hardwarové moduly:
 Neimplementováno: MSX-AUDIO, MSX-MIDI, V9990 / GFX9000, tiskárna, pádla, světelná pistole, RS-232.
 
 ## Podporované ROM mappery
-ROM cartridge se k mapperu přiřazují podle databáze CRC32 (`vampier.db`, 4109 záznamů, vytvořená nástrojem `tools/CreateCRC`). ROM, které v databázi nejsou a mají do 64 KB, se umístí jako obyčejná ROM (první řádky tabulky).
+ROM cartridge se k mapperu přiřazují podle databáze CRC32 (`vampier.db`, 8074 záznamů, vytvořená nástrojem [tools/CreateCRC](tools/CreateCRC/README.cs.md) z dumpu [romdb.vampier.net](https://romdb.vampier.net/)). ROM, které v databázi nejsou a mají do 64 KB, se umístí jako obyčejná ROM (první řádky tabulky).
 
 | Mapper (název v DB) | Popis |
 |---|---|
-| obyčejná ROM (`0x0000`, `0x4000`, `0x8000`) | ROM umístěná na dané adrese; také záloha bez databáze |
-| zrcadlená ROM (`Mirrored0000`, `Mirrored4000`, `Mirrored8000`, `Normal`) | obyčejná ROM zrcadlená přes adresní prostor |
-| `16kb`, `GenericKonami` | obecné přepínání bank 16 KB a obecné 8 KB |
+| obyčejná ROM (`0x0000`, `0x4000`, `0x8000`, `Page12`, `Page2`, `Normal`) | ROM umístěná na dané adrese; také záloha bez databáze |
+| zrcadlená ROM (`Mirrored`, `Mirrored0000`, `Mirrored4000`, `Mirrored8000`) | obyčejná ROM zrcadlená přes adresní prostor; počáteční adresa `Mirrored` se určí z hlavičky ROM |
+| `16kb`, `8kB` | obecné přepínání bank 16 KB a obecné 8 KB |
 | `Konami` | standardní mapper Konami (banky 8 KB) |
 | `KonamiSCC` | mapper Konami se zvukem SCC |
 | `ASCII8` | mapper ASCII 8 KB |
@@ -145,7 +145,7 @@ ROM cartridge se k mapperu přiřazují podle databáze CRC32 (`vampier.db`, 410
 | `SuperSwangi`, `MSXWrite` | speciální varianty ASCII 16 KB |
 | `Synthesizer` | obyčejná ROM s DAC Konami Synthesizer |
 
-Několik typů z databáze (`Arc`, `MatraInk`, `MatraCompilation`, `playball`, `AlQuranDecoded`, `Majutsushi`, `SuperLodeRunner`, `Halnote`, `NettouYakyuu`) nemá v jádru konfiguraci; co se s takovou ROM stane, není ověřeno. Nepodporováno: Yamanooto, NEO-8/16, MSX-DOS2, MU-PACK.
+Typy ROM z databáze, pro které jádro nemá konfiguraci, se do `vampier.db` nezapisují (asi 30 typů, 90 ROM, např. NEO-8/16, Yamanooto, MatraCompilation, Namco, Manbow2). Taková ROM do 64 KB poběží jako obyčejná ROM, větší skončí hláškou *Not find CRC32 in DB*. Úplný seznam s počty je v [tools/CreateCRC/report.md](tools/CreateCRC/report.md). Nepodporováno je také MSX-DOS2 a MU-PACK.
 
 Mappery uvnitř stroje (National FS-4600F, Yamaha SFG, Panasonic turbo R, paměťový mapper, ESE RAM) vycházejí z definice stroje a nelze je volit.
 

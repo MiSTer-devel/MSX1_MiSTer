@@ -278,11 +278,11 @@ Hodnota položky OSD se převede na `cart_typ_t` v `rtl/msx_config.sv` a zavadě
 ### 4.3 Nový mapper ROM vybíraný podle DB
 
 1. Dejte FW konfiguraci volné ID (24, 37-48 kromě 40-42, 58+) v `cart_device.json` a přidejte `<fw>` do obou XML rozšíření.
-2. V `../CreateCRC/mappers.json` namapujte název mapperu z DB (jak je v romdb.vampier.net nebo `mappersOverride.txt`) na `[FW ID, x, x, 0]`. Pro jádro záleží jen na první hodnotě.
-3. Znovu sestavte FW pack a `vampier.db` (viz [../CreateCRC/README.md](../CreateCRC/README.md)).
+2. V `../CreateCRC/romtypes.json` přidejte do `types` jeden řádek `"TypROM": "název fw"`. `TypROM` je název z tabulky „Not supported“ v `../CreateCRC/report.md`; FW ID se vezme z `cart_device.json`.
+3. Znovu sestavte FW pack a `vampier.db` (viz [../CreateCRC/README.cs.md](../CreateCRC/README.cs.md)).
 4. Pokud je samotný mapper nový hardware, viz 4.4.
 
-`mappers.json` už obsahuje názvy, jejichž ID nemají záznam v `cart_device.json` (37-39 a 43-48, 22 záznamů v současné `vampier.db`). Takové ROM dostanou prázdnou konfiguraci; co pak slot dělá, ověřeno nebylo.
+`createDB.py` zapisuje jen typy, jejichž konfigurace FW existuje, takže ROM nikdy nedostane prázdnou konfiguraci. Jeho report vypíše nepodporované typy s počty, z nichž je vidět, který mapper stojí za to přidat.
 
 ### 4.4 Nové zařízení, mapper nebo typ bloku (místa v RTL)
 

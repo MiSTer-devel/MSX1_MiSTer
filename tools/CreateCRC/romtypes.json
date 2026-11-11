@@ -1,0 +1,42 @@
+{
+  "_comment": [
+    "ROM type of the romdb.vampier.net dump -> FW pack configuration (<fw name> in CreateMSXpack/Extension/*.xml, ID in CreateMSXpack/cart_device.json).",
+    "Adding a mapper: once the FW configuration exists, add one line \"RomType\": \"fw name\" to types and run createDB.py.",
+    "{\"by_header\": [at 0000h, at 4000h, at 8000h]} picks the configuration from the ROM header (AB + INIT).",
+    "Names are case sensitive. Override lines in mappersOverride.txt may use these RomTypes or fw names directly."
+  ],
+  "platforms": ["MSX", "MSX2", "MSX2Plus", "MSX Turbo-R"],
+  "ignore": ["System", "auto"],
+  "types": {
+    "Mirrored":      {"by_header": ["Mirror_0x0000", "Mirror_0x4000", "Mirror_0x8000"]},
+    "Normal":        {"by_header": ["0x0000", "0x4000", "0x8000"]},
+    "Mirrored0000":  "Mirror_0x0000",
+    "Mirrored4000":  "Mirror_0x4000",
+    "Mirrored8000":  "Mirror_0x8000",
+    "Page12":        "0x4000",
+    "Page2":         "0x8000",
+    "16kb":          "16kb",
+    "8kB":           "Generic8kB",
+    "Konami":        "KONAMI",
+    "konami":        "KONAMI",
+    "KonamiSCC":     "KonamiSCC",
+    "ASCII8":        "ASCII8",
+    "ASCII8SRAM2":   "ASCII8SRAM2",
+    "ASCII8SRAM8":   "ASCII8SRAM8",
+    "ASCII16":       "ASCII16",
+    "ASCII16SRAM2":  "ASCII16SRAM2",
+    "ASCII16SRAM8":  "ASCII16SRAM8",
+    "ASCII16-X":     "ASCII16X",
+    "R-Type":        "RTYPE",
+    "Wizardry":      "WIZARDRY",
+    "KoeiSRAM32":    "KOEI",
+    "GameMaster2":   "GM2_ROM",
+    "CrossBlaim":    "CrossBlaim",
+    "HarryFox":      "HarryFox",
+    "Zemina80in1":   "Zemina80",
+    "Zemina90in1":   "Zemina90",
+    "SuperSwangi":   "SuperSwangi",
+    "Synthesizer":   "Synthesizer",
+    "MSXWrite":      "MSXWrite"
+  }
+}

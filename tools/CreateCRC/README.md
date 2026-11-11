@@ -8,123 +8,135 @@ Back to [tools](../README.md) | [main Readme](../../Readme.md).
 
 The core has to know which mapper a ROM cartridge uses. For ROMs larger than 64 kB there is no way
 to guess it, so the core looks the ROM's CRC32 up in a database. The database is the file
-`vampier.db`, loaded in the OSD with **Load DB MAPPERS**. The scripts here build it.
+`vampier.db`, loaded in the OSD with **Load DB MAPPERS**. `createDB.py` builds it from the public
+ROM database [romdb.vampier.net](https://romdb.vampier.net/) (SQL dump `sql-msxromdb.zip`).
 
 Without a database:
-- a ROM up to 64 kB with an `AB` header still runs as a plain ROM;
+- a ROM up to 64 kB still runs as a plain ROM, placed by its `AB` header;
 - a larger ROM fails with the OSD message `No CRC32 DB`;
 - a larger ROM whose CRC32 is not in the loaded database fails with `Not find CRC32 in DB`.
 
 ## Do I need to build it?
 
 **No, as a user you do not.** The repository contains a ready-made `vampier.db`; copy it to the SD
-card (`/media/fat/games/MSX1/`) and load it with Load DB MAPPERS. Copy `vampier.db`, **not**
-`mappers.db` (that is an old output of the legacy script `crc32.py`).
+card (`/media/fat/games/MSX1/`) and load it with Load DB MAPPERS.
 
-Rebuild it only when you want to add a ROM, change the mapper of a ROM, or add a new mapper type.
+Rebuild it when the online database has new ROMs, when you want to change the mapper of a ROM, or
+after a new mapper was added to the core.
 
 ## Prerequisites
 
 - Python 3.8 or newer, standard library only.
-- Internet access for `createDB.py` (it downloads the public database from romdb.vampier.net).
-- Run the scripts from this folder (`tools/CreateCRC`): they open their files by relative name.
+- Internet access (the dump is downloaded), or a downloaded `sql-msxromdb.zip` / `.sql` file.
 
-## Files and scripts
+## Files
 
 | File | Role |
 |---|---|
-| `createDB.py` | **Main builder.** Downloads `https://romdb.vampier.net/Archive//msxcoreromdb.txt` (lines `CRC32 <whitespace> mapper name`), merges in `mappersOverride.txt` (the override wins per CRC string), **overwrites** `mappersSplit.txt` with the merged list, writes `vampier.db` for the names found in `mappers.json`, and prints the tables "Known mappers" / "Unknown mappers". No options. It also contains a leftover debug print `NALEZENO` for one CRC. |
-| `mappers.json` | Mapper name in the database to `[FW ID, b5, b6, b7]`. FW ID is the configuration number of the cartridge in the FW pack. Aliases: `Normal` = 26, `basic` = 28, `GenericKonami` = 25 (Generic8kB), `Mirrored0000/4000/8000` = 26/27/28. |
-| `mappersOverride.txt` | Your additions and overrides, one `CRC32<TAB>name` per line. **Edit by hand.** |
-| `mappersSplit.txt` | The merged list from the last `createDB.py` run (uppercase CRC, tab). Input for `sort.py`. Rewritten on every run. |
-| `vampier.db` | The output. This is what goes to the SD card. |
-| `crc32toTxt.py` | Scans a folder of ROMs (`.ROM .rom .BIN .bin`, recursively) and writes `CRC32<TAB>mapper` lines for ROMs up to 64 kB: `0x0000`, `0x4000` or `0x8000` from the `AB` header, or `ASCII16-X` when bytes 16-23 are `ASCII16X`. Larger ROMs are reported (`Chyba při zpracování souboru ...`) and skipped. |
-| `crc32.py` | Legacy generator of `mappers.db`. Do not use (see Pitfalls). |
-| `mappers.db`, `mappers2.json` | Old output / old variant of `mappers.json`. Unused. |
-| `sort.py` | Helper: moves ROMs from `ROM/` into `ROM_NALEZENO/<mapper>/` by CRC from `mappersSplit.txt`. It **moves** files. |
-| `platform.py`, `platform.txt` | Helper: moves ROMs from `ROM/` into `ROM_NALEZENO/<platform>/` by SHA1 from `platform.txt`. It **moves** files. |
+| `createDB.py` | The builder. |
+| `romtypes.json` | ROM type of the online database → FW pack configuration. **The only file to edit when a mapper is added.** |
+| `mappersOverride.txt` | Exceptions for single ROMs, applied last. Edit by hand. |
+| `vampier.db` | Output for the core. This is what goes to the SD card. |
+| `report.md` | Output: supported and unsupported mappers with counts (see below). |
 
-### createDB.py
+## Usage
 
 ```
+python createDB.py [--source SOURCE] [--output OUTPUT] [--report REPORT]
+                   [--list LIST] [--roms ROMS] [--prune]
+```
+
+| Option | Meaning |
+|---|---|
+| `--source` | URL, `.zip` or `.sql` of the dump. Default `https://romdb.vampier.net/Archive/sql-msxromdb.zip`. |
+| `--output` | Database file. Default `vampier.db`. |
+| `--report` | Report file. Default `report.md`; the report is also printed. |
+| `--list FILE` | Also write every record as text: CRC32, FW configuration, ROM type, size in kB, platform, name. Handy to compare two builds. |
+| `--roms DIR` | Folder with your ROM files (searched recursively). Mirrored ROMs without a header at offset 0 are then placed by the real header at 4000h instead of a guess. |
+| `--prune` | Remove lines from `mappersOverride.txt` that the dump already gives. |
+
+Typical run:
+```
+cd tools/CreateCRC
 python createDB.py
 ```
+Then copy `vampier.db` to the SD card and load it with Load DB MAPPERS.
 
-No options. Input: the download, `mappersOverride.txt`, `mappers.json`. Output: `vampier.db`,
-`mappersSplit.txt`. Read the "Unknown mappers" list at the end: those names are not in
-`mappers.json`, so their records are dropped (those ROMs then fall back to a plain ROM when they are
-up to 64 kB, otherwise they fail).
+## How the database is built
 
-### crc32toTxt.py
+1. The SQL dump is loaded into an in-memory SQLite database. Only tables and inserts are allowed
+   while it loads (no `ATTACH`, `PRAGMA` and the like).
+2. Kept: ROMs with a CRC32, active, of the platforms in `romtypes.json` (`MSX`, `MSX2`, `MSX2Plus`,
+   `MSX Turbo-R`), up to 16 MB. Left out: other platforms (ColecoVision, SG-1000, SVI), the
+   types in `ignore` (`System` = BIOS ROMs, `auto` = not classified).
+3. The ROM type is translated by `romtypes.json`. A type whose FW configuration does not exist is
+   not written; it is listed in the report as unsupported.
+4. `Mirrored` and `Normal` ROMs have no address in the dump. It comes from the first bytes of the
+   ROM (`StartBytes` in the dump): `AB` + INIT in 8000h-BFFFh (or INIT 0 and a BASIC TEXT pointer
+   at 8000h) → 8000h; INIT in 0001h-3FFFh → 0000h; otherwise 4000h. Without a header at offset 0
+   the ROM goes to 0000h, as the core does without a record (`--roms` gives the exact answer).
+5. `mappersOverride.txt` is applied last.
+6. Records are written sorted by CRC32.
 
-Real help output:
+## The report
 
-```
-usage: crc32toTxt.py [-h] [--rom-dir ROM_DIR] [--output OUTPUT]
+`report.md` has two main sections, each sorted by the number of ROMs:
 
-Process ROM auto, Mirrored, Normal mappers and detect start
+- **Supported**: per FW configuration the number of ROMs, how many come from an override, and the
+  ROM types of the dump that map to it.
+- **Not supported**: ROM types of the dump the core has no configuration for, with the number of
+  ROMs and games, how many are **over 64 kB** (those cannot run at all without the mapper), the
+  biggest size and example titles. This is the list of mappers worth adding to the core: the more
+  ROMs over 64 kB, the more it pays off.
 
-options:
-  -h, --help         show this help message and exit
-  --rom-dir ROM_DIR  Path to the ROM files directory (default:
-                     c:/Project/_OBSAH/ROMS)
-  --output OUTPUT    Path to the output file (default: mappersOverride.txt)
-```
+The head of the report compares the new file with the previous `vampier.db` (added, removed,
+changed records). At the end it lists what was left out of the dump and why.
 
-Example (the output goes to a new file, not over your override list):
+## Adding a mapper
 
-```
-python crc32toTxt.py --rom-dir C:\roms\new --output new.txt
-```
+When the FW pack has a configuration for the mapper (`<fw name="...">` in
+`../CreateMSXpack/Extension/*.xml` and its ID in `../CreateMSXpack/cart_device.json`), only one
+line is needed:
 
-## How to add or override a ROM's mapper
+1. In `romtypes.json`, section `types`, add `"RomType": "fw name"`, e.g.
+   `"Namco": "NAMCO"`. `RomType` is the name from the "Not supported" table of the report.
+2. Run `python createDB.py` and check that the type moved to "Supported".
+3. Rebuild the FW pack (`createDev.py`) if its configuration is new, copy both files to the SD card.
 
-1. Get the CRC32 of the **whole ROM file** as 8 uppercase hex digits. For a small ROM
-   `crc32toTxt.py --rom-dir <dir> --output new.txt` writes it together with a guessed mapper; any
-   other CRC32 tool works as well. Use uppercase: the merge key is the literal string, so
-   `99c1fdb4` and `99C1FDB4` would be two different entries.
-2. Append a line `CRC32<TAB>MapperName` to `mappersOverride.txt`. `MapperName` must be a key of
-   `mappers.json` (for example `ASCII16-X`, `Konami`, `KonamiSCC`, `ASCII8SRAM8`, `Mirrored4000`,
-   `0x4000`).
-3. Run `python createDB.py` and check the "Unknown mappers" list.
-4. Copy the new `vampier.db` to the SD card and load it with Load DB MAPPERS.
-
-A database entry beats the plain-ROM detection by header. So a ROM that should run as a plain ROM
-(for example the `vdptest` ROMs) must **not** be in the database.
-
-To use a mapper that is not in `mappers.json` yet, the mapper first needs a configuration in the FW
-pack, then a `mappers.json` entry with its number. That is a developer task, see
+If the mapper is new hardware, the RTL and FW work comes first, see
 [../CreateMSXpack/DEVELOPERS.md](../CreateMSXpack/DEVELOPERS.md).
+
+A type whose address depends on the header is written as
+`{"by_header": ["config at 0000h", "config at 4000h", "config at 8000h"]}`.
+
+## Fixing the mapper of one ROM
+
+Add a line to `mappersOverride.txt`:
+```
+CRC32<TAB>name
+```
+`name` is a ROM type from `romtypes.json` (e.g. `Mirrored8000`) or a FW configuration name (e.g.
+`0x4000`, `KONAMI`). Lines starting with `#` are comments. Unknown names are reported and ignored.
+
+A database record beats the plain-ROM detection by header. A ROM that should run as a plain ROM
+(for example the `vdptest` ROMs) must therefore **not** be in the database.
 
 ## Database record format
 
-`vampier.db` is a plain sequence of 8-byte records with no header:
+`vampier.db` is a plain sequence of 8-byte records with no header, sorted by CRC32:
 
 | Bytes | Content |
 |---|---|
-| 0-3 | CRC32 of the ROM, 32-bit little endian |
-| 4 | FW ID (first value in `mappers.json`): the cartridge configuration to use |
-| 5-7 | the remaining three values from `mappers.json` |
+| 0-3 | CRC32 of the whole ROM file, 32-bit little endian |
+| 4 | FW ID: number of the cartridge configuration in the FW pack (`cart_device.json`) |
+| 5-7 | 0 (not used by the core) |
 
-The core uses only the CRC32 and the FW ID; bytes 5-7 are not used for the mapper choice.
+The core searches the file from the start and takes the first match; the file may be up to 1 MB.
 
-## Pitfalls
+## Notes
 
-- **`crc32toTxt.py` without `--output` overwrites `mappersOverride.txt`** (it does not merge). Always
-  pass `--output`, and keep a copy of the override file.
-- **`crc32.py` is legacy.** It reads the mapper from `[name]` in the ROM file name, uses a hard-coded
-  ROM folder, and **appends unknown names to `mappers.json` with new IDs**, which breaks the mapping
-  of IDs to configurations. Use `createDB.py`.
-- **`platform.py` shadows the stdlib module `platform`** when Python runs with this folder as the
-  script folder or as the current directory. Another script or package that imports `platform` from
-  here will run this file instead. Run other Python tools from a different folder.
-- **Mapper IDs without a cartridge configuration.** `mappers.json` maps some names to IDs for which
-  the FW pack currently has no configuration: Arc 37, MatraInk 38, MatraCompilation 39,
-  playball 43, AlQuranDecoded 44, Majutsushi 45, SuperLodeRunner 46, Halnote 47, NettouYakyuu 48
-  (22 records in `vampier.db`), and `"vv NERESENO vv"` = 3. ROMs listed under those names get an empty
-  configuration. What the slot then shows has not been verified.
-- **Names unknown to `mappers.json`** are dropped by `createDB.py` (for example `Mirrored`, `Page2`,
-  `8kB`, `auto`); the ROMs fall back to a plain ROM when they are up to 64 kB.
-- `crc32toTxt.py` has a default ROM folder that exists only on the author's machine; always pass
-  `--rom-dir`.
-- `sort.py` and `platform.py` move files out of `ROM/`; try them on a copy.
+- The dump also contains columns with personal data (IP addresses, company addresses). The
+  script reads only ROM type, CRC32, size, first bytes, platform and name. Do not commit the dump;
+  `.gitignore` here excludes `*.sql` and `*.zip`.
+- The address of mirrored ROMs over 16 kB without a header at offset 0 is a guess unless `--roms`
+  is used (count in the report). For ROMs up to 16 kB all three mirrored variants behave the same.

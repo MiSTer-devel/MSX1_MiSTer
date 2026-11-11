@@ -278,11 +278,11 @@ The OSD item value is converted to `cart_typ_t` in `rtl/msx_config.sv`, and the 
 ### 4.3 New ROM mapper selected by the DB
 
 1. Give the FW configuration a free ID (24, 37-48 except 40-42, 58+) in `cart_device.json` and add `<fw>` in both Extension XMLs.
-2. In `../CreateCRC/mappers.json` map the DB mapper name (as in romdb.vampier.net or `mappersOverride.txt`) to `[FW ID, x, x, 0]`. Only the first value matters for the core.
+2. In `../CreateCRC/romtypes.json` add one line `"RomType": "fw name"` to `types`. `RomType` is the name in the "Not supported" table of `../CreateCRC/report.md`; the FW ID is taken from `cart_device.json`.
 3. Rebuild the FW pack and `vampier.db` (see [../CreateCRC/README.md](../CreateCRC/README.md)).
 4. If the mapper itself is new hardware, see 4.4.
 
-`mappers.json` already contains names whose IDs have no `cart_device.json` entry (37-39 and 43-48, 22 records in the current `vampier.db`). Such ROMs get the empty configuration; what the slot then does has not been verified.
+`createDB.py` writes only types whose FW configuration exists, so a ROM never gets an empty configuration. Its report lists the unsupported types with counts, which tells which mapper is worth adding.
 
 ### 4.4 New device, mapper or block type (RTL places)
 

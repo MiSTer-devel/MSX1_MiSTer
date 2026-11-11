@@ -1,0 +1,3 @@
+# ROM DB dumps (createDB.py --source)
+*.sql
+*.zip

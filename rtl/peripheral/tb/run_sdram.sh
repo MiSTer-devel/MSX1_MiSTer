@@ -1,10 +1,11 @@
 #!/bin/bash
 # sdram testbench (Verilator --timing). Usage: wsl.exe -- bash rtl/peripheral/tb/run_sdram.sh
-# Optional $1 = alternative sdram.sv; OLD=1 for the version without core_phase port.
+# Optional $1 = alternative sdram.sv (CH4=1: it has the ch4 ports); OLD=1 for the version without core_phase port.
 set -e
 cd "$(dirname "$0")"
 DUT=${1:-../sdram.sv}
 DEFS=""; [ -n "$OLD" ] && DEFS="+define+OLD"
+[ -n "$1" ] && [ -z "$CH4" ] && DEFS="$DEFS +define+NO_CH4"    # other sdram.sv: without ch4 unless CH4=1
 OUT=$(mktemp -d)
 # Verilator workarounds on a copy (controller logic unchanged):
 #  - no procedural tristate: SDRAM_DQ split into input (reads) and SDRAM_DQ_drv (writes)

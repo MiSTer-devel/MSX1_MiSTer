@@ -54,7 +54,17 @@ module sdram
     input             ch3_req,
     input             ch3_rnw,     // 1 - read, 0 - write
     output reg        ch3_ready,
-	output reg        ch3_done
+	output reg        ch3_done,
+
+    // ch4: sample memory of the OPL4, word read / byte write. Lowest priority and started only
+    // where it cannot hold up ch1 (see ch4_go).
+    input      [26:0] ch4_addr,
+    output reg [15:0] ch4_dout,
+    input       [7:0] ch4_din,
+    input             ch4_req,     // held until ch4_done
+    input             ch4_rnw,     // 1 - read, 0 - write
+    output reg        ch4_done,    // cleared when ch4_req falls
+    input             cpu_phase    // clk_core cycle in which the CPU can start a bus access
 );
 
 // ch1 is driven by clk_core combinational logic (CPU address decode, longer than one clk
@@ -66,6 +76,22 @@ always @(posedge clk) begin
     core_phase_2 <= core_phase_1;
 end
 wire ch1_sample = core_phase_1 ^ core_phase_2;
+
+// ch1 requests appear only in a cpu_phase cycle. ph_cnt = clk since that sample point,
+// ph_per = clk between the last two - 1: a ch4 access (back in IDLE 6 clk after its start)
+// is started only when it is over before the next sample point. No cpu_phase for 63 clk:
+// CPU not clocked, no restriction.
+reg       cpu_phase_1;
+reg [5:0] ph_cnt = 6'd63, ph_per = 6'd0;
+always @(posedge clk) begin
+    cpu_phase_1 <= cpu_phase;
+    if (ch1_sample && cpu_phase_1) begin
+        ph_per <= ph_cnt;
+        ph_cnt <= 6'd0;
+    end else if (ph_cnt != 6'd63)
+        ph_cnt <= ph_cnt + 6'd1;
+end
+wire ph_free = ph_cnt == 6'd63 || {1'b0, ph_cnt} + 7'd7 <= {1'b0, ph_per};
 
 assign SDRAM_nCS  = chip;
 assign SDRAM_nRAS = command[2];
@@ -119,7 +145,10 @@ assign ch2_dout = ch2_saved_a0 ? ch2_saved_data[15:8] : ch2_saved_data[7:0];
 assign ch3_dout = ch3_saved_a0 ? ch3_saved_data[15:8] : ch3_saved_data[7:0];
 
 always @(posedge clk) begin
-    reg [CAS_LATENCY+BURST_LENGTH+1:0] data_ready_delay1, data_ready_delay2, data_ready_delay3;
+    reg [CAS_LATENCY+BURST_LENGTH+1:0] data_ready_delay1, data_ready_delay2, data_ready_delay3, data_ready_delay4;
+    reg        ch4_req_1, ch4_rq, ch4_rnw_1, ch4_cap;
+    reg [26:0] ch4_addr_1;
+    reg  [7:0] ch4_din_1;
 
     reg        saved_wr;
     reg [12:0] cas_addr;
@@ -165,14 +194,28 @@ always @(posedge clk) begin
 	if (~ch2_req) ch2_done <= 0;
     if (~ch3_req) ch3_done <= 0;
 
+    ch4_req_1 <= ch4_req;
+    if (ch4_req & ~ch4_req_1) begin
+        ch4_rq     <= 1;
+        ch4_rnw_1  <= ch4_rnw;
+        ch4_addr_1 <= ch4_addr;
+        ch4_din_1  <= ch4_din;
+    end
+    if (~ch4_req) ch4_done <= 0;
+
     refresh_count <= refresh_count+1'b1;
 
     data_ready_delay1 <= data_ready_delay1>>1;
     data_ready_delay2 <= data_ready_delay2>>1;
     data_ready_delay3 <= data_ready_delay3>>1;
+    data_ready_delay4 <= data_ready_delay4>>1;
 
 
-    if(data_ready_delay1[CAS_LATENCY+BURST_LENGTH-1]) ch1_saved_data <= SDRAM_DQ;
+    // ch4 read data goes through the register of ch1 (the one in the I/O cell) and is copied
+    // from it a clk later; ch4 reads only while the CPU does not use that register (ch4_go)
+    if(data_ready_delay1[CAS_LATENCY+BURST_LENGTH-1] | data_ready_delay4[CAS_LATENCY+BURST_LENGTH-1]) ch1_saved_data <= SDRAM_DQ;
+    ch4_cap <= data_ready_delay4[CAS_LATENCY+BURST_LENGTH-1];
+    if(ch4_cap) begin ch4_dout <= ch1_saved_data; ch4_done <= 1; end
     if(data_ready_delay1[CAS_LATENCY+BURST_LENGTH-1]) memory_bus_ch1.sdram_ready <= 1;
 
     if(data_ready_delay2[CAS_LATENCY+BURST_LENGTH-1]) ch2_saved_data <= SDRAM_DQ;
@@ -285,6 +328,20 @@ always @(posedge clk) begin
                 state      <= STATE_WAIT;
 				ch3_ready  <= 0;
             end
+            // ch4_go: no CPU access under way or due, no refresh due before the access ends
+            else if(ch4_rq & ~ch1_req_1 & ph_free & (refresh_count < cycles_per_refresh - 14'd16)) begin
+                if (ch4_rnw_1)
+                    {cas_addr[12:9],SDRAM_BA,SDRAM_A,cas_addr[8:0]} <= {2'b00, 1'b1, ch4_addr_1[25:1]};
+                else
+                    {cas_addr[12:9],SDRAM_BA,SDRAM_A,cas_addr[8:0]} <= {~ch4_addr_1[0],ch4_addr_1[0], 1'b1, ch4_addr_1[25:1]};
+                chip       <= ch4_addr_1[26];
+                saved_data <= {ch4_din_1,ch4_din_1};
+                saved_wr   <= ~ch4_rnw_1;
+                ch         <= 3;
+                ch4_rq     <= 0;
+                command    <= CMD_ACTIVE;
+                state      <= STATE_WAIT;
+            end
             else if (doRefresh_1) begin
                 state         <= STATE_RFSH;
                 command       <= CMD_AUTO_REFRESH;
@@ -302,6 +359,7 @@ always @(posedge clk) begin
                 if(ch == 0) memory_bus_ch1.sdram_ready  <= 1;
                 if(ch == 1) begin ch2_ready  <= 1; ch2_done   <= 1; end
                 if(ch == 2) begin ch3_ready  <= 1; ch3_done   <= 1; end
+                if(ch == 3) ch4_done <= 1;
                 state <= STATE_IDLE_2;
             end
             else begin
@@ -309,7 +367,8 @@ always @(posedge clk) begin
                 state   <= STATE_IDLE_3;
                      if(ch == 0) data_ready_delay1[CAS_LATENCY+BURST_LENGTH+1] <= 1;
                 else if(ch == 1) data_ready_delay2[CAS_LATENCY+BURST_LENGTH+1] <= 1;
-                else             data_ready_delay3[CAS_LATENCY+BURST_LENGTH+1] <= 1;
+                else if(ch == 2) data_ready_delay3[CAS_LATENCY+BURST_LENGTH+1] <= 1;
+                else             data_ready_delay4[CAS_LATENCY+BURST_LENGTH+1] <= 1;
             end
         end
       

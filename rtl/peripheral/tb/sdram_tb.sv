@@ -1,6 +1,9 @@
 // sdram.sv test: ch1 requests from the clk_core domain (memory_upload style and CPU style)
 // against a simple SDRAM chip model (ACTIVE / READ / WRITE, CL 2, DQM, burst 1).
 // Checks data integrity across refresh collisions and measures read latency in clk_core.
+// ch4 (OPL4 sample memory): word reads and byte writes run beside a CPU that starts its
+// accesses only in cpu_phase cycles, every 6 / 3 / 2 clk_core (3.58 MHz, R800, 10.7 MHz). The
+// data of both must be right and the CPU reads must not get slower than without ch4.
 // Run: wsl.exe -- bash rtl/peripheral/tb/run_sdram.sh [alt_sdram.sv]   (+define+OLD for old port list)
 `timescale 1ns/1ps
 module sdram_tb;
@@ -13,6 +16,11 @@ logic core_tgl = 0;
 always @(posedge clk_core) core_tgl <= ~core_tgl;
 
 memory_bus_if bus();
+logic [26:0] c4_addr = 0;
+logic  [7:0] c4_din = 0;
+logic        c4_req = 0, c4_rnw = 1, cpu_phase = 0;
+wire  [15:0] c4_dout;
+wire         c4_done;
 logic        init = 1;
 wire  [15:0] dq;            // chip -> controller (reads)
 wire  [15:0] ctl_dq;        // controller -> chip (writes), DQ port split by run_sdram.sh
@@ -31,6 +39,10 @@ sdram dut (
     .memory_bus_ch1(bus),
     .ch2_addr('0), .ch2_dout(), .ch2_din('0), .ch2_req(1'b0), .ch2_rnw(1'b1), .ch2_ready(), .ch2_done(),
     .ch3_addr('0), .ch3_dout(), .ch3_din('0), .ch3_req(1'b0), .ch3_rnw(1'b1), .ch3_ready(), .ch3_done()
+`ifndef NO_CH4
+    , .ch4_addr(c4_addr), .ch4_dout(c4_dout), .ch4_din(c4_din), .ch4_req(c4_req), .ch4_rnw(c4_rnw),
+    .ch4_done(c4_done), .cpu_phase(cpu_phase)
+`endif
 );
 
 // ---------------- SDRAM chip model (commands on posedge SDRAM_CLK = negedge clk) ----------------
@@ -129,6 +141,76 @@ task automatic cpu_write(input int a, input logic [7:0] v, input int hold);
     core(3);
 endtask
 
+`ifndef NO_CH4
+// CPU with T states of tlen clk_core: an access starts only in a cpu_phase cycle
+int tlen = 6, tcnt = 0;
+bit phase_on = 1;
+always @(posedge clk_core) begin
+    tcnt      <= tcnt >= tlen - 1 ? 0 : tcnt + 1;
+    cpu_phase <= phase_on && tcnt >= tlen - 1;
+end
+task automatic to_phase;
+    @(posedge clk_core);
+    while (tcnt < tlen - 1) @(posedge clk_core);
+    #1;
+endtask
+task automatic cpu_read_ph(input int a);
+    int got_at = -1;
+    to_phase();
+    addr = 27'(a); rnw = 1; cs = 1;
+    for (int c = 1; c <= 8; c++) begin
+        @(posedge clk_core);
+        if (got_at < 0 && bus.q === ref_mem[a]) got_at = c;
+        #1;
+    end
+    // the value must still be there at the end of the access
+    if (bus.q !== ref_mem[a]) begin
+        errors++;
+        if (errors < 10) $display("FAIL cpu read %06h: %02h at the end of the access, expected %02h", a, bus.q, ref_mem[a]);
+    end
+    cs = 0;
+    if (got_at < 0) begin
+        errors++;
+        if (errors < 10) $display("FAIL cpu_read_ph %06h got=%02h exp=%02h", a, bus.q, ref_mem[a]);
+    end else lat_hist[got_at > 7 ? 7 : got_at]++;
+endtask
+task automatic cpu_write_ph(input int a, input logic [7:0] v);
+    to_phase();
+    addr = 27'(a); din = v; rnw = 0; cs = 1;
+    ref_mem[a] = v;
+    core(4);
+    cs = 0; rnw = 1;
+endtask
+
+// ch4 traffic: random word reads and byte writes in its own area, checked against a model
+bit          ch4_run = 0;
+int          ch4_ops = 0, ch4_wait = 0, ch4_wait_max = 0;    // clk_core from the request to done
+logic  [7:0] ref4 [int];
+function automatic logic [7:0] r4(input int a); return ref4.exists(a) ? ref4[a] : 8'h00; endfunction
+initial forever begin
+    @(posedge clk_core); #1;
+    if (ch4_run) begin
+        int a; logic wr;
+        a  = 27'h200000 + ($urandom % 4096);
+        wr = $urandom % 4 == 0;
+        c4_addr = 27'(a); c4_rnw = ~wr; c4_din = 8'($urandom); c4_req = 1;
+        if (wr) ref4[a] = c4_din;
+        begin
+            int t; t = 0;
+            while (!c4_done && t < 20000) begin @(posedge clk_core); t++; end
+            ch4_wait += t; if (t > ch4_wait_max) ch4_wait_max = t;
+            if (!c4_done) begin errors++; if (errors < 10) $display("FAIL ch4 access not served in 20000 clk_core"); end
+        end
+        if (!wr && c4_done && c4_dout !== {r4(a | 1), r4(a & ~1)}) begin
+            errors++;
+            if (errors < 10) $display("FAIL ch4 read %06h: %04h, expected %04h", a, c4_dout, {r4(a | 1), r4(a & ~1)});
+        end
+        #1 c4_req = 0; ch4_ops++;
+        repeat (3) @(posedge clk_core);
+    end
+end
+`endif
+
 initial begin
     core(5);
     init = 0;
@@ -145,6 +227,46 @@ initial begin
 
     $display("read latency (clk_core edges until data valid): 1:%0d 2:%0d 3:%0d 4:%0d 5:%0d 6+:%0d",
              lat_hist[1], lat_hist[2], lat_hist[3], lat_hist[4], lat_hist[5], lat_hist[6] + lat_hist[7]);
+`ifndef NO_CH4
+    for (int t = 0; t < 3; t++) begin
+        int base_max, base_slow, n4;
+        tlen = t == 0 ? 6 : t == 1 ? 3 : 2;
+        for (int with4 = 0; with4 < 2; with4++) begin
+            foreach (lat_hist[i]) lat_hist[i] = 0;
+            ch4_run = with4; ch4_ops = 0; ch4_wait = 0; ch4_wait_max = 0;
+            core(20);
+            for (int i = 0; i < 6000; i++) begin
+                int a; a = 27'h010000 + ($urandom % 3000);
+                if ($urandom % 8 == 0) cpu_write_ph(a, 8'($urandom));
+                else                   cpu_read_ph(a);
+                if ($urandom % 4 == 0) core($urandom % 40);     // the CPU does something else
+            end
+            ch4_run = 0;
+            core(40);
+            begin
+                int mx, slow; mx = 0; slow = 0;
+                for (int i = 1; i < 8; i++) if (lat_hist[i] != 0) mx = i;
+                for (int i = 3; i < 8; i++) slow += lat_hist[i];
+                $display("T = %0d clk, ch4 %s: latency 1:%0d 2:%0d 3:%0d 4:%0d 5+:%0d, ch4 accesses %0d", tlen, with4 ? "on " : "off",
+                         lat_hist[1], lat_hist[2], lat_hist[3], lat_hist[4], lat_hist[5] + lat_hist[6] + lat_hist[7], ch4_ops);
+                if (with4 && ch4_ops > 0)
+                    $display("           ch4 answers after %0d.%0d clk_core on average, %0d at most", ch4_wait / ch4_ops,
+                             (ch4_wait * 10 / ch4_ops) % 10, ch4_wait_max);
+                if (!with4) begin base_max = mx; base_slow = slow; end
+                else begin
+                    n4 = ch4_ops;
+                    if (mx > base_max) begin errors++; $display("FAIL ch4 slows the CPU down: latency %0d, without ch4 %0d", mx, base_max); end
+                    if (slow > 2 * base_slow + 20) begin errors++; $display("FAIL more slow CPU reads with ch4: %0d, without %0d", slow, base_slow); end
+                    if (tlen > 2 && n4 < 3000) begin errors++; $display("FAIL ch4 starved: %0d accesses", n4); end
+                end
+            end
+        end
+    end
+    // CPU stopped (no cpu_phase): ch4 runs alone
+    phase_on = 0; ch4_ops = 0; ch4_run = 1; core(4000); ch4_run = 0; core(40);
+    if (ch4_ops < 500) begin errors++; $display("FAIL ch4 without a CPU clock: %0d accesses", ch4_ops); end
+    $display("ch4 alone: %0d accesses in 4000 clk_core", ch4_ops);
+`endif
     if (errors == 0) $display("PASS sdram_tb");
     else             $display("FAILED sdram_tb: %0d errors", errors);
     $finish;

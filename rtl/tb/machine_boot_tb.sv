@@ -10,6 +10,9 @@
 // = extended, e.g. 171 = Delete (Panasonic FS-A1F: skips the A1 Cockpit firmware).
 // Cartridge: +fw=<CART_FW_EN.msx> +db=<mappers.db> +rom=<game.rom> loads a ROM into slot A as the
 // OSD does (FW pack, mapper database, ROM; the mapper comes from the CRC32 in the database).
+// +slotb=<n>: OSD slot B item (CONF_STR_SLOT_B, 8 = MoonSound; needs +fw). +ch4_delay=<clk>: slower
+// OPL4 sample memory. +audio=<file>: the sound output as raw 16 bit stereo, 44100 Hz.
+// +audio_min=<n>: the left output must swing by at least n.
 // +slota=<n>: OSD slot A item (CONF_STR_SLOT_A, 1 = FDC; needs +fw). +error=<n>: the pack load
 // must stop with this error_t (e.g. 11 = ERR_FDC_PRESENT), then PASS.
 // +frames=<prefix> +frame_ms=<ms> +frame_n=<n>: n frames of the video output (DE area) from
@@ -58,6 +61,8 @@ block_device_if block_device_SD();
 logic    [10:0] ps2_key = '0;                           // +key: {toggle, down, extended, code}
 ext_sd_card_if  ext_SD_card_bus();
 memory_bus_if   sd_ch1(), sd_ch2(), sd_ch3();
+wave_bus_if     sd_ch4();
+wire            cpu_phase;
 
 msx_system sys (
     .clock_bus(clock_bus), .rst_core_async(rst_core_async), .reset(reset),
@@ -69,6 +74,7 @@ msx_system sys (
     .video_bus(video_bus), .audio_L(audio_L), .audio_R(audio_R), .uart_rxd(1'b1), .tape_adc(1'b0),
     .ext_SD_card_bus(ext_SD_card_bus),
     .memory_bus_sdram_ch1(sd_ch1), .memory_bus_sdram_ch2(sd_ch2), .memory_bus_sdram_ch3(sd_ch3),
+    .wave_bus_sdram_ch4(sd_ch4), .cpu_phase(cpu_phase),
     .ddr3_addr(ddr3_addr), .ddr3_rd(ddr3_rd), .ddr3_dout(ddr3_dout), .ddr3_dout64(ddr3_dout64),
     .ddr3_ready(ddr3_ready)
 );
@@ -136,6 +142,53 @@ always @(posedge clk_core) begin
 end
 assign sd_ch2.q = c2.data; assign sd_ch2.sdram_ready = c2.ready; assign sd_ch2.sdram_done = c2.done;
 assign sd_ch3.q = c3.data; assign sd_ch3.sdram_ready = c3.ready; assign sd_ch3.sdram_done = 1'b0;
+
+// OPL4 sample memory (ch4): word read / byte write, done held until the request falls
+int         ch4_delay = 2, ch4_cnt = 0, ch4_reads = 0, ch4_writes = 0;
+logic       ch4_done = 0;
+logic [15:0] ch4_data = 0;
+always @(posedge clk_core) begin
+    if (!sd_ch4.req) begin ch4_done <= 0; ch4_cnt <= 0; end
+    else if (!ch4_done) begin
+        if (ch4_cnt == ch4_delay) begin
+            if (sd_ch4.we) begin sdram[sd_ch4.addr[24:0]] = sd_ch4.wdata; ch4_writes++; end
+            else ch4_reads++;
+            ch4_data <= {sdram[sd_ch4.addr[24:0] | 25'd1], sdram[sd_ch4.addr[24:0] & ~25'd1]};
+            ch4_done <= 1;
+        end else ch4_cnt <= ch4_cnt + 1;
+    end
+end
+assign sd_ch4.ack = ch4_done; assign sd_ch4.rdata = ch4_data;
+
+// the SDRAM controller starts ch4 accesses between the points where the CPU can ask for
+// memory: every ch1 request of the running machine must begin in a cpu_phase cycle
+// Not held to it: the first access after a reset (the OPL4 is still clearing its memories), and
+// writes: a write to FFFFh that maps RAM into page 3 reaches that RAM a clk later (the CPU
+// does not wait for a write).
+int  ch1_reqs = 0, ch1_off_phase = 0, ch1_at_reset = 0, ch1_late_wr = 0, since_reset = 0;
+always @(posedge clk_core) begin
+    since_reset <= reset ? 0 : since_reset + 1;
+    if (!sys.upload && !reset && sd_ch1.ram_cs && !ch1_q) begin
+        ch1_reqs++;
+        if (!cpu_phase && since_reset < 16) ch1_at_reset++;
+        else if (!cpu_phase && !sd_ch1.rnw) ch1_late_wr++;
+        else if (!cpu_phase) begin
+            ch1_off_phase++;
+            if (ch1_off_phase < 10) $display("%0t FAIL ch1 read outside cpu_phase, address %h, %0d clk after the reset, CPU address %h mreq %b iorq %b rd %b wr %b m1 %b",
+                $time, sd_ch1.addr, since_reset, sys.MSX.cpu_bus.addr, sys.MSX.cpu_bus.mreq, sys.MSX.cpu_bus.iorq, sys.MSX.cpu_bus.rd, sys.MSX.cpu_bus.wr, sys.MSX.cpu_bus.m1);
+        end
+    end
+end
+
+// sound output: range, and every 487th clk into a file (44.1 kHz)
+int audio_fd = 0, audio_min = 0, audio_lo = 0, audio_hi = 0, audio_div = 0;
+always @(posedge clk_core) if (!reset) begin
+    if ($signed(audio_L) < audio_lo) audio_lo = $signed(audio_L);
+    if ($signed(audio_L) > audio_hi) audio_hi = $signed(audio_L);
+    audio_div <= audio_div == 486 ? 0 : audio_div + 1;
+    if (audio_fd != 0 && audio_div == 0)
+        $fwrite(audio_fd, "%c%c%c%c", audio_L[7:0], audio_L[15:8], audio_R[7:0], audio_R[15:8]);
+end
 
 // ------------------------------------------------------------------ floppy images: blockDevMux + HPS
 localparam int VDNUM = 1 + 2*MSX::N_FDC;
@@ -418,7 +471,7 @@ initial begin
     string pack_name, dsk_name, expect_txt = "", last = "", now, dump, fname;
     int frame_ms = 0;
     int fd, c, errors = 0, run_ms = 15000, found_ms = -1, key_ms = 8000, pause_ms = -1, fw = 0, m1_paused = 0;
-    int slota = 0, want_err = 0;
+    int slota = 0, slotb = 0, want_err = 0;
     logic [8:0] key = '0;
     bit         use_key, no_disk, tc_used;
 
@@ -432,6 +485,10 @@ initial begin
     void'($value$plusargs("pause_ms=%d", pause_ms));
     if ($value$plusargs("firmware=%d", fw)) status[26] = fw[0];
     if ($value$plusargs("slota=%d", slota)) status[20:17] = 4'(slota);
+    if ($value$plusargs("slotb=%d", slotb)) status[32:29] = 4'(slotb);
+    void'($value$plusargs("ch4_delay=%d", ch4_delay));
+    void'($value$plusargs("audio_min=%d", audio_min));
+    if ($value$plusargs("audio=%s", fname)) audio_fd = $fopen(fname, "wb");
     void'($value$plusargs("error=%d", want_err));
     fd = $fopen(pack_name, "rb"); while ((c = $fgetc(fd)) != -1) pack.push_back(8'(c)); $fclose(fd);
     if ($value$plusargs("fw=%s", fname))  begin fd = $fopen(fname, "rb"); while ((c = $fgetc(fd)) != -1) fwpk.push_back(8'(c));  $fclose(fd); end
@@ -554,6 +611,15 @@ initial begin
     if (tc_used && disk_m1 < 1000) begin errors++; $display("FAIL disk ROM does not run (%0d M1)", disk_m1); end
     if (!no_disk && lba0_reads == 0) begin errors++; $display("FAIL boot sector (LBA 0) not loaded"); end
     if (tc_used && !no_disk && reads_ok == 0) begin errors++; $display("FAIL no Read Data with a normal end"); end
+    $display("SDRAM ch1 requests of the machine: %0d, reads outside cpu_phase: %0d (writes: %0d, right after a reset: %0d)",
+             ch1_reqs, ch1_off_phase, ch1_late_wr, ch1_at_reset);
+    if (ch1_off_phase != 0) errors++;
+    if (sys.io_device[DEV_OPL4][0].enable)
+        $display("OPL4: %0d sample memory reads, %0d writes, sound output %0d .. %0d", ch4_reads, ch4_writes, audio_lo, audio_hi);
+    if (audio_min > 0 && audio_hi - audio_lo < audio_min) begin
+        errors++; $display("FAIL sound output %0d .. %0d, expected a swing of %0d", audio_lo, audio_hi, audio_min);
+    end
+    if (audio_fd != 0) $fclose(audio_fd);
     if (expect_txt != "") begin
         if (found_ms < 0) begin errors++; $display("FAIL \"%s\" not on the screen", expect_txt); end
         else $display("\"%s\" on the screen at %0d ms", expect_txt, found_ms);

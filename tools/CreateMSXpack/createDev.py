@@ -36,13 +36,15 @@ def parse_fw_block(root: ET.Element, subslot: int, files_with_sha1: dict, consta
     offset = int(root.attrib.get("offset", -1))
     fix_offset = int(root.attrib.get("fix_offset", -1))
 
+    dev_el = None
     for element in root:
-        if element.tag in ['SHA1', 'filename', 'device', 'mapper', 'sram', 'ram', 'flash', 'device_param']:
+        if element.tag in ['SHA1', 'filename', 'device', 'mapper', 'sram', 'ram', 'flash', 'extend', 'device_param']:
             block[element.tag] = get_int_or_string_value(element)
             if element.tag == 'ram' :
                 pattern = 1;
             
             if element.tag == 'device' :
+                dev_el = element
                 device_port = convert_to_8bit(element.attrib.get('port'))
                 device_mask = convert_to_8bit(element.attrib.get('mask'))
                 device_param = convert_to_8bit(element.attrib.get('param','0'))
@@ -69,13 +71,15 @@ def parse_fw_block(root: ET.Element, subslot: int, files_with_sha1: dict, consta
         else:
             logger.warning(f"Missing ROM. SHA1: {block['SHA1']}")
     
-    if 'flash' in block:
-        # the memory loaded so far (cartridge ROM) is a flash chip of this size, the rest erased
-        blocks = convert_to_int(block['flash']) // (1024 * 16)
-        if 0 < blocks < 0x2000:
-            result.append(create_block_entry(constants, 'FLASH', address, param1=blocks >> 8, param2=blocks & 0xFF))
-        else:
-            logger.warning("Flash size not defined correctly")
+    for tag in ('flash', 'extend'):
+        # the memory loaded so far (cartridge ROM, ROM of the block) is extended to this size and the
+        # rest filled with FF: a flash chip, or RAM behind a ROM (MoonSound sample memory)
+        if tag in block:
+            blocks = convert_to_int(block[tag]) // (1024 * 16)
+            if 0 < blocks < 0x2000:
+                result.append(create_block_entry(constants, 'FLASH', address, param1=blocks >> 8, param2=blocks & 0xFF))
+            else:
+                logger.warning("Flash / extend size not defined correctly")
 
     if 'ram' in block:
         size = convert_to_int(block['ram'])
@@ -101,8 +105,10 @@ def parse_fw_block(root: ET.Element, subslot: int, files_with_sha1: dict, consta
             device_id = constants['device'][block['device']]
             param_dev = 0
             parameter = 0
-            if (element.attrib):
-                param_dev = get_device_param(constants, block['device'], element.attrib)
+            if dev_el is not None and dev_el.attrib:
+                param_dev = get_device_param(constants, block['device'], dev_el.attrib)
+                if dev_el.attrib.get('memory') == 'block':      # the device uses the memory of this block
+                    parameter = 1
 
             result.append(create_block_entry(constants, 'DEVICE', address, param1=device_id, param2 = param_dev, param3=parameter))
             if device_port is not None:

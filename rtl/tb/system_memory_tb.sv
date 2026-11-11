@@ -1,6 +1,7 @@
 // system_memory test: CPU (ch1), flash (ch2, real flash.sv) and NVRAM backup (ch3) must see
 // the same byte at the same system address, both in the BRAM area (< 2^18) and in SDRAM.
 // SDRAM is a behavioural model at channel level (physical address = what sdram.sv gets).
+// The OPL4 sample memory port (wave bus, SDRAM ch4) reads words and writes bytes of the same map.
 // +define+OLD: wiring before the fix (flash / backup straight to SDRAM ch2 / ch3).
 // Run: wsl.exe -- bash rtl/tb/run_system_memory.sh
 module system_memory_tb;
@@ -16,9 +17,18 @@ logic upload = 0;
 system_memory #(.BRAM_WIDTH(18)) dut (.clk, .memory_bus_msx(bus_msx), .memory_bus_upload(bus_upload),
     .memory_bus_sdram_ch1(sd_ch1), .memory_bus_sdram_ch2(sd_ch2), .memory_bus_sdram_ch3(sd_ch3), .upload);
 `else
+`ifdef OLD_FLASH
 system_memory #(.BRAM_WIDTH(18)) dut (.clk, .memory_bus_msx(bus_msx), .memory_bus_upload(bus_upload),
     .memory_bus_flash(bus_flash), .memory_bus_backup(bus_backup),
     .memory_bus_sdram_ch1(sd_ch1), .memory_bus_sdram_ch2(sd_ch2), .memory_bus_sdram_ch3(sd_ch3), .upload);
+`else
+`define WAVE
+wave_bus_if wave(), sd_ch4();
+system_memory #(.BRAM_WIDTH(18)) dut (.clk, .memory_bus_msx(bus_msx), .memory_bus_upload(bus_upload),
+    .memory_bus_flash(bus_flash), .memory_bus_backup(bus_backup),
+    .memory_bus_sdram_ch1(sd_ch1), .memory_bus_sdram_ch2(sd_ch2), .memory_bus_sdram_ch3(sd_ch3),
+    .wave_bus(wave), .wave_bus_sdram_ch4(sd_ch4), .upload);
+`endif
 `endif
 
 // ---------------- flash.sv (real) ----------------
@@ -94,6 +104,39 @@ always @(posedge clk) begin
 end
 assign sd_ch2.q = c2.data; assign sd_ch2.sdram_ready = c2.ready; assign sd_ch2.sdram_done = c2.done;
 assign sd_ch3.q = c3.data; assign sd_ch3.sdram_ready = c3.ready; assign sd_ch3.sdram_done = 1'b0;
+
+`ifdef WAVE
+// ch4: done after 2 clk, held until the request falls; word read / byte write
+logic        c4_done = 0;
+int          c4_cnt = 0;
+logic [15:0] c4_data = 0;
+always @(posedge clk) begin
+    if (!sd_ch4.req) begin c4_done <= 0; c4_cnt <= 0; end
+    else if (!c4_done) begin
+        if (c4_cnt == 2) begin
+            if (sd_ch4.we) sdram[int'(sd_ch4.addr)] = sd_ch4.wdata;
+            c4_data <= {sd_rd(int'(sd_ch4.addr) | 1), sd_rd(int'(sd_ch4.addr) & ~1)};
+            c4_done <= 1;
+        end else c4_cnt <= c4_cnt + 1;
+    end
+end
+assign sd_ch4.ack = c4_done; assign sd_ch4.rdata = c4_data;
+
+logic        wv_req = 0, wv_we = 0;
+logic [26:0] wv_addr = 0;
+logic  [7:0] wv_wdata = 0;
+assign wave.req = wv_req; assign wave.we = wv_we; assign wave.addr = wv_addr; assign wave.wdata = wv_wdata;
+
+task automatic wave_acc(input int a, input logic we, input logic [7:0] d, output logic [15:0] q);
+    int t;
+    wv_addr = 27'(a); wv_we = we; wv_wdata = d; wv_req = 1; t = 0;
+    @(posedge clk);
+    while (!wave.ack && t < 100) begin @(posedge clk); t++; end
+    q = wave.rdata;
+    #0.1 wv_req = 0;
+    @(posedge clk); #0.1;
+endtask
+`endif
 
 // ---------------- helpers ----------------
 int errors = 0;
@@ -191,6 +234,36 @@ initial begin
         bk_read(a + 1, v);
         if (v !== (8'h69 ^ 8'(i))) begin errors++; $display("FAIL backup read %07h got=%02h exp=%02h", a + 1, v, 8'h69 ^ 8'(i)); end
     end
+
+`ifdef WAVE
+    // wave bus: words written through the CPU channel, bytes written by the wave bus, with the
+    // backup channel busy on the same BRAM port in between
+    foreach (bases[i]) begin
+        logic [15:0] q;
+        logic  [7:0] v;
+        int a; a = bases[i] + 32'h3000;
+        for (int k = 0; k < 6; k++) up_write(a + k, pat(a + k));
+        for (int k = 0; k < 6; k++) begin
+            wave_acc(a + k, 1'b0, 8'h00, q);
+            if (q !== {pat((a + k) | 1), pat((a + k) & ~1)}) begin
+                errors++; $display("FAIL wave read %07h got=%04h exp=%04h", a + k, q, {pat((a + k) | 1), pat((a + k) & ~1)});
+            end
+        end
+        wave_acc(a + 3, 1'b1, 8'hE7, q);
+        expect_cpu($sformatf("wave write %07h", a + 3), a + 3, 8'hE7);
+        expect_cpu($sformatf("wave write neighbour %07h", a + 2), a + 2, pat(a + 2));
+        fork
+            for (int k = 0; k < 8; k++) bk_write(a + 32'h100 + k, 8'h80 + 8'(k));
+            for (int k = 0; k < 8; k++) begin
+                wave_acc(a + (k & 4), 1'b0, 8'h00, q);
+                if (q !== {pat((a + (k & 4)) | 1), pat(a + (k & 4))}) begin
+                    errors++; $display("FAIL wave read beside the backup %07h got=%04h", a + (k & 4), q);
+                end
+            end
+        join
+        for (int k = 0; k < 8; k++) expect_cpu("backup beside the wave bus", a + 32'h100 + k, 8'h80 + 8'(k));
+    end
+`endif
 
     if (errors == 0) $display("PASS system_memory_tb");
     else             $display("FAILED system_memory_tb: %0d errors", errors);

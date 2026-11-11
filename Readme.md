@@ -29,6 +29,7 @@ The MSX1 core includes support for the following hardware modules:
 - `OPLL` – [FM Operator Type-LL (YM2413)](https://www.msx.org/wiki/Category:OPLL)
 - `SCC` – [Konami Sound Custom Chip](https://www.msx.org/wiki/Konami_SCC)
 - `SCC+` – [Konami 052539 Enhanced SCC](https://www.msx.org/wiki/Konami_052539)
+- `OPL4` – [Yamaha YMF278B](https://www.msx.org/wiki/MoonSound) (MoonSound: OPL3 FM and 24 channel wave table synthesis)
 - `MIDI IN` – YM2148 MIDI Interface
 - `SFG01` - [YAMAHA SFG01](https://www.msx.org/wiki/Yamaha_SFG-01) 
 - `SFG05` - [YAMAGA SFG05](https://www.msx.org/wiki/Yamaha_SFG-05)
@@ -60,6 +61,7 @@ The MSX1 core also supports the following types of expansion cartridges:
 - `MEGARAM` – MegaRAM memory expansion
 - `Mega Flash ROM SCC SD` – Flash ROM cartridge with SCC and SD card support
 - `Game Master 2` – Konami Game Master 2
+- `MoonSound` – OPL4 sound cartridge with 2 MB of sample RAM (the FW pack must contain `yrw801.rom`)
 
 ## MiSTerFPGA Platform Support
 The MSX1 core integrates with MiSTerFPGA and supports the following features provided by the platform:

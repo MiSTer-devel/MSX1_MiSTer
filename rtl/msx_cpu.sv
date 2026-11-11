@@ -50,6 +50,7 @@ module msx_cpu (
     input                turbor,        // turbo R machine: Z80 VDP I/O wait (T9769)
     input                cold_reset,    // power-up / menu reset / pack upload: R800 context to reset
     output logic         r800_active,   // CPU running now (1 = R800)
+    output logic         bus_phase,     // clk in which MREQ / IORQ / RD / WR may become active (after CE_n)
     input                int_rq,
     input          [7:0] di,
     output               m1_n,
@@ -75,6 +76,7 @@ module msx_cpu (
     logic ce_n = 1'b0;
     wire  ce_p = ce_sel && ~ce_n;           // never on two consecutive clk (speed switch)
     always_ff @(posedge clock_bus.clk) ce_n <= ce_p;
+    always_ff @(posedge clock_bus.clk) bus_phase <= ce_n;
 
     // M1 wait states (former negedge of the CPU clock)
     logic [2:0] wait_count = '0;

@@ -38,5 +38,6 @@
   "PANASONIC" : 36,
   "PANASONIC_RAM" : 37,
   "DRAM" : 38,
-  "ASCII16X" : 39
+  "ASCII16X" : 39,
+  "HIDDEN" : 40
 }

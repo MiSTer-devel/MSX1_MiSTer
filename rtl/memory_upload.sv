@@ -158,6 +158,7 @@ module memory_upload
     logic        ram_ce;
     logic        cart_id;
     logic        fw_space;
+    logic        fw_mem;            // the cartridge configuration being read has allocated memory
     logic  [1:0] slot, subslot, block;
     // FDC (WD2793 / TC8566AF) position: 0 internal, 1 cartridge in slot A (with N_FDC = 1 the
     // cartridge shares position 0). One FDC per position, whichever type.
@@ -204,8 +205,9 @@ module memory_upload
     always_comb begin
         case (state)
             STATE_SET_LAYOUT:    lay_ra0 = {slot, subslot, block};          // block being written
-            STATE_PROCESS_BLOCK: lay_ra0 = block_t'(conf[2]) == BLOCK_FLASH ? {slot, subslot, block}   // its memory
-                                                                            : conf[3][5:0];           // source of a shared memory
+            STATE_PROCESS_BLOCK: lay_ra0 = (block_t'(conf[2]) == BLOCK_FLASH || block_t'(conf[2]) == BLOCK_DEVICE)
+                                           ? {slot, subslot, block}         // memory of the block
+                                           : conf[3][5:0];                  // source of a shared memory
             default:             lay_ra0 = conf_t'(conf[0]) == CONF_DEVICE ? conf[6][5:0] :
                                            {fw_space ? slot | conf[1][7:6] : conf[1][7:6], conf[1][5:4], conf[1][3:2]};
         endcase
@@ -337,6 +339,7 @@ module memory_upload
                     ram_addr            <= '0;
                     crc_en              <= '0;
                     fw_space            <= '0;
+                    fw_mem              <= '0;
                     save_addr           <= '0;
                     save_addr2          <= '0;
                     kb_upload_memory.rq <= '0;
@@ -596,6 +599,7 @@ module memory_upload
                             ref_add                  <= '1;                        // Bude potřeba zvednout referenci
                             pattern                  <= PATTERN_DDR;
                             if (fw_space) begin                                    // Pokud se  bude jednat o ROM z FW musíme dle indexu najít adresu v DDR
+                                fw_mem                   <= 1'b1;
                                 $display("BLOCK FW ROM ID: %x ref_RAM:%x addr:%x size %d ", conf[3], ref_ram, ram_addr, {conf[4],conf[5],14'd0});
                                 ram_d.size               = {conf[4],conf[5],1'b0};
                                 data_size                <= {conf[4][2:0],conf[5],14'd0};
@@ -635,6 +639,7 @@ module memory_upload
                             state      <= STATE_READ_CONF;
                             $display("BLOCK CART ID:%d CONF:%x", conf[3][0], cart_conf[conf[3][0]].typ);
                             cart_id    <= conf[3][0];
+                            fw_mem     <= 1'b0;
                             if (fdc_cart_off && !conf[3][0]) begin
                                 $display("BLOCK CART 0 LEFT OUT: the machine has its own FDC");
                             end else if (cart_conf[conf[3][0]].typ == CART_TYP_ROM) begin
@@ -727,6 +732,23 @@ module memory_upload
                                 current_io_ref_mapper <= current_io_ref_mapper == '0 ? io_ref_mapper : current_io_ref_mapper;
                                 last_device_num       <= dev_wk;
                                 $display("BLOCK IO_DEVICE[%x][%x] enable: 1 param:%x reference: %d", device_t'(conf[3]), dev_wk, conf[4], current_io_ref_mapper == '0 ? io_ref_mapper : current_io_ref_mapper);
+                                if (conf[5][0] && ~fw_mem) begin            // its ROM is not in the FW pack (MoonSound: yrw801.rom)
+                                    dev_we_en   = 1'b0;
+                                    dev_we_plo  = 1'b0;
+                                    dev_we_phi  = 1'b0;
+                                    dev_we_dref = 1'b0;
+                                    error       <= ERR_NOT_FW_CONF;
+                                    state       <= STATE_IDLE;
+                                    device      <= DEV_NONE;
+                                    last_device <= DEV_NONE;
+                                    $display("DEVICE %x: NO MEMORY IN ITS BLOCK", device_t'(conf[3]));
+                                end else if (conf[5][0]) begin              // the device uses the memory of its block (OPL4)
+                                    dev_we_mref                       = 1'b1;
+                                    io_memory[io_ref_mem].memory      <= ram_q.addr;
+                                    io_memory[io_ref_mem].memory_size <= ram_q.size[8:1];
+                                    io_ref_mem                        <= io_ref_mem + 3'd1;
+                                    $display("  DEVICE MEMORY io_ref_mem:%x addr:%x size:%x", io_ref_mem, ram_q.addr, ram_q.size);
+                                end
                             end else begin
                                 error                 <= ERR_MISSING_SOURCE;                  // no synthesized copy left
                                 state                 <= STATE_IDLE;

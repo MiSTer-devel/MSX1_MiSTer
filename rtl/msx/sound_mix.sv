@@ -28,18 +28,20 @@ module sound_mix (
     input                      mute,        // turbo R PCM: all sound muted
     input  MSX::sound_t        opm_L,
     input  MSX::sound_t        opm_R,
+    input  MSX::sound_t        opl4_L,      // MoonSound
+    input  MSX::sound_t        opl4_R,
     input                      keybeep,
     input                      tape,        // tape monitor
     output logic signed [15:0] sound_L,
     output logic signed [15:0] sound_R
 );
 
-    localparam int W = 22;                   // 7 terms of 18 bit + sign
+    localparam int W = 22;                   // 8 terms of 18 bit + sign
 
     wire signed [W-1:0] sys    = $signed({12'd0, keybeep, 9'd0}) + $signed({13'd0, tape, 8'd0});
     wire signed [W-1:0] common = opll + scc + psg + dac + pcm + sys;
-    wire signed [W-1:0] mix_L  = common + opm_L;
-    wire signed [W-1:0] mix_R  = common + opm_R;
+    wire signed [W-1:0] mix_L  = common + opm_L + opl4_L;
+    wire signed [W-1:0] mix_R  = common + opm_R + opl4_R;
 
     function automatic logic signed [15:0] clip_x2(input logic signed [W-1:0] v);
         if (v > 16383)       return 16'sh7FFF;

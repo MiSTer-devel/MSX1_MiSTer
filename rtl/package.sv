@@ -19,8 +19,8 @@ typedef enum logic [3:0] {DEVICE_NONE, DEVICE_ROM } device_typ_t;
 typedef enum logic {CAS_AUDIO_FILE,CAS_AUDIO_ADC} cas_audio_src_t;
 typedef enum logic [1:0] {Z80, R800, UNKN1, UNKN2} cpu_t;
 
-typedef enum logic [3:0] {CART_TYP_SCC, CART_TYP_SCC2, CART_TYP_FM_PAC, CART_TYP_MFRSD, CART_TYP_GM2, CART_TYP_FDC, CART_MEGASCC1, CART_MEGASCC2, CART_MEGA_ASCII_8, CART_MEGA_ASCII_16, MEGARAM, CART_TYP_ROM, CART_TYP_EMPTY } cart_typ_t;
-typedef enum logic [4:0] {DEV_NONE, DEV_OPLL, DEV_SCC, DEV_WD2793, DEV_MSX2_RAM, DEV_LATCH_PORT, DEV_KANJI, DEV_OCM_BOOT, DEV_VDP_TMS, DEV_VDP_V99xx, DEV_RTC, DEV_PSG, DEV_PPI, DEV_RESET_STATUS, DEV_TC8566AF, DEV_OPM, DEV_YM2148, DEV_DAC, DEV_SYSTIMER, DEV_S1990, DEV_TURBOR_PCM, DEV_TURBOR_PAUSE } device_t;
+typedef enum logic [3:0] {CART_TYP_SCC, CART_TYP_SCC2, CART_TYP_FM_PAC, CART_TYP_MFRSD, CART_TYP_GM2, CART_TYP_FDC, CART_MEGASCC1, CART_MEGASCC2, CART_MEGA_ASCII_8, CART_MEGA_ASCII_16, MEGARAM, CART_TYP_ROM, CART_TYP_EMPTY, CART_TYP_MOONSOUND } cart_typ_t;
+typedef enum logic [4:0] {DEV_NONE, DEV_OPLL, DEV_SCC, DEV_WD2793, DEV_MSX2_RAM, DEV_LATCH_PORT, DEV_KANJI, DEV_OCM_BOOT, DEV_VDP_TMS, DEV_VDP_V99xx, DEV_RTC, DEV_PSG, DEV_PPI, DEV_RESET_STATUS, DEV_TC8566AF, DEV_OPM, DEV_YM2148, DEV_DAC, DEV_SYSTIMER, DEV_S1990, DEV_TURBOR_PCM, DEV_TURBOR_PAUSE, DEV_OPL4 } device_t;
 typedef enum logic [5:0] {MAPPER_NONE, MAPPER_OFFSET, MAPPER_ASCII16, MAPPER_RTYPE, MAPPER_ASCII8, MAPPER_KOEI, MAPPER_WIZARDY, MAPPER_KONAMI, 
                           MAPPER_FMPAC, MAPPER_GM2, VY0010, MAPPER_KONAMI_SCC, MAPPER_MSX2, MAPPER_GENERIC16KB, MAPPER_CROSS_BLAIM, MAPPER_GENERIC8KB, 
                           MAPPER_HARRY_FOX, MAPPER_ZEMINA_80, MAPPER_ZEMINA_90, MAPPER_KONAMI_SCC_PLUS, 
@@ -34,6 +34,7 @@ typedef enum logic [5:0] {MAPPER_NONE, MAPPER_OFFSET, MAPPER_ASCII16, MAPPER_RTY
                           MAPPER_OCM_IPL,
                           MAPPER_PANASONIC, MAPPER_PANASONIC_RAM, MAPPER_DRAM,
                           MAPPER_ASCII16X,
+                          MAPPER_HIDDEN,          // no mapper module: memory of the block is not on the CPU bus (MoonSound)
                           MAPPER_UNUSED} mapper_typ_t;
 typedef enum logic [3:0] {BLOCK_RAM, BLOCK_ROM, BLOCK_SRAM, BLOCK_DEVICE, BLOCK_MAPPER, BLOCK_CART, BLOCK_REF_MEM, BLOCK_REF_DEV, BLOCK_IO_DEVICE, BLOCK_EXPANDER, BLOCK_REF_SHARED_MEM, BLOCK_FLASH} block_t;
 typedef enum logic [2:0] {CONF_BLOCK, CONF_DEVICE, CONF_LAYOUT, CONF_CARTRIGE, CONF_BLOCK_FW, CONF_UNUSED5, CONF_UNUSED6, CONF_END} conf_t;
@@ -358,6 +359,25 @@ interface memory_bus_if;
     );
 endinterface
 
+// Sample memory of the OPL4 (MoonSound): system address, word read or byte write
+interface wave_bus_if;
+    logic        req;           // held until ack
+    logic        we;
+    logic [26:0] addr;
+    logic  [7:0] wdata;
+    logic        ack;           // one clk
+    logic [15:0] rdata;         // bytes at the even (7:0) and odd (15:8) address of the word
+
+    modport device_mp (
+        output req, we, addr, wdata,
+        input  ack, rdata
+    );
+    modport ram_mp (
+        input  req, we, addr, wdata,
+        output ack, rdata
+    );
+endinterface
+
 interface sd_bus;
    logic          ack;
    logic   [13:0] buff_addr;
@@ -544,6 +564,7 @@ package MSX;
     localparam int N_LATCH_PORT   = 2;      // 0..3  Zemina90 ROM in A and B
     localparam int N_MEM_MAPPER   = 2;      // 0..3  machine + MFRSD in slot A
     localparam int N_RESET_STATUS = 1;      // 0..3
+    localparam int N_OPL4         = 1;      // 0..1  MoonSound cartridge
     // Floppy controller positions, each with a WD2793 and an FDD unit (2 drives):
     // 0 = internal (machine XML), 1 = cartridge in slot A. With N_FDC = 1 the cartridge
     // takes position 0 and only when the machine has no FDC (ERR_FDC_PRESENT). FDC
@@ -571,6 +592,7 @@ package MSX;
             DEV_LATCH_PORT:   return cnt_mask(N_LATCH_PORT);
             DEV_MSX2_RAM:     return cnt_mask(N_MEM_MAPPER);
             DEV_RESET_STATUS: return cnt_mask(N_RESET_STATUS);
+            DEV_OPL4:         return cnt_mask(N_OPL4);
             DEV_WD2793:       return cnt_mask(N_FDC);
             DEV_TC8566AF:     return cnt_mask(N_TC8566AF);
             default:          return 3'b001;

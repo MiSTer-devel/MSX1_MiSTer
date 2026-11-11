@@ -21,6 +21,7 @@
 //   msx / upload -> BRAM port A or SDRAM ch1
 //   flash        -> BRAM port B or SDRAM ch2   (writes, req held until done)
 //   backup       -> BRAM port B or SDRAM ch3   (1-clk req pulse, read / write)
+//   wave (OPL4)  -> BRAM port B or SDRAM ch4   (word read / byte write, req held until ack)
 module system_memory #(parameter BRAM_WIDTH = 18) (
     input                   clk,
     memory_bus_if.ram_mp    memory_bus_msx,
@@ -30,6 +31,8 @@ module system_memory #(parameter BRAM_WIDTH = 18) (
     memory_bus_if.device_mp memory_bus_sdram_ch1,
     memory_bus_if.device_mp memory_bus_sdram_ch2,
     memory_bus_if.device_mp memory_bus_sdram_ch3,
+    wave_bus_if.ram_mp      wave_bus,
+    wave_bus_if.device_mp   wave_bus_sdram_ch4,     // ack = ch4_done (level)
     input logic             upload
 );
 
@@ -112,13 +115,74 @@ module system_memory #(parameter BRAM_WIDTH = 18) (
     assign memory_bus_backup.sdram_ready = backup_bram ? 1'b1        : memory_bus_sdram_ch3.sdram_ready;
     assign memory_bus_backup.sdram_done  = backup_bram ? 1'b1        : memory_bus_sdram_ch3.sdram_done;
 
+    // ---------------- ch4: OPL4 sample memory ----------------
+    // SDRAM: request registered here. BRAM: the two bytes of the word one after another on
+    // port B, in the clk that flash and backup leave free.
+    typedef enum logic [2:0] {W_IDLE, W_BRAM_0, W_BRAM_1, W_BRAM_2, W_SDRAM, W_END} wstate_t;
+    wstate_t     w_state = W_IDLE;
+    logic        w_ack = 1'b0, w_sd_req = 1'b0, w_sd_we = 1'b0, w_done_q = 1'b0;
+    logic [15:0] w_rdata;
+    logic [26:0] w_sd_addr;
+    logic  [7:0] w_sd_wdata;
+    wire         b_flash  = memory_bus_flash.ram_cs && flash_bram;
+    wire         b_wave   = ~b_flash && ~memory_bus_backup.ram_cs;    // port B free for the wave bus
+    wire         w_bram   = in_bram(wave_bus.addr);
+    wire  [26:0] w_baddr  = {wave_bus.addr[26:1], wave_bus.we ? wave_bus.addr[0] : w_state == W_BRAM_1};
+    wire         w_bwr    = w_state == W_BRAM_0 && wave_bus.we && b_wave;
+
+    assign wave_bus.ack             = w_ack;
+    assign wave_bus.rdata           = w_rdata;
+    assign wave_bus_sdram_ch4.req   = w_sd_req;
+    assign wave_bus_sdram_ch4.we    = w_sd_we;
+    assign wave_bus_sdram_ch4.addr  = w_sd_addr;
+    assign wave_bus_sdram_ch4.wdata = w_sd_wdata;
+
+    always_ff @(posedge clk) begin
+        w_ack    <= 1'b0;
+        w_done_q <= wave_bus_sdram_ch4.ack;
+        case (w_state)
+            W_IDLE: if (wave_bus.req && ~w_ack) begin
+                if (w_bram) w_state <= W_BRAM_0;
+                else begin
+                    w_sd_addr  <= sdram_addr(wave_bus.addr);
+                    w_sd_wdata <= wave_bus.wdata;
+                    w_sd_we    <= wave_bus.we;
+                    w_sd_req   <= 1'b1;
+                    w_state    <= W_SDRAM;
+                end
+            end
+            W_BRAM_0: if (b_wave) begin             // even byte address, or the write
+                if (wave_bus.we) begin w_ack <= 1'b1; w_state <= W_END; end
+                else w_state <= W_BRAM_1;
+            end
+            W_BRAM_1: begin                         // odd byte address, even byte comes out
+                w_rdata[7:0] <= bram_data_b;
+                w_state      <= b_wave ? W_BRAM_2 : W_BRAM_0;
+            end
+            W_BRAM_2: begin
+                w_rdata[15:8] <= bram_data_b;
+                w_ack         <= 1'b1;
+                w_state       <= W_END;
+            end
+            W_SDRAM: if (w_done_q) begin
+                w_rdata  <= wave_bus_sdram_ch4.rdata;
+                w_ack    <= 1'b1;
+                w_sd_req <= 1'b0;
+                w_state  <= W_END;
+            end
+            W_END: if (~w_done_q && ~w_sd_req) w_state <= W_IDLE;
+            default: w_state <= W_IDLE;
+        endcase
+    end
+
     // ---------------- BRAM ----------------
-    // Port B is shared by flash and backup; flash has priority. Both are rare and are not
-    // used at the same time (MFRSD flash programming vs. OSD SRAM save/load).
-    wire        b_flash = memory_bus_flash.ram_cs && flash_bram;
-    wire [26:0] b_addr  = b_flash ? memory_bus_flash.addr : memory_bus_backup.addr;
-    wire  [7:0] b_din   = b_flash ? memory_bus_flash.data : memory_bus_backup.data;
-    wire        b_wr    = flash_bram_wr || (backup_bram_wr && ~b_flash);
+    // Port B is shared by flash, backup and the wave bus, in this order of priority. Flash
+    // and backup are rare and are not used at the same time (MFRSD flash programming vs.
+    // OSD SRAM save/load).
+    wire        b_wsel  = b_wave && (w_state == W_BRAM_0 || w_state == W_BRAM_1);
+    wire [26:0] b_addr  = b_flash ? memory_bus_flash.addr : b_wsel ? w_baddr : memory_bus_backup.addr;
+    wire  [7:0] b_din   = b_flash ? memory_bus_flash.data : b_wsel ? wave_bus.wdata : memory_bus_backup.data;
+    wire        b_wr    = flash_bram_wr || (backup_bram_wr && ~b_flash) || w_bwr;
 
     generate
         if (BRAM_WIDTH > 0) begin : with_bram

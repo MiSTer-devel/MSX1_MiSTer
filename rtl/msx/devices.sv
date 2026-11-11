@@ -26,6 +26,7 @@ module devices  #(parameter sysCLK)
     output MSX::video_t     video_bus,
     vram_bus_if.device_mp   vram_bus,
     memory_bus_if.device_mp memory_bus,
+    wave_bus_if.device_mp   wave_bus,                               // OPL4 sample memory
     input  MSX::block_info_t block_info,
     input MSX::io_device_t  io_device[32][3],                       // Array of IO devices
     input MSX::io_device_mem_ref_t io_memory[8],                    // Array of memory references
@@ -51,6 +52,7 @@ module devices  #(parameter sysCLK)
     output                  reset_request,
     output MSX::cpu_speed_t cpu_speed,              // OCM turbo, '0 without OCM
     output                  opll_wait,              // CPU wait: OPLL busy (turbo)
+    output                  opl4_wait,              // CPU wait: OPL4 wave part busy
     output                  turbor_r800,            // S1990: R800 selected
     output                  turbor_dram,            // S1990: DRAM mode (ROM read from the main RAM)
     output                  turbor_pause,           // hardware pause: hold the CPU
@@ -68,7 +70,7 @@ module devices  #(parameter sysCLK)
     vram_bus_if             vram_bus_v99();
 
     // Výstupy kombinující jednotlivé zařízení
-    assign data = scc_data & fdc_data & msx2_ram_data & tms_data & v99_data & rtc_data & psg_data & ppi_data & ocm_data & reset_status_data & opm_data & ym2148_data & systimer_data & s1990_data & turbor_pcm_data & turbor_pause_data;
+    assign data = scc_data & fdc_data & msx2_ram_data & tms_data & v99_data & rtc_data & psg_data & ppi_data & ocm_data & reset_status_data & opm_data & ym2148_data & systimer_data & s1990_data & turbor_pcm_data & turbor_pause_data & opl4_data;
     assign data_oe_rq = fdc_data_oe_rq;// | TC8566AF_data_oe_rq;
     assign data_to_mapper = msx2_ram_data_to_mapper & latch_port_data_to_mapper;
 
@@ -82,7 +84,7 @@ module devices  #(parameter sysCLK)
     assign memory_bus.rnw     = '1;
 
     // VIDEO interfaces
-    assign cpu_interrupt     = tms_interrupt | v99_interrupt | opm_irq | ym2148_irq;
+    assign cpu_interrupt     = tms_interrupt | v99_interrupt | opm_irq | ym2148_irq | opl4_irq;
 
     assign video_bus         = video_bus_tms | video_bus_v99;     // only the enabled VDP drives
 
@@ -122,6 +124,21 @@ module devices  #(parameter sysCLK)
         .data(opm_data),
         .sound_L(opm_sound_L),
         .sound_R(opm_sound_R)
+    );
+
+    MSX::sound_t opl4_sound_L, opl4_sound_R;
+    wire         [7:0] opl4_data;
+    wire               opl4_irq;
+    dev_opl4 opl4 (
+        .cpu_bus(cpu_bus),
+        .io_device(io_device[DEV_OPL4]),
+        .io_memory(io_memory),
+        .wave_bus(wave_bus),
+        .sound_L(opl4_sound_L),
+        .sound_R(opl4_sound_R),
+        .data(opl4_data),
+        .irq(opl4_irq),
+        .wait_rq(opl4_wait)
     );
 
     wire         [7:0] ym2148_data;
@@ -324,6 +341,8 @@ module devices  #(parameter sysCLK)
         .mute(turbor_mute),
         .opm_L(opm_sound_L),
         .opm_R(opm_sound_R),
+        .opl4_L(opl4_sound_L),
+        .opl4_R(opl4_sound_R),
         .keybeep(keybeep),
         .tape(tape_in & ~tape_motor_on),
         .sound_L(sound_L),

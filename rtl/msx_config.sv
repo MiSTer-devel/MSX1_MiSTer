@@ -18,10 +18,10 @@
 // Generic cartridge slots are hidden for OCM (H3), which has its own slot options (MSX_MiSTer).
 // An FDC cartridge only in slot A (MSX::N_FDC).
 parameter CONF_STR_SLOT_A = {
-    "H3O[20:17],Slot1,ROM,FDC,SCC,SCC+,FM-PAC,MegaSCC+ 1MB, MegaFlashROM SCC+ SD,GameMaster2,Empty;"
+    "H3O[20:17],Slot1,ROM,FDC,SCC,SCC+,FM-PAC,MegaSCC+ 1MB, MegaFlashROM SCC+ SD,GameMaster2,Empty,MoonSound;"
 };
 parameter CONF_STR_SLOT_B = {
-    "H3O[32:29],Slot2,ROM,SCC,SCC+,FM-PAC,MegaSCC+ 2MB,MegaRAM ASCII-8K 1MB,MegaRAM ASCII-16K 2MB,Empty;"
+    "H3O[32:29],Slot2,ROM,SCC,SCC+,FM-PAC,MegaSCC+ 2MB,MegaRAM ASCII-8K 1MB,MegaRAM ASCII-16K 2MB,Empty,MoonSound;"
 };
 parameter CONF_STR_OCM_SLOTS = {
     "h3O[22],Slot1,Empty,MegaSCC+ 1MB;",
@@ -56,6 +56,7 @@ wire [3:0] slot_B_select   = HPS_status[32:29];
             4'd5: cart_conf[0].typ = CART_MEGASCC1;
             4'd6: cart_conf[0].typ = CART_TYP_MFRSD;
             4'd7: cart_conf[0].typ = CART_TYP_GM2;
+            4'd9: cart_conf[0].typ = CART_TYP_MOONSOUND;
             default: cart_conf[0].typ = CART_TYP_EMPTY;
         endcase
     end
@@ -70,6 +71,7 @@ wire [3:0] slot_B_select   = HPS_status[32:29];
             4'd4: cart_conf[1].typ = CART_MEGASCC2;
             4'd5: cart_conf[1].typ = CART_MEGA_ASCII_8;
             4'd6: cart_conf[1].typ = CART_MEGA_ASCII_16;
+            4'd8: cart_conf[1].typ = CART_TYP_MOONSOUND;
             default: cart_conf[1].typ = CART_TYP_EMPTY;
         endcase
     end

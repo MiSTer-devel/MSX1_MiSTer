@@ -45,6 +45,8 @@ wire   [63:0] ddr3_dout64;
 block_device_if block_device_FDD[2*MSX::N_FDC]();
 ext_sd_card_if  ext_SD_card_bus();
 memory_bus_if   sd_ch1(), sd_ch2(), sd_ch3();
+wave_bus_if     sd_ch4();
+wire            cpu_phase;
 
 genvar gi;
 generate for (gi = 0; gi < 2*MSX::N_FDC; gi++) begin : fdd_idle
@@ -69,6 +71,7 @@ msx_system sys (
     .video_bus(video_bus), .audio_L(audio_L), .audio_R(audio_R), .uart_rxd(1'b1), .tape_adc(1'b0),
     .ext_SD_card_bus(ext_SD_card_bus),
     .memory_bus_sdram_ch1(sd_ch1), .memory_bus_sdram_ch2(sd_ch2), .memory_bus_sdram_ch3(sd_ch3),
+    .wave_bus_sdram_ch4(sd_ch4), .cpu_phase(cpu_phase),
     .ddr3_addr(ddr3_addr), .ddr3_rd(ddr3_rd), .ddr3_dout(ddr3_dout), .ddr3_dout64(ddr3_dout64),
     .ddr3_ready(ddr3_ready)
 );
@@ -133,6 +136,43 @@ always @(posedge clk_core) begin
 end
 assign sd_ch2.q = c2.data; assign sd_ch2.sdram_ready = c2.ready; assign sd_ch2.sdram_done = c2.done;
 assign sd_ch3.q = c3.data; assign sd_ch3.sdram_ready = c3.ready; assign sd_ch3.sdram_done = 1'b0;
+
+// OPL4 sample memory (ch4): word read / byte write, done held until the request falls
+int         ch4_delay = 2, ch4_cnt = 0, ch4_reads = 0, ch4_writes = 0;
+logic       ch4_done = 0;
+logic [15:0] ch4_data = 0;
+always @(posedge clk_core) begin
+    if (!sd_ch4.req) begin ch4_done <= 0; ch4_cnt <= 0; end
+    else if (!ch4_done) begin
+        if (ch4_cnt == ch4_delay) begin
+            if (sd_ch4.we) begin sdram[sd_ch4.addr[24:0]] = sd_ch4.wdata; ch4_writes++; end
+            else ch4_reads++;
+            ch4_data <= {sdram[sd_ch4.addr[24:0] | 25'd1], sdram[sd_ch4.addr[24:0] & ~25'd1]};
+            ch4_done <= 1;
+        end else ch4_cnt <= ch4_cnt + 1;
+    end
+end
+assign sd_ch4.ack = ch4_done; assign sd_ch4.rdata = ch4_data;
+
+// every ch1 request of the running machine must begin in a cpu_phase cycle (the SDRAM
+// controller starts ch4 accesses between those points)
+// Not held to it: the first access after a reset (the OPL4 is still clearing its memories), and
+// writes: a write to FFFFh that maps RAM into page 3 reaches that RAM a clk later (the CPU
+// does not wait for a write).
+int  ch1_reqs = 0, ch1_off_phase = 0, ch1_at_reset = 0, ch1_late_wr = 0, since_reset = 0;
+always @(posedge clk_core) begin
+    since_reset <= reset ? 0 : since_reset + 1;
+    if (!sys.upload && !reset && sd_ch1.ram_cs && !ch1_q) begin
+        ch1_reqs++;
+        if (!cpu_phase && since_reset < 16) ch1_at_reset++;
+        else if (!cpu_phase && !sd_ch1.rnw) ch1_late_wr++;
+        else if (!cpu_phase) begin
+            ch1_off_phase++;
+            if (ch1_off_phase < 10) $display("%0t FAIL ch1 read outside cpu_phase, address %h, %0d clk after the reset, CPU address %h mreq %b iorq %b rd %b wr %b m1 %b",
+                $time, sd_ch1.addr, since_reset, sys.MSX.cpu_bus.addr, sys.MSX.cpu_bus.mreq, sys.MSX.cpu_bus.iorq, sys.MSX.cpu_bus.rd, sys.MSX.cpu_bus.wr, sys.MSX.cpu_bus.m1);
+        end
+    end
+end
 
 // ------------------------------------------------------------------ SD card path of emu
 wire        sdclk, sdmosi, sdmiso;
@@ -536,6 +576,9 @@ initial begin
         if (game_ms < 0) begin errors++; $display("FAIL: no code run from slot 2 (SofaROM did not start the ROM)"); end
     end
 
+    $display("SDRAM ch1 requests of the machine: %0d, reads outside cpu_phase: %0d (writes: %0d, right after a reset: %0d)",
+             ch1_reqs, ch1_off_phase, ch1_late_wr, ch1_at_reset);
+    if (ch1_off_phase != 0 || ch1_reqs == 0) errors++;
     if (errors == 0) $display("PASS ocm_boot_tb");
     else             $display("FAILED ocm_boot_tb: %0d errors", errors);
     $finish;

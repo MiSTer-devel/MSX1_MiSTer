@@ -115,6 +115,16 @@
             "default": 0
         }
     },
+    "OPL4": {
+        "sampleram": {
+            "param_type": "int",
+            "enums": [],
+            "min": 0,
+            "max": 16,
+            "div": 131072,
+            "default": 0
+        }
+    },
     "YM2148": {
         "variant": {
             "param_type": "enum",

@@ -5,6 +5,7 @@ module sound_mix_tb;
 logic clk = 0;
 MSX::sound_t opll, scc, psg, dac, opm_L, opm_R;
 MSX::sound_t pcm = '0;                  // turbo R PCM, set before apply
+MSX::sound_t opl4_L = '0, opl4_R = '0;  // MoonSound, set before apply
 logic mute = 0;                         // turbo R PCM: all sound muted
 logic keybeep, tape;
 logic signed [15:0] sound_L, sound_R;
@@ -25,8 +26,8 @@ task automatic apply(input int a, b, c, d, eL, eR, input logic kb, tp);
     opll = 18'(a); scc = 18'(b); psg = 18'(c); dac = 18'(d); opm_L = 18'(eL); opm_R = 18'(eR);
     keybeep = kb; tape = tp;
     common = a + b + c + d + int'(pcm) + (kb ? 512 : 0) + (tp ? 256 : 0);
-    expL = mute ? 16'sd0 : ref_clip(common + eL);
-    expR = mute ? 16'sd0 : ref_clip(common + eR);
+    expL = mute ? 16'sd0 : ref_clip(common + eL + int'(opl4_L));
+    expR = mute ? 16'sd0 : ref_clip(common + eR + int'(opl4_R));
     #1 clk = 1; #1 clk = 0;
     checked++;
     if (sound_L !== expL || sound_R !== expR) begin

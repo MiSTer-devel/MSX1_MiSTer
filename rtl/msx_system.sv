@@ -57,6 +57,8 @@ module msx_system (
     memory_bus_if.device_mp     memory_bus_sdram_ch1,
     memory_bus_if.device_mp     memory_bus_sdram_ch2,
     memory_bus_if.device_mp     memory_bus_sdram_ch3,
+    wave_bus_if.device_mp       wave_bus_sdram_ch4,     // OPL4 sample memory
+    output                      cpu_phase,              // clk in which the CPU may start a bus access
     output             [27:0]   ddr3_addr,
     output                      ddr3_rd,
     input               [7:0]   ddr3_dout,
@@ -73,6 +75,7 @@ memory_bus_if   memory_bus_msx();
 memory_bus_if   memory_bus_upload();
 memory_bus_if   memory_bus_flash();
 memory_bus_if   memory_bus_backup();
+wave_bus_if     wave_bus();
 
 MSX::user_config_t       msx_user_config;
 MSX::config_cart_t       cart_conf[2];
@@ -149,6 +152,8 @@ msx #(.sysCLK(sysCLK)) MSX
    .ext_SD_card_bus(ext_SD_card_bus),
    .flash_bus(flash_bus),
    .memory_bus(memory_bus_msx),
+   .wave_bus(wave_bus),
+   .cpu_phase(cpu_phase),
    .audio_L(audio_L),
    .audio_R(audio_R),
    .ps2_key(ps2_key),
@@ -267,6 +272,8 @@ system_memory #(.BRAM_WIDTH(18)) system_memory(
    .memory_bus_sdram_ch1(memory_bus_sdram_ch1),
    .memory_bus_sdram_ch2(memory_bus_sdram_ch2),
    .memory_bus_sdram_ch3(memory_bus_sdram_ch3),
+   .wave_bus(wave_bus),
+   .wave_bus_sdram_ch4(wave_bus_sdram_ch4),
    .upload(upload)
 );
 

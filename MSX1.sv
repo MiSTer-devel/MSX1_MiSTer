@@ -402,6 +402,8 @@ ext_sd_card_if   ext_SD_card_bus();
 memory_bus_if    memory_bus_sdram_ch1();
 memory_bus_if    memory_bus_sdram_ch2();
 memory_bus_if    memory_bus_sdram_ch3();
+wave_bus_if      wave_bus_sdram_ch4();
+wire             cpu_phase;
 wire       [5:0] joy[2];
 wire             tape_in;
 wire      [27:0] ddr3_addr;
@@ -446,6 +448,8 @@ msx_system msx_system
    .memory_bus_sdram_ch1(memory_bus_sdram_ch1),
    .memory_bus_sdram_ch2(memory_bus_sdram_ch2),
    .memory_bus_sdram_ch3(memory_bus_sdram_ch3),
+   .wave_bus_sdram_ch4(wave_bus_sdram_ch4),
+   .cpu_phase(cpu_phase),
    .ddr3_addr(ddr3_addr),
    .ddr3_rd(ddr3_rd),
    .ddr3_dout(ddr3_dout),
@@ -662,7 +666,15 @@ sdram sdram
    .ch3_req  (memory_bus_sdram_ch3.ram_cs),
    .ch3_rnw  (memory_bus_sdram_ch3.rnw),
    .ch3_ready(memory_bus_sdram_ch3.sdram_ready),
-   .ch3_done (memory_bus_sdram_ch3.sdram_done)
+   .ch3_done (memory_bus_sdram_ch3.sdram_done),
+
+   .ch4_dout (wave_bus_sdram_ch4.rdata),
+   .ch4_din  (wave_bus_sdram_ch4.wdata),
+   .ch4_addr (wave_bus_sdram_ch4.addr),
+   .ch4_req  (wave_bus_sdram_ch4.req),
+   .ch4_rnw  (~wave_bus_sdram_ch4.we),
+   .ch4_done (wave_bus_sdram_ch4.ack),
+   .cpu_phase(cpu_phase)
 );
 
 endmodule

@@ -222,6 +222,16 @@
       <device>SCC</device>
     </block>
   </fw>
+  <fw name="MOONSOUND">               <!-- Sunrise MoonSound: OPL4 with the 2 MB wave ROM and 2 MB of sample RAM
+                                           behind it; nothing of it is visible in the slot -->
+    <block start="0" count="1">
+      <filename>yrw801.rom</filename>
+      <SHA1>32760893ce06dbe3930627755ba065cc3d8ec6ca</SHA1>
+      <extend>4194304</extend>
+      <mapper>HIDDEN</mapper>
+      <device memory="block" sampleram="2097152">OPL4</device>
+    </block>
+  </fw>
   <fw name="MEGA_FLASH_ROM">
     <secondary slot="0">
       <block start="0" count="4">

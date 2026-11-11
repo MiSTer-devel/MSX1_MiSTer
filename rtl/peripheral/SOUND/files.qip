@@ -2,3 +2,5 @@ set_global_assignment -name QIP_FILE           [file join $::quartus(qip_path) j
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) scc_wave.sv                     ]
 set_global_assignment -name QIP_FILE           [file join $::quartus(qip_path) ikaopll.qip                     ]
 set_global_assignment -name QIP_FILE           [file join $::quartus(qip_path) jt51/hdl/jt51.qip               ]
+set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) opl4/opl3.sv                    ]
+set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) opl4/opl4_wave.sv               ]

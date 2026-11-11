@@ -4,12 +4,14 @@
 #   machine: cd tools/CreateMSXpack; python createComp.py ...; FW pack: python createDev.py
 #   OLD=<git rev or file>: memory_upload.sv of that revision (a file for a git worktree, whose
 #                          gitdir WSL may not read)
+#   ALT=<file>: another memory_upload.sv with the ports of the current one
 set -e
 PACK=$(realpath "$1"); FW=$(realpath "$2")
 [ -f "$OLD" ] && OLD=$(realpath "$OLD")
+[ -n "$ALT" ] && ALT=$(realpath "$ALT")
 cd "$(dirname "$0")"
 OUT=$(mktemp -d)
-MU=../memory_upload.sv
+MU=${ALT:-../memory_upload.sv}
 if [ -f "$OLD" ]; then MU="$OLD"
 elif [ -n "$OLD" ]; then git -C .. show "$OLD:rtl/memory_upload.sv" > "$OUT/memory_upload.sv"; MU="$OUT/memory_upload.sv"; fi
 DEF=""; [ -n "$OLD" ] && DEF="+define+OLD_MU"     # OLD: a revision with the tables as arrays

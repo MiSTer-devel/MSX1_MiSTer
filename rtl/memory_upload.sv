@@ -204,7 +204,8 @@ module memory_upload
     always_comb begin
         case (state)
             STATE_SET_LAYOUT:    lay_ra0 = {slot, subslot, block};          // block being written
-            STATE_PROCESS_BLOCK: lay_ra0 = conf[3][5:0];                    // source of a shared memory
+            STATE_PROCESS_BLOCK: lay_ra0 = block_t'(conf[2]) == BLOCK_FLASH ? {slot, subslot, block}   // its memory
+                                                                            : conf[3][5:0];           // source of a shared memory
             default:             lay_ra0 = conf_t'(conf[0]) == CONF_DEVICE ? conf[6][5:0] :
                                            {fw_space ? slot | conf[1][7:6] : conf[1][7:6], conf[1][5:4], conf[1][3:2]};
         endcase
@@ -275,6 +276,8 @@ module memory_upload
         // default, applied at the end of the block
         logic        lay_we, ram_we;
         logic  [5:0] lay_wa;
+        logic  [3:0] ram_wa;
+        logic [26:0] flash_used, flash_size;
         lay_t        lay_d;
         ram_t        ram_d;
         logic        dev_clr, dev_we_en, dev_we_port, dev_we_mask, dev_we_plo, dev_we_phi, dev_we_mref, dev_we_dref;
@@ -290,7 +293,10 @@ module memory_upload
         lay_wa      = {slot, subslot, block};
         lay_d       = lay_q0;
         ram_we      = 1'b0;
+        ram_wa      = ref_ram;
         ram_d       = '0;
+        flash_used  = ram_addr - ram_q.addr;                // BLOCK_FLASH: loaded part of its memory
+        flash_size  = {conf[3][4:0], conf[4], 14'd0};
         dev_clr     = 1'b0;
         dev_we_en   = 1'b0;
         dev_we_port = 1'b0;
@@ -603,6 +609,25 @@ module memory_upload
                                 ram_d.size               = {8'd0, conf[3],1'b0};
                                 data_size                <= {3'b0, conf[3],14'd0};   // Velikost nahrávaných dat
                                 state                    <= STATE_FILL_RAM;
+                            end
+                        end
+                        BLOCK_FLASH: begin
+                            // The memory of the block is a flash chip of conf[3..4] x 16 kB: what
+                            // was loaded stays at its start, the rest is erased. Only for the
+                            // memory allocated last (a cartridge ROM), which is extended in place.
+                            state      <= STATE_READ_CONF;
+                            next_state <= STATE_LOAD_CONF;
+                            if (ram_q.size == {3'd0, flash_used[26:13]} && flash_used < flash_size) begin
+                                $display("BLOCK FLASH ref_RAM:%x addr:%x size %x, %x loaded", lay_q0.ref_ram, ram_q.addr, flash_size, flash_used);
+                                ram_we      = 1'b1;
+                                ram_wa      = lay_q0.ref_ram;
+                                ram_d.addr  = ram_q.addr;
+                                ram_d.size  = {conf[3], conf[4], 1'b0};
+                                ram_d.ro    = ram_q.ro;
+                                data_size   <= 25'(flash_size - flash_used);
+                                pattern     <= PATTERN_FF;
+                                state       <= STATE_FILL_RAM;
+                                next_state  <= STATE_READ_CONF;
                             end
                         end
                         BLOCK_CART: begin
@@ -956,9 +981,9 @@ module memory_upload
             lay_fsm1[lay_wa]  <= lay_d;
         end
         if (ram_we) begin
-            ram_slots[ref_ram] <= ram_d;
-            ram_main[ref_ram]  <= ram_d;
-            ram_fsm[ref_ram]   <= ram_d;
+            ram_slots[ram_wa] <= ram_d;
+            ram_main[ram_wa]  <= ram_d;
+            ram_fsm[ram_wa]   <= ram_d;
         end
         // io_device command of this step, applied one clock later by the registers below
         dev_clr_q   <= dev_clr;

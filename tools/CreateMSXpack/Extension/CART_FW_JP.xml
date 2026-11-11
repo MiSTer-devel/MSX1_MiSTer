@@ -69,6 +69,12 @@
       <device>SCC</device>
     </block>
   </fw>
+  <fw name="ASCII16X">                <!-- ASCII16-X: the ROM image is the start of an 8 MB flash (S29GL064S) -->
+    <block>
+      <flash>8388608</flash>
+      <mapper>ASCII16X</mapper>
+    </block>
+  </fw>
   <fw name="RTYPE">
     <block>
       <mapper>RTYPE</mapper>   

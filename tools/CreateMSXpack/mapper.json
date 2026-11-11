@@ -37,5 +37,6 @@
   "OCM_IPL" : 35,
   "PANASONIC" : 36,
   "PANASONIC_RAM" : 37,
-  "DRAM" : 38
+  "DRAM" : 38,
+  "ASCII16X" : 39
 }

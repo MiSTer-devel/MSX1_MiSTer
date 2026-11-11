@@ -37,7 +37,7 @@ def parse_fw_block(root: ET.Element, subslot: int, files_with_sha1: dict, consta
     fix_offset = int(root.attrib.get("fix_offset", -1))
 
     for element in root:
-        if element.tag in ['SHA1', 'filename', 'device', 'mapper', 'sram', 'ram', 'device_param']:
+        if element.tag in ['SHA1', 'filename', 'device', 'mapper', 'sram', 'ram', 'flash', 'device_param']:
             block[element.tag] = get_int_or_string_value(element)
             if element.tag == 'ram' :
                 pattern = 1;
@@ -69,6 +69,14 @@ def parse_fw_block(root: ET.Element, subslot: int, files_with_sha1: dict, consta
         else:
             logger.warning(f"Missing ROM. SHA1: {block['SHA1']}")
     
+    if 'flash' in block:
+        # the memory loaded so far (cartridge ROM) is a flash chip of this size, the rest erased
+        blocks = convert_to_int(block['flash']) // (1024 * 16)
+        if 0 < blocks < 0x2000:
+            result.append(create_block_entry(constants, 'FLASH', address, param1=blocks >> 8, param2=blocks & 0xFF))
+        else:
+            logger.warning("Flash size not defined correctly")
+
     if 'ram' in block:
         size = convert_to_int(block['ram'])
         if size :

@@ -9,5 +9,6 @@
   "REF_DEV": 7,
   "IO_DEVICE": 8,
   "EXPANDER" : 9,
-  "SHARED_MEM": 10
+  "SHARED_MEM": 10,
+  "FLASH": 11
 }

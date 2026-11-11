@@ -42,7 +42,7 @@ module mappers (
         M_OFFSET, M_MIRROR, M_MSX2_RAM, M_ASCII8, M_ASCII16, M_GENERIC8K, M_GENERIC16K,
         M_FM_PAC, M_YAMAHA_SFG, M_KONAMI, M_KONAMI_SCC, M_GM2, M_CROSS_BLAIM, M_NATIONAL,
         M_HARRY_FOX, M_ZEMINA80, M_ZEMINA90, M_MFRSD, M_ESE_RAM, M_MEGA_RAM, M_OCM_IPL,
-        M_TURBOR_FDC, M_PANASONIC, M_DRAM,
+        M_TURBOR_FDC, M_PANASONIC, M_DRAM, M_ASCII16X,
         M_COUNT
     } mapper_idx_t;
 
@@ -179,11 +179,37 @@ module mappers (
         .data_to_mapper(data_to_mapper)
     );
     
+    // One flash engine for MFRSD and the ASCII16-X cartridges: inactive mappers drive 0
+    flash_bus_if flash_mfrsd();
+    flash_bus_if flash_ascii16x();
+
+    assign flash_bus.base_addr     = flash_mfrsd.base_addr     | flash_ascii16x.base_addr;
+    assign flash_bus.addr          = flash_mfrsd.addr          | flash_ascii16x.addr;
+    assign flash_bus.area_lo       = flash_mfrsd.area_lo       | flash_ascii16x.area_lo;
+    assign flash_bus.area_size     = flash_mfrsd.area_size     | flash_ascii16x.area_size;
+    assign flash_bus.chip          = flash_mfrsd.chip          | flash_ascii16x.chip;
+    assign flash_bus.id            = flash_mfrsd.id            | flash_ascii16x.id;
+    assign flash_bus.data_to_flash = flash_mfrsd.data_to_flash | flash_ascii16x.data_to_flash;
+    assign flash_bus.we            = flash_mfrsd.we            | flash_ascii16x.we;
+    assign flash_bus.ce            = flash_mfrsd.ce            | flash_ascii16x.ce;
+
+    assign flash_mfrsd.data_from_flash    = flash_bus.data_from_flash;
+    assign flash_mfrsd.data_valid         = flash_bus.data_valid;
+    assign flash_ascii16x.data_from_flash = flash_bus.data_from_flash;
+    assign flash_ascii16x.data_valid      = flash_bus.data_valid;
+
+    mapper_ascii16x ascii16x (
+        .cpu_bus(cpu_bus),
+        .flash_bus(flash_ascii16x),
+        .block_info(block_info),
+        .out(mapper_out[M_ASCII16X])
+    );
+
     ext_sd_card_if ext_SD_card_mfrsd();
     mapper_mfrsd  mapper_mfrsd (
         .cpu_bus(cpu_bus),
         .ext_SD_card_bus(ext_SD_card_mfrsd),
-        .flash_bus(flash_bus),
+        .flash_bus(flash_mfrsd),
         .block_info(block_info),
         .out(mapper_out[M_MFRSD]),
         .data_to_mapper(data_to_mapper),

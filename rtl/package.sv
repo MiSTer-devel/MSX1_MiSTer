@@ -33,8 +33,9 @@ typedef enum logic [5:0] {MAPPER_NONE, MAPPER_OFFSET, MAPPER_ASCII16, MAPPER_RTY
                           MAPPER_MSXWRITE,
                           MAPPER_OCM_IPL,
                           MAPPER_PANASONIC, MAPPER_PANASONIC_RAM, MAPPER_DRAM,
+                          MAPPER_ASCII16X,
                           MAPPER_UNUSED} mapper_typ_t;
-typedef enum logic [3:0] {BLOCK_RAM, BLOCK_ROM, BLOCK_SRAM, BLOCK_DEVICE, BLOCK_MAPPER, BLOCK_CART, BLOCK_REF_MEM, BLOCK_REF_DEV, BLOCK_IO_DEVICE, BLOCK_EXPANDER, BLOCK_REF_SHARED_MEM} block_t;
+typedef enum logic [3:0] {BLOCK_RAM, BLOCK_ROM, BLOCK_SRAM, BLOCK_DEVICE, BLOCK_MAPPER, BLOCK_CART, BLOCK_REF_MEM, BLOCK_REF_DEV, BLOCK_IO_DEVICE, BLOCK_EXPANDER, BLOCK_REF_SHARED_MEM, BLOCK_FLASH} block_t;
 typedef enum logic [2:0] {CONF_BLOCK, CONF_DEVICE, CONF_LAYOUT, CONF_CARTRIGE, CONF_BLOCK_FW, CONF_UNUSED5, CONF_UNUSED6, CONF_END} conf_t;
 typedef enum logic [3:0] {ERR_NONE, ERR_BAD_MSX_CONF, ERR_NOT_SUPPORTED_CONF, ERR_NOT_SUPPORTED_BLOCK, ERR_BAD_MSX_FW_CONF, ERR_NOT_FW_CONF, ERR_DEVICE_MISSING, ERR_MISSING_SOURCE, ERR_NO_CRC_DB, ERR_NO_CRC_FOUND, ERR_NO_MEMORY, ERR_FDC_PRESENT} error_t;
 
@@ -277,8 +278,12 @@ interface ext_sd_card_if;
 endinterface
 
 interface flash_bus_if;
-    logic [26:0] base_addr;     // full system address width (block may lie above 8 MB)
-    logic [22:0] addr;
+    logic [26:0] base_addr;     // system address = addr - base_addr (block may lie above 8 MB)
+    logic [22:0] addr;          // address in the chip
+    logic [22:0] area_lo;       // part of the chip backed by memory: area_lo .. area_lo + area_size - 1
+    logic [23:0] area_size;
+    logic        chip;          // 0 = M29W640GB (MFRSD), 1 = S29GL064S (ASCII16-X)
+    logic        id;            // cartridge (slot A / B)
     logic  [7:0] data_to_flash;
     logic  [7:0] data_from_flash;
     logic        data_valid;
@@ -288,6 +293,10 @@ interface flash_bus_if;
     modport flash_mp (
         input  base_addr,
         input  addr,
+        input  area_lo,
+        input  area_size,
+        input  chip,
+        input  id,
         input  data_to_flash,
         output data_from_flash,
         output data_valid,
@@ -298,6 +307,10 @@ interface flash_bus_if;
     modport device_mp (
         output base_addr,
         output addr,
+        output area_lo,
+        output area_size,
+        output chip,
+        output id,
         output data_to_flash,
         input  data_from_flash,
         input  data_valid,

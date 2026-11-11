@@ -8,6 +8,7 @@ PKG=${ALT:-..}/package.sv
 SYSMEM=${ALT:-..}/system_memory.sv
 FLASH=${ALT:-../peripheral}/flash.sv
 DEFS=""; [ -n "$OLD" ] && DEFS="+define+OLD"
+[ -n "$ALT" ] && DEFS="$DEFS +define+OLD_FLASH"
 OUT=$(mktemp -d)
 verilator --binary --timing -Wno-fatal -Wno-lint -Wno-style $DEFS \
     --top-module system_memory_tb -Mdir "$OUT" \

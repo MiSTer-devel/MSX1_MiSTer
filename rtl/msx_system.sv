@@ -232,6 +232,7 @@ assign ddr3_rd   = ddr3_request_download ? ddr3_rd_download   : ddr3_rd_cas;
 flash flash (
    .clk(clock_bus.clk),
    .clk_sdram(clock_bus.clk_mem),
+   .reset(reset),
    .flash_bus(flash_bus),
    .sdram_ready(flash_ready),
    .sdram_done(flash_done),

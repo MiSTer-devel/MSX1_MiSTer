@@ -104,7 +104,15 @@ assign mem.sdram_ready = 1'b1;
 assign mem.sdram_done  = 1'b1;
 assign mem.q           = 8'hFF;
 byte unsigned ram[int unsigned];
-always_ff @(posedge clk) if (mem.ram_cs && !mem.rnw) ram[mem.addr] = mem.data;
+// pad_mode: FF writes are not stored (a missing byte reads FF), only their runs are kept
+bit          pad_mode = 0;
+int unsigned ff_lo[$], ff_hi[$];
+always_ff @(posedge clk) if (mem.ram_cs && !mem.rnw) begin
+    if (pad_mode && mem.data == 8'hFF) begin
+        if (ff_hi.size() > 0 && ff_hi[$] + 1 == mem.addr) ff_hi[$] = mem.addr;
+        else begin ff_lo.push_back(mem.addr); ff_hi.push_back(mem.addr); end
+    end else ram[mem.addr] = mem.data;
+end
 
 // ------------------------------------------------------------------ helpers
 int errors = 0;
@@ -167,6 +175,53 @@ task automatic check(input string what, input int p0, input int p1, input int p2
     $display("ok   %s", what);
 endtask
 
+// ROM in the database as ASCII16-X (cart_device.json 57): the mapper in all four pages, the ROM
+// image at the start of an 8 MB flash, the rest erased, nothing else in those 8 MB
+task automatic check_ascii16x(input string what);
+    localparam int unsigned FLASH = 32'h800000;
+    logic [31:0] crc = crc32(rom);
+    MSX::block_t b;
+    int unsigned base;
+    int bad = 0, pad = 0;
+    db = {crc[7:0], crc[15:8], crc[23:16], crc[31:24], 8'd57, 8'h00, 8'h00, 8'h00};
+    download(6, db.size(), 0);
+    ram.delete(); ff_lo = {}; ff_hi = {}; pad_mode = 1;
+    download(3, rom.size(), 0);
+    wait (upload);
+    wait (!upload || error != ERR_NONE);
+    repeat (10) @(posedge clk);
+    snapshot();
+    pad_mode = 0;
+    if (error !== ERR_NONE) begin errors++; $display("FAIL %s: error %0d", what, error); return; end
+    b = slot_layout[{2'd1, 2'd0, 2'd0}];
+    base = lookup_RAM[b.ref_ram].addr;
+    for (int p = 0; p < 4; p++) begin
+        MSX::block_t q = slot_layout[{2'd1, 2'd0, 2'(p)}];
+        if (q.mapper !== MAPPER_ASCII16X || q.ref_ram !== b.ref_ram) begin
+            errors++; $display("FAIL %s: page %0d mapper %0d ref %0d", what, p, q.mapper, q.ref_ram);
+        end
+    end
+    if (lookup_RAM[b.ref_ram].size !== 17'(FLASH / 8192) || lookup_RAM[b.ref_ram].ro !== 1'b1) begin
+        errors++; $display("FAIL %s: memory size %0d x 8 kB, ro %b", what, lookup_RAM[b.ref_ram].size, lookup_RAM[b.ref_ram].ro);
+    end
+    for (int i = 0; i < rom.size(); i += 53)
+        if ((ram.exists(base + i) ? ram[base + i] : 8'hFF) !== rom[i]) bad++;
+    if (bad) begin errors++; $display("FAIL %s: %0d bytes of the image differ", what, bad); end
+    foreach (ff_lo[i])                                  // the run of FF up to the end of the flash
+        if (ff_lo[i] <= base + rom.size() && ff_hi[i] == base + FLASH - 1) pad = 1;
+    if (!pad) begin
+        errors++; $display("FAIL %s: no FF fill from %07h to %07h", what, base + rom.size(), base + FLASH - 1);
+    end
+    for (int i = 0; i < 64; i++) begin                  // other blocks lie outside the flash
+        MSX::block_t q = slot_layout[i];
+        int unsigned a = lookup_RAM[q.ref_ram].addr;
+        if (q.ref_ram !== b.ref_ram && q.mapper !== MAPPER_NONE && lookup_RAM[q.ref_ram].size != 0 && a >= base && a < base + FLASH) begin
+            errors++; $display("FAIL %s: block %0d memory %07h inside the flash", what, i, a);
+        end
+    end
+    $display("ok   %s", what);
+endtask
+
 initial begin
     string pack_name, fw_name;
     int fd, c;
@@ -207,13 +262,17 @@ initial begin
     download(6, db.size(), 0);
     check("32 kB in DB as KONAMI", 0, 0, 0, 0, MAPPER_KONAMI);
 
+    // --- ASCII16-X: flash of 8 MB with the ROM image at its start
+    make_rom(131072, 0, 16'h4010);  check_ascii16x("128 kB in DB as ASCII16-X");
+    make_rom(100000, 0, 16'h4010);  check_ascii16x("100000 B in DB as ASCII16-X");
+
     if (errors == 0) $display("PASS cart_rom_tb");
     else             $display("FAILED cart_rom_tb: %0d errors", errors);
     $finish;
 end
 
 initial begin
-    #400_000_000;
+    #900_000_000;
     $display("FAILED cart_rom_tb: timeout (upload=%b error=%0d)", upload, error);
     $finish;
 end

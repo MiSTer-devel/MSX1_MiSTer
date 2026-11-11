@@ -68,6 +68,11 @@ def process_rom(file_name):
 
 def get_mapper(file_path):
     file_size = os.path.getsize(file_path)
+
+    # ASCII16-X ROMs carry their mapper name in the header (offset 16)
+    with open(file_path, 'rb') as f:
+        if f.read(24)[16:24] == b'ASCII16X':
+            return "ASCII16-X"
     
     blocks = file_size // 16384
     if file_size % 16384 :

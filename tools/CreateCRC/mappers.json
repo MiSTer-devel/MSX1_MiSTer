@@ -37,5 +37,6 @@
   "Wizardry": [53, 0, 170, 0],
   "KoeiSRAM32": [54, 6, 0, 0],
   "GameMaster2": [55, 0, 0, 0],
-  "KonamiSCC": [56, 0, 170, 0]
+  "KonamiSCC": [56, 0, 170, 0],
+  "ASCII16-X": [57, 0, 0, 0]
 }

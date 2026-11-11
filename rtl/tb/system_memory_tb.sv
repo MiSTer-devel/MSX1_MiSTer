@@ -25,9 +25,18 @@ system_memory #(.BRAM_WIDTH(18)) dut (.clk, .memory_bus_msx(bus_msx), .memory_bu
 flash_bus_if flash_bus();
 wire  [26:0] flash_addr;
 wire   [7:0] flash_dout;
-wire         flash_req, flash_ready, flash_done;
+wire         flash_req, flash_ready, flash_done, flash_erasing;
+`ifdef OLD_FLASH                        // flash.sv / package.sv before the area bounds and the reset
 flash u_flash (.clk, .clk_sdram(clk), .flash_bus(flash_bus), .sdram_ready(flash_ready), .sdram_done(flash_done),
-               .sdram_addr(flash_addr), .sdram_din(flash_dout), .sdram_req(flash_req), .debug_erase());
+               .sdram_addr(flash_addr), .sdram_din(flash_dout), .sdram_req(flash_req), .debug_erase(flash_erasing));
+`else
+flash u_flash (.clk, .clk_sdram(clk), .reset(1'b0), .flash_bus(flash_bus), .sdram_ready(flash_ready), .sdram_done(flash_done),
+               .sdram_addr(flash_addr), .sdram_din(flash_dout), .sdram_req(flash_req), .debug_erase(flash_erasing));
+assign flash_bus.area_lo   = 23'h10000;         // MFRSD subslot 1: 4 MB from 10000h
+assign flash_bus.area_size = 24'h3FC000;
+assign flash_bus.chip      = 1'b0;
+assign flash_bus.id        = 1'b0;
+`endif
 
 // backup channel driver signals (nvram_backup style: 1-clk req pulse)
 logic [26:0] bk_addr = 0;
@@ -125,7 +134,7 @@ endtask
 task automatic flash_erase_block0(input int base);
     flash_wr(base, 32'hAAA, 8'hAA); flash_wr(base, 32'h555, 8'h55); flash_wr(base, 32'hAAA, 8'h80);
     flash_wr(base, 32'hAAA, 8'hAA); flash_wr(base, 32'h555, 8'h55); flash_wr(base, 32'h0000, 8'h30);
-    wait (u_flash.erase); wait (!u_flash.erase); cyc(4);
+    wait (flash_erasing); wait (!flash_erasing); cyc(4);
 endtask
 
 task automatic bk_write(input int a, input logic [7:0] v);

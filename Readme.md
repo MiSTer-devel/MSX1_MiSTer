@@ -37,6 +37,7 @@ The MSX1 core includes support for the following hardware modules:
 The MSX1 core supports the following ROM mapping types:
 - `ASCII8` – ASCII 8KB mapper
 - `ASCII16` – ASCII 16KB mapper
+- `ASCII16-X` – [ASCII16-X](https://www.grauw.nl/projects/ascii-x/ascii16-x/) mapper with an 8 MB flash ROM (changes are not saved)
 - `RTYPE` – R-Type mapper
 - `CrossBlaim` – Cross Blaim specific mapper
 - `generic8k` – Generic 8KB ROM mapper

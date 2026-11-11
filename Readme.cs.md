@@ -3,7 +3,7 @@
 [English](Readme.md) | **Česky**
 
 > [!CAUTION]
-> **Upozornění (WIP)**: Toto jádro je ve vývoji (**Work in Progress**). Některé součásti jsou rozpracované a mohou obsahovat ladicí výstupy nebo experimentální funkce. Některé funkce zatím nemusí fungovat stoprocentně. Nejnovější přídavky (mappery ASCII16-X, NEO-8 a NEO-16, MoonSound) nebyly vyzkoušeny na skutečném hardware a časování V99x8, R800 a řadič TC8566AF také nejsou na hardware ověřeny. Viz [Známá omezení](#známá-omezení).
+> **Upozornění (WIP)**: Toto jádro je ve vývoji (**Work in Progress**). Některé součásti jsou rozpracované a mohou obsahovat ladicí výstupy nebo experimentální funkce. Některé funkce zatím nemusí fungovat stoprocentně. Mapper ASCII16-X a MoonSound jsou přeložené a vyzkoušené na skutečném hardware. Mappery NEO-8 a NEO-16 zatím na skutečném hardware vyzkoušeny nebyly a časování V99x8, R800 a řadič TC8566AF také nejsou na hardware ověřeny. Viz [Známá omezení](#známá-omezení).
 
 ## Přehled jádra
 Jádro (na MiSTeru se stále jmenuje `MSX1`, proto složka `games/MSX1`) není přímou syntézou konkrétního počítače MSX. Poskytuje **dynamicky konfigurovatelné hardwarové prostředí**, které se za běhu sestaví z vybrané definice (*ROM PACK*). Každá definice stroje obsahuje nejen zapojení hardware, ale i příslušný **obsah ROM.** Jádro umí spustit:
@@ -168,7 +168,7 @@ OSD nabízí v **Slot1** a **Slot2** tyto typy:
 | MegaRAM ASCII-16K 2MB | jen 2 | ESE MegaRAM |
 | MegaFlashROM SCC+ SD | jen 1 | [MegaFlashROM SCC+ SD](https://www.msx.org/wiki/MegaFlashROM_SCC%2B_SD); potřebuje `mfrsd.ROM` (obraz 8 MB) v FW balíčku; SD karta přes **Load SD card** (VHD); zápisy do flash se neukládají |
 | Game Master 2 | jen 1 | [Konami Game Master 2](https://www.msx.org/wiki/Konami_Game_Master_2); potřebuje `GM2.ROM` v FW balíčku; 8 KB SRAM (neukládá se) |
-| MoonSound | 1, 2 | [MoonSound](https://www.msx.org/wiki/MoonSound) (OPL4); potřebuje `yrw801.rom` v FW balíčku; jen jeden MoonSound najednou; 4 MB SDRAM; na 1chipMSX není k dispozici; na hardware nevyzkoušeno |
+| MoonSound | 1, 2 | [MoonSound](https://www.msx.org/wiki/MoonSound) (OPL4); potřebuje `yrw801.rom` v FW balíčku; jen jeden MoonSound najednou; 4 MB SDRAM; na 1chipMSX není k dispozici |
 
 1chipMSX má vlastní volby Slot1 (Empty, MegaSCC+ 1MB) a Slot2 (Empty, MegaSCC+ 2MB, MegaRAM 1MB / 2MB) a do slotů nelze načítat ROM.
 
@@ -184,7 +184,7 @@ Jádro se integruje s MiSTerFPGA a podporuje tyto funkce platformy:
 - `Podpora SDRAM` – využívá externí SDRAM pro větší paměťové nároky
 
 ## Známá omezení
-- Větev nebyla po přidání ASCII16-X a MoonSound plně přeložena a vyzkoušena na hardware. Časování V99x8, R800 a TC8566AF není na hardware ověřeno.
+- Mappery NEO-8 a NEO-16 nejsou vyzkoušené na hardware. Časování V99x8, R800 a TC8566AF není na hardware ověřeno.
 - **Nic se neukládá trvale:** SRAM cartridge (FM-PAC, Game Master 2, KOEI, ASCII se SRAM), zápisy do flash (MegaFlashROM, ASCII16-X) a CMOS RTC se při novém načtení ztratí. Položky **SRAM Save / SRAM Load** nic nedělají. FS-A1ST nemá 16 KB SRAM svého mapperu Panasonic.
 - **Disky:** jen surové obrazy `.DSK` (720K, 640K, 360K, 320K); žádné 40stopé, 1,44 MB, XSA, D88, HFE ani DMK. WD279x Read Track je jen částečný. Cartridge FDC funguje jen ve slotu 1 a jen na strojích bez FDC; cartridge s TC8566AF neexistuje.
 - **Páska:** jen přehrávání, žádné ukládání; konec souboru se nedetekuje (po posledním bloku se přehrávají nesmyslná data).

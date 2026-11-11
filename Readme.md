@@ -3,7 +3,7 @@
 **English** | [Česky](Readme.cs.md)
 
 > [!CAUTION]
-> **WIP Notice**: This core is currently in **WIP (Work in Progress)** status. Some components are still under development and may include debug outputs or experimental features. Certain functionalities may not yet work 100% as intended. The latest additions (ASCII16-X, NEO-8 and NEO-16 mappers, MoonSound) have not been tested on real hardware, and V99x8 timing, the R800 and the TC8566AF controller are not verified on hardware either. See [Known limitations](#known-limitations).
+> **WIP Notice**: This core is currently in **WIP (Work in Progress)** status. Some components are still under development and may include debug outputs or experimental features. Certain functionalities may not yet work 100% as intended. The ASCII16-X mapper and the MoonSound have been built and tested on real hardware. The NEO-8 and NEO-16 mappers have not been tested on real hardware yet, and V99x8 timing, the R800 and the TC8566AF controller are not verified on hardware either. See [Known limitations](#known-limitations).
 
 ## Core Overview
 The core (its MiSTer name is still `MSX1`, hence the folder `games/MSX1`) is not a direct synthesis of a specific MSX computer model. Instead, it provides a **dynamically configurable hardware environment** that is built at run time from a selected definition (a *ROM PACK*). Each machine definition includes not only the hardware setup but also the corresponding **ROM binary content.** The core can run:
@@ -168,7 +168,7 @@ The OSD offers the following types in **Slot1** and **Slot2**:
 | MegaRAM ASCII-16K 2MB | 2 only | ESE MegaRAM |
 | MegaFlashROM SCC+ SD | 1 only | [MegaFlashROM SCC+ SD](https://www.msx.org/wiki/MegaFlashROM_SCC%2B_SD); needs `mfrsd.ROM` (8 MB image) in the FW pack; SD card via **Load SD card** (VHD); flash writes are not saved |
 | Game Master 2 | 1 only | [Konami Game Master 2](https://www.msx.org/wiki/Konami_Game_Master_2); needs `GM2.ROM` in the FW pack; 8 KB SRAM (not saved) |
-| MoonSound | 1, 2 | [MoonSound](https://www.msx.org/wiki/MoonSound) (OPL4); needs `yrw801.rom` in the FW pack; only one MoonSound at a time; 4 MB SDRAM; not available on the 1chipMSX; untested on hardware |
+| MoonSound | 1, 2 | [MoonSound](https://www.msx.org/wiki/MoonSound) (OPL4); needs `yrw801.rom` in the FW pack; only one MoonSound at a time; 4 MB SDRAM; not available on the 1chipMSX |
 
 The 1chipMSX has its own Slot1 (Empty, MegaSCC+ 1MB) and Slot2 (Empty, MegaSCC+ 2MB, MegaRAM 1MB / 2MB) options and cannot load ROMs into the slots.
 
@@ -184,7 +184,7 @@ The core integrates with MiSTerFPGA and supports the following features provided
 - `SDRAM support` – utilizes external SDRAM for extended memory requirements
 
 ## Known Limitations
-- The branch has not been fully built and tested on hardware after the ASCII16-X and MoonSound additions. V99x8 timing, the R800 and the TC8566AF are not verified on hardware.
+- The NEO-8 and NEO-16 mappers are not tested on hardware. V99x8 timing, the R800 and the TC8566AF are not verified on hardware.
 - **Nothing is persistent:** cartridge SRAM (FM-PAC, Game Master 2, KOEI, ASCII with SRAM), flash writes (MegaFlashROM, ASCII16-X) and the RTC CMOS are lost on reload. The **SRAM Save / SRAM Load** items do nothing. The FS-A1ST lacks the 16 KB SRAM of its Panasonic mapper.
 - **Disks:** only raw `.DSK` images (720K, 640K, 360K, 320K); no 40-track, 1.44 MB, XSA, D88, HFE or DMK. WD279x Read Track is partial. The FDC cartridge works only in slot 1 and only in machines without an FDC; there is no TC8566AF cartridge.
 - **Tape:** playback only, no saving; the end of the file is not detected (garbage is played after the last block).

@@ -136,6 +136,10 @@ module memory_upload
 
     state_t state = STATE_IDLE;
     logic   restart = 1'b0;         // a load request waits for STATE_IDLE to start the upload
+    // The machine's own FDC wins over an FDC cartridge on the same position: the load starts
+    // again with cartridge A left out (fdc_cart_off, until the next load request).
+    logic   fdc_cart_off  = 1'b0;
+    logic   fdc_cart_used = 1'b0;   // the FDC of this load came from the cartridge
     state_t next_state = STATE_IDLE;
     pattern_t pattern;
     logic [26:0] ram_addr;
@@ -319,6 +323,7 @@ module memory_upload
                 STATE_IDLE: begin
                     block_num           <= '0;
                     ddr3_request        <= restart;
+                    fdc_cart_used       <= '0;
                     ref_add             <= '0;
                     ref_sram_add        <= '0;
                     ref_sram            <= '0;
@@ -605,7 +610,9 @@ module memory_upload
                             state      <= STATE_READ_CONF;
                             $display("BLOCK CART ID:%d CONF:%x", conf[3][0], cart_conf[conf[3][0]].typ);
                             cart_id    <= conf[3][0];
-                            if (cart_conf[conf[3][0]].typ == CART_TYP_ROM) begin
+                            if (fdc_cart_off && !conf[3][0]) begin
+                                $display("BLOCK CART 0 LEFT OUT: the machine has its own FDC");
+                            end else if (cart_conf[conf[3][0]].typ == CART_TYP_ROM) begin
                                 if (ioctl_size[conf[3][0] ? size_ROM_B : size_ROM_A] > '0) begin
                                     $display("BLOCK CART %d LOAD START ref: %d addr:%x size:%x - %x", conf[3][0], ref_ram, ram_addr, ioctl_size[conf[3][0] ? size_ROM_B : size_ROM_A], ioctl_size[conf[3][0] ? size_ROM_B : size_ROM_A][26:14]);
                                     ram_we                   = 1'b1;
@@ -660,6 +667,13 @@ module memory_upload
                                     device      <= DEV_NONE;
                                     last_device <= DEV_NONE;
                                     $display("FDC %x NOT IN THIS BUILD (cartridge %0d, position %0d)", device_t'(conf[3]), fw_space ? cart_id + 1 : 0, fdc_pos);
+                                end else if (fdc_busy && (fw_space || fdc_cart_used) && !fdc_cart_off) begin
+                                    restart      <= 1'b1;                            // machine FDC + FDC cartridge:
+                                    state        <= STATE_IDLE;                      // again without the cartridge
+                                    fdc_cart_off <= 1'b1;
+                                    device       <= DEV_NONE;
+                                    last_device  <= DEV_NONE;
+                                    $display("FDC %x: POSITION %0d HAS AN FDC, LOAD AGAIN WITHOUT CARTRIDGE A", device_t'(conf[3]), fdc_pos);
                                 end else if (fdc_busy) begin                         // one FDC per position
                                     error       <= ERR_FDC_PRESENT;
                                     state       <= STATE_IDLE;
@@ -675,6 +689,7 @@ module memory_upload
                                     io_ref_mapper         <= current_io_ref_mapper == '0 ? io_ref_mapper + 3'd1 : io_ref_mapper;
                                     current_io_ref_mapper <= current_io_ref_mapper == '0 ? io_ref_mapper : current_io_ref_mapper;
                                     last_device_num       <= fdc_pos;
+                                    if (fw_space) fdc_cart_used <= 1'b1;
                                     $display("BLOCK IO_DEVICE[%x][%x] FDC enable: 1 param:%x reference %d", device_t'(conf[3]), fdc_pos, conf[4], current_io_ref_mapper == '0 ? io_ref_mapper : current_io_ref_mapper);
                                 end
                             end else if (dev_slot_free) begin                       // first free synthesized copy
@@ -929,8 +944,9 @@ module memory_upload
         // takes all working registers to their start values. After the state machine, so that
         // it wins over the transition of this step.
         if (load) begin
-            restart <= 1'b1;
-            state   <= STATE_IDLE;
+            restart      <= 1'b1;
+            state        <= STATE_IDLE;
+            fdc_cart_off <= 1'b0;
         end
 
         // table and io_device writes of this step

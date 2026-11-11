@@ -22,6 +22,9 @@
 //   only the error is compared and the streams are taken over from the reference. The next
 //   load is not compared either: the reference finished the load the new module stopped and
 //   carries registers of it (device, last_device_num) into the next one;
+// - machine FDC + FDC cartridge A with N_FDC = 1: the new module loads again without
+//   cartridge A; the error, the machine FDC at 0 and its drives are compared, the rest is
+//   skipped as after a stop;
 // - otherwise the FDC of reference position 2 (internal) is at 0, of position 0 (cartridge A)
 //   at 1 with N_FDC = 2, else at 0; msx_config.fdd moves with it.
 // The FDC records are counted in the reference (tb_fdc_rec, tb_load_start: run_mu_equiv.sh).
@@ -172,7 +175,7 @@ always_ff @(posedge clk) begin
 end
 
 // ------------------------------------------------------------------ compare
-int    errors = 0, compares = 0, limit_stops = 0, after_stop = 0;
+int    errors = 0, compares = 0, limit_stops = 0, after_stop = 0, cart_drops = 0;
 bit    stopped = 0;
 bit    strict = 0;
 MSX::block_t      nlay[64];
@@ -190,6 +193,13 @@ function automatic int ones3(input logic [2:0] m);
     return int'(m[0]) + int'(m[1]) + int'(m[2]);
 endfunction
 
+// Machine FDC and FDC cartridge A on the one position: the machine FDC wins
+function automatic bit cart_fdc_dropped();
+    return MSX::N_FDC == 1 && fdc_rec == 2 &&
+           (dev_r[DEV_WD2793][0].enable || dev_r[DEV_TC8566AF][0].enable) &&
+           (dev_r[DEV_WD2793][2].enable || dev_r[DEV_TC8566AF][2].enable);
+endfunction
+
 // The reference result breaks a limit of this build
 function automatic bit over_limit();
     logic [2:0] fdc_at;
@@ -203,6 +213,7 @@ function automatic bit over_limit();
     for (int p = 0; p < 3; p++) fdc_at[p] = dev_r[DEV_WD2793][p].enable || dev_r[DEV_TC8566AF][p].enable;
     if (fdc_at[1]) return 1;                                            // cartridge B
     npos = int'(fdc_at[0]) + int'(fdc_at[2]);
+    if (cart_fdc_dropped()) return 0;
     if (MSX::N_FDC == 1 ? fdc_rec > 1 : fdc_rec > npos) return 1;       // two FDCs at one position
     if (dev_r[DEV_TC8566AF][2].enable && !MSX::dev_slots(DEV_TC8566AF)[0]) return 1;
     if (dev_r[DEV_TC8566AF][0].enable && !MSX::dev_slots(DEV_TC8566AF)[MSX::N_FDC > 1 ? 1 : 0]) return 1;
@@ -217,6 +228,19 @@ task automatic compare();
         limit_stops++;
         stopped = 1;
         `CMP("error (limit)", err_n == ERR_MISSING_SOURCE || err_n == ERR_FDC_PRESENT, 1'b1)
+        mh_n = mh_r; mc_n = mc_r; kh_n = kh_r; kc_n = kc_r; lsc_n = lsc_r; rsc_n = rsc_r;
+        return;
+    end
+    if (cart_fdc_dropped()) begin
+        cart_drops++;
+        stopped = 1;
+        `CMP("error (machine FDC wins)", err_n, err_r)
+        // device_ref follows the record order, which the second load changes
+        `CMP("WD2793[0] (machine FDC wins)", {dev_n[DEV_WD2793][0].enable, dev_n[DEV_WD2793][0].param},
+                                            {dev_r[DEV_WD2793][2].enable, dev_r[DEV_WD2793][2].param})
+        `CMP("TC8566AF[0] (machine FDC wins)", {dev_n[DEV_TC8566AF][0].enable, dev_n[DEV_TC8566AF][0].param},
+                                              {dev_r[DEV_TC8566AF][2].enable, dev_r[DEV_TC8566AF][2].param})
+        `CMP("msx_config.fdd (machine FDC wins)", cfg_n.fdd, {4'd0, cfg_r.fdd[5:4]})
         mh_n = mh_r; mc_n = mc_r; kh_n = kh_r; kc_n = kc_r; lsc_n = lsc_r; rsc_n = rsc_r;
         return;
     end
@@ -465,7 +489,7 @@ initial begin
         end
     end
 
-    $write("%s mu_equiv seed %0d: %0d compares, %0d differences, %0d limit stops (%0d next loads skipped); errors seen:", errors ? "FAIL" : "PASS", seed, compares, errors, limit_stops, after_stop);
+    $write("%s mu_equiv seed %0d: %0d compares, %0d differences, %0d limit stops, %0d FDC cartridges left out (%0d next loads skipped); errors seen:", errors ? "FAIL" : "PASS", seed, compares, errors, limit_stops, cart_drops, after_stop);
     for (int i = 0; i < 16; i++) if (stat_err[i] > 0) $write(" %0d x%0d", i, stat_err[i]);
     $display("");
     $finish;

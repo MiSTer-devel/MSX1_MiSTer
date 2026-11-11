@@ -339,6 +339,27 @@ initial begin
     download(1, pack.size(), 1);
     if (error != ERR_NONE) begin $display("FAILED cart_rom_tb: pack error %0d", error); $finish; end
 
+    // --- optional: a real ROM file with a real database file (+realrom= +realdb=), report only
+    begin
+        string rr, rd;
+        if ($value$plusargs("realrom=%s", rr) && $value$plusargs("realdb=%s", rd)) begin
+            fd = $fopen(rd, "rb"); while ((c = $fgetc(fd)) != -1) db.push_back(8'(c));  $fclose(fd);
+            download(6, db.size(), 0);
+            fd = $fopen(rr, "rb"); while ((c = $fgetc(fd)) != -1) rom.push_back(8'(c)); $fclose(fd);
+            $display("real ROM %0d B CRC32 %08h, DB %0d B", rom.size(), crc32(rom), db.size());
+            download(3, rom.size(), 0);
+            wait (upload);
+            wait (!upload || error != ERR_NONE);
+            repeat (10) @(posedge clk);
+            snapshot();
+            for (int p = 0; p < 4; p++)
+                $display("REAL page %0d: mapper %0d sram %0d", p, slot_layout[{2'd1, 2'd0, 2'(p)}].mapper,
+                         lookup_SRAM[0].size);
+            $display("REAL error %0d", error);
+            $finish;
+        end
+    end
+
     // --- no database loaded
     make_rom(16384, 0, 16'h4010);  check("16 kB, INIT 4010h, no DB", -1, 0, -1, -1);
     make_rom(16384, 0, 16'h8010);  check("16 kB, INIT 8010h, no DB", -1, -1, 0, -1);

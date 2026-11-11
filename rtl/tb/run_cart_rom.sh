@@ -5,6 +5,7 @@
 #   OLD=<git rev or file>: memory_upload.sv of that revision (a file for a git worktree, whose
 #                          gitdir WSL may not read)
 #   ALT=<file>: another memory_upload.sv with the ports of the current one
+#   EXTRA="+realrom=<file> +realdb=<vampier.db>": report how a real ROM is found and mapped
 #   TOP=<git rev>: OSD load addresses from MSX1.sv of that revision (default: working tree)
 set -e
 PACK=$(realpath "$1"); FW=$(realpath "$2")
@@ -25,5 +26,5 @@ verilator --binary --timing -O3 -Wno-fatal -Wno-lint -Wno-style $DEF \
     --top-module cart_rom_tb -Mdir "$OUT" \
     ../package.sv "$MU" ../peripheral/ddram.sv ../lib/crc32.sv cart_rom_tb.sv \
     > "$OUT/build.log" 2>&1 || { grep -E '%Error' "$OUT/build.log" | head -20; exit 1; }
-"$OUT/Vcart_rom_tb" +pack="$PACK" +fw="$FW" $ADDRS | grep -E "^(ok|FAIL|PASS|FAILED|NOT FIND|NO CRC|FIND|DDR3)"
+"$OUT/Vcart_rom_tb" +pack="$PACK" +fw="$FW" $ADDRS $EXTRA | grep -E "^(ok|FAIL|PASS|FAILED|NOT FIND|NO CRC|FIND|DDR3|REAL|real)"
 rm -rf "$OUT"

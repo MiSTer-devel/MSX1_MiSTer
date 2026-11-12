@@ -212,7 +212,9 @@ def create_msx_config_block(slot, subslot, blocks, outfile, files_with_sha1, con
                     if 'size' in attributes:
                         file_size = convert_to_int(attributes['size'])
                     
-                    params[0] = (file_size + 16383) // 16384
+                    blocks = (file_size + 16383) // 16384           # 16 kB units, low and high byte
+                    params[0] = blocks & 0xFF
+                    params[1] = blocks >> 8
                     add_block_type_to_file(address, typ, params, outfile, constants)
 
                     with open(filename, 'rb') as source_file:

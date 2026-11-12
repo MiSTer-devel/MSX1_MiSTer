@@ -10,7 +10,7 @@ The core (its MiSTer name is still `MSX1`, hence the folder `games/MSX1`) is not
 
 - **MSX1** machines (TMS9918 family VDP),
 - **MSX2** machines (Yamaha V9938, RTC, memory mapper),
-- the **MSX turbo R** Panasonic FS-A1ST (V9958, S1990, R800 mode – see [Known limitations](#known-limitations) for its speed),
+- the **MSX turbo R** Panasonic FS-A1ST and FS-A1GT (V9958, S1990, R800 mode – see [Known limitations](#known-limitations) for its speed),
 - the **1chipMSX** (OCM-PLD style, MSX2+ class, V9958), which loads its BIOS from an SD card image.
 
 For full functionality, the core also relies on an **extension module configuration** (the *FW PACK*), which includes additional ROM binaries. It is **independent of any specific MSX model**, allowing support for:
@@ -20,17 +20,17 @@ For full functionality, the core also relies on an **extension module configurat
 The third configuration file is a **CRC32-based ROM database** (the *DB MAPPERS*), which maps known ROM checksums to their correct mapper types. This allows the core to automatically select the appropriate ROM mapper for each loaded image.
 
 ## Supported MSX Models
-**[Supported MSX models](ComputersModel.md)** – 224 machine definitions from 36 manufacturers:
+**[Supported MSX models](ComputersModel.md)** – 225 machine definitions from 36 manufacturers:
 
 | Generation | Machines |
 |---|---|
 | MSX1 | 135 (124 with a TMS99xx VDP, 11 with a V9938 and an MSX1 BIOS) |
 | MSX2 | 80 |
 | MSX2+ | 7 |
-| MSX turbo R | 1 (Panasonic FS-A1ST; the FS-A1GT is not supported) |
+| MSX turbo R | 2 (Panasonic FS-A1ST, FS-A1GT) |
 | 1chipMSX / OCM (MSX2+ class) | 1 |
 
-Ten openMSX machines need hardware the core does not have yet; they are listed at the end of the model list. The ROM dumps of the machines are not part of this repository; see [Getting started](#getting-started).
+Nine openMSX machines need hardware the core does not have yet; they are listed at the end of the model list. The ROM dumps of the machines are not part of this repository; see [Getting started](#getting-started).
 
 ## Getting Started
 The core needs **at least a machine pack** (ROM PACK). Everything else depends on what you want to run. Put the files on the MiSTer SD card into `/media/fat/games/MSX1/`:
@@ -57,15 +57,15 @@ In short: install **Python 3**, put the ROM binaries into the `ROM` directory of
 The core also runs **without the SDRAM add-on board**, but only for smaller configurations. It has 256 KB of memory inside the FPGA. Everything the machine needs is stored there first: its ROMs, its RAM, then the cartridges in slots A and B. Only what does not fit goes to the SDRAM.
 
 **Works without SDRAM:**
-- **189 of the 224 machines**: almost all MSX1 machines and most MSX2 machines with 64 or 128 KB of RAM (e.g. Philips VG 8020, NMS 8245/8250, VG 8235, Sony HB-F1, HB-F9P).
+- **189 of the 225 machines**: almost all MSX1 machines and most MSX2 machines with 64 or 128 KB of RAM (e.g. Philips VG 8020, NMS 8245/8250, VG 8235, Sony HB-F1, HB-F9P).
 - Cartridges, as long as they fit into the rest of the 256 KB. The rest is about **160 KB** on a typical MSX1 (64 KB RAM) and about **64 KB** on a typical MSX2 (128 KB RAM). A cartridge takes the size of its ROM, plus its SRAM or RAM: FM-PAC 72 KB, Game Master 2 136 KB, SCC+ 128 KB.
 
 **Needs SDRAM:**
-- These 35 machines (a Kanji ROM, 256 KB or more of RAM, or large built-in software):
+- These 36 machines (a Kanji ROM, 256 KB or more of RAM, or large built-in software):
   - MSX1: National FS-4000, Sony HB-11, Al Alamiah AX230
   - MSX2: Daewoo CPC-400S, Hitachi MB-H70, Mitsubishi ML-G30 (both models), National FS-4500, FS-4600F, FS-4700F, FS-5000F2, FS-5500F1, FS-5500F2, Panasonic FS-A1F, Al Alamiah AX370, Sony HB-F700D/F/P/S, HB-F900, HB-G900AP, HB-T600, Yamaha AX350II, AX350IIF, AX500, YIS-805/256
   - MSX2+: Panasonic FS-A1FX, FS-A1WX, FS-A1WSX, Sanyo PHC-35J, PHC-70FD, PHC-70FD2, CIEL Expert Turbo
-  - MSX turbo R: Panasonic FS-A1ST; and the 1chipMSX
+  - MSX turbo R: Panasonic FS-A1ST, FS-A1GT; and the 1chipMSX
 - MoonSound, MegaFlashROM SCC+ SD, ASCII16-X, MegaRAM and MegaSCC.
 - Any ROM cartridge bigger than the free space: most MegaROM games on an MSX2, ROMs of 256 KB and more on any machine.
 
@@ -209,10 +209,10 @@ The core integrates with MiSTerFPGA and supports the following features provided
 - `SDRAM support` – optional; needed for the bigger machines and cartridges, see [Without the SDRAM module](#without-the-sdram-module)
 
 ## Known Limitations
-- **Nothing is persistent:** cartridge SRAM (FM-PAC, Game Master 2, KOEI, ASCII with SRAM), flash writes (MegaFlashROM, ASCII16-X) and the RTC CMOS are lost on reload. The **SRAM Save / SRAM Load** items do nothing. The FS-A1ST lacks the 16 KB SRAM of its Panasonic mapper.
+- **Nothing is persistent:** cartridge SRAM (FM-PAC, Game Master 2, KOEI, ASCII with SRAM), flash writes (MegaFlashROM, ASCII16-X) and the RTC CMOS are lost on reload. The **SRAM Save / SRAM Load** items do nothing. The FS-A1ST and FS-A1GT lack the SRAM of their Panasonic mapper (16 / 32 KB).
 - **Disks:** only raw `.DSK` images (720K, 640K, 360K, 320K); no 40-track, 1.44 MB, XSA, D88, HFE or DMK. WD279x Read Track is partial. The FDC cartridge works only in slot 1 and only in machines without an FDC; there is no TC8566AF cartridge.
 - **Tape:** playback only, no saving; the end of the file is not detected (garbage is played after the last block).
-- **R800:** the turbo R runs at about 2x the Z80 speed instead of the real 4x (R800 timings are not modelled); no turbo R microphone, no FS-A1GT.
+- **R800:** the turbo R runs at about 2x the Z80 speed instead of the real 4x (R800 timings are not modelled); no turbo R microphone.
 - **ROMs:** a ROM over 64 KB needs an entry in the database, there is no mapper detection from the ROM header. Konami SCC ROM mirrors are not done.
 - **V99x8:** sprites in the overscan and the FH window in text modes are not done. The VDP speed and volume settings of the 1chipMSX are stored without effect.
 - **1chipMSX:** no MoonSound, no special keys PrintScreen/ScrollLock (Pause is the general machine pause).

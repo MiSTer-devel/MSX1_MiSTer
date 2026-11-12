@@ -7,6 +7,7 @@
 // +fw=<CART_FW_EN.msx>: FW pack (needed for cartridge types other than ROM), +status=<hex>: OSD.
 // Run: wsl.exe -- bash rtl/tb/run_ocm_boot.sh <1chipMSX.msx> <OCM-BIOS.rom>
 module ocm_boot_tb;
+localparam int unsigned FW_BASE = MSX::DDR3_FW_PACK, DB_BASE = MSX::DDR3_DB;   // DDR3 areas
 
 // clk_sdram = 4x clk_core, phase aligned (as the PLL)
 logic clk_sdram = 0, clk_core = 0;
@@ -99,7 +100,7 @@ always_ff @(posedge clk_core) begin
         for (int b = 0; b < 8; b++) begin
             int unsigned a = {ddr_rd_addr[24:0], 3'(b)};
             DDRAM_DOUT[8*b +: 8] <= (a < pack.size()) ? pack[a] :
-                                    (a >= 32'h300000 && a - 32'h300000 < fw.size()) ? fw[a - 32'h300000] : 8'hFF;
+                                    (a >= FW_BASE && a - FW_BASE < fw.size()) ? fw[a - FW_BASE] : 8'hFF;
         end
         DDRAM_DOUT_READY <= 1'b1;
         ddr_wait <= -1;

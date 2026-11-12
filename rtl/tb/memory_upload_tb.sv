@@ -1,12 +1,13 @@
 // memory_upload: loads an MSX pack (createComp.py output) from a DDR3 model through
 // ddram, prints the resulting tables and checks the OCM configuration
 // (tools/CreateMSXpack/Computer/OCM/1chipMSX.xml).
-// Optional FW pack (createDev.py output, DDR 300000h) and cartridge type of slot 2:
+// Optional FW pack (createDev.py output, DDR MSX::DDR3_FW_PACK) and cartridge type of slot 2:
 // +fw=<CART_FW_EN.msx> +cartb=<cart_typ_t>.
 // OCM has no cartridge slots: slots 1 and 2 hold the internal ESE-SCC / MegaRAM (machine
 // blocks, pages 1-2, 1 MB / 2 MB RAM, mapper MEGARAM, own SCC), independent of FW and cartb.
 // Run: wsl.exe -- bash rtl/tb/run_memory_upload.sh <pack.msx> <ocm_iplrom.rom> [fw.msx cartb]
 module memory_upload_tb;
+localparam int unsigned FW_BASE = MSX::DDR3_FW_PACK, DB_BASE = MSX::DDR3_DB;   // DDR3 areas
 
 logic clk = 0;
 always #1 clk = ~clk;
@@ -46,7 +47,7 @@ always_ff @(posedge clk) begin
         for (int b = 0; b < 8; b++) begin
             int unsigned a = {rd_addr[24:0], 3'(b)};
             DDRAM_DOUT[8*b +: 8] <= (a < pack.size()) ? pack[a] :
-                                    (a >= 32'h300000 && a - 32'h300000 < fw.size()) ? fw[a - 32'h300000] : 8'hFF;
+                                    (a >= FW_BASE && a - FW_BASE < fw.size()) ? fw[a - FW_BASE] : 8'hFF;
         end
         DDRAM_DOUT_READY <= 1'b1;
         rd_wait <= -1;

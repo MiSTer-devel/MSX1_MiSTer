@@ -89,7 +89,7 @@ Potomci, každý nejvýše jednou na blok (kromě `<device>`, který se smí opa
 
 | Potomek | Atributy a obsah | Účinek |
 |---|---|---|
-| `<memory>ROM</memory>` | `SHA1` (malá hexadecimální písmena, povinný), `filename` (informativní, vypíše se ve zprávě „not found“), `skip` a `size` (bajty, desítkově nebo hexadecimálně, vyříznou úsek z dumpu), `exactFilename` (cesta, obchází hledání podle SHA1; podporováno, nepoužito) | blok ROM. V packu je doplněn FF na násobek 16 kB (ceil(size/16 kB) musí být nejvýše 255) |
+| `<memory>ROM</memory>` | `SHA1` (malá hexadecimální písmena, povinný), `filename` (informativní, vypíše se ve zprávě „not found“), `skip` a `size` (bajty, desítkově nebo hexadecimálně, vyříznou úsek z dumpu), `exactFilename` (cesta, obchází hledání podle SHA1; podporováno, nepoužito) | blok ROM. V packu je doplněn FF na násobek 16 kB |
 | `<memory>RAM</memory>` | `size` (bajty, výchozí = stránky x 16 kB), `pattern` (výplň, výchozí 1) | blok RAM. 4 MB se kóduje jako 0. Vzory výplně: 1 = FF, 2 = 00, 3/4/5 = pruhy jako po zapnutí DRAM (0 = „data z DDR“, pro RAM nepoužívat). Počítače používají 1, 2, 3, 4 |
 | `<shared_memory>` | text `ROM` = jen pro čtení, cokoli jiného čtení/zápis; `slot`, `subslot`, `block` (zdroj), `offset`, `size` (bajty) | okno do paměti jiného bloku. Zdrojový blok už musí v packu existovat. K `offset` viz úskalí v oddíle 6 |
 | `<mapper>NAME</mapper>` | název z `mapper.json`; volitelný `param` 0-3 | záznam MAPPER. `param` používá jen `DRAM` (která 16kB stránka horních 64 kB RAM). Blok ROM bez mapperu je v jádře lineární (`MAPPER_OFFSET`) |
@@ -305,7 +305,7 @@ Hodnota položky OSD se převede na `cart_typ_t` v `rtl/msx_config.sv` a zavadě
 | Typ bloku | Název | Parametry (createComp) |
 |---|---|---|
 | 0 | RAM | p0 = velikost/16 kB (0 = 256 = 4 MB), p1 = vzor výplně |
-| 1 | ROM | p0 = ceil(velikost/16 kB); následují data |
+| 1 | ROM | p0, p1 = ceil(velikost/16 kB), dolní a horní bajt; následují data |
 | 2 | SRAM | jen FW pack |
 | 3 | DEVICE | p0 = id zařízení, p1 = param |
 | 4 | MAPPER | p0 = id mapperu, p1 = (param&3)<<2 |

@@ -527,8 +527,8 @@ package MSX;
     // DDR3 areas of the OSD files, offset from 0x30000000 (ddram.sv). The HPS writes a file
     // whole at its address: the load addresses in CONF_STR (MSX1.sv) must be these.
     // Map and sizes: doc/konfigurace.md "Oblasti v DDR3".
-    localparam logic [27:0] DDR3_ROM_PACK = 28'h0000000;   //  3 MB
-    localparam logic [27:0] DDR3_FW_PACK  = 28'h0300000;   // 19 MB
+    localparam logic [27:0] DDR3_ROM_PACK = 28'h0000000;   //  8 MB  (FS-A1GT 4.5 MB)
+    localparam logic [27:0] DDR3_FW_PACK  = 28'h0800000;   // 14 MB
     localparam logic [27:0] DDR3_DB       = 28'h1600000;   //  1 MB  mapper database (CRC32)
     localparam logic [27:0] DDR3_CAS      = 28'h1700000;   //  9 MB
     localparam logic [27:0] DDR3_ROM_A    = 28'h2000000;   // 16 MB

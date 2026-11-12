@@ -10,7 +10,7 @@ Jádro (na MiSTeru se stále jmenuje `MSX1`, proto složka `games/MSX1`) není p
 
 - stroje **MSX1** (VDP řady TMS9918),
 - stroje **MSX2** (Yamaha V9938, RTC, paměťový mapper),
-- **MSX turbo R** Panasonic FS-A1ST (V9958, S1990, režim R800 – jeho rychlost viz [Známá omezení](#známá-omezení)),
+- **MSX turbo R** Panasonic FS-A1ST a FS-A1GT (V9958, S1990, režim R800 – jeho rychlost viz [Známá omezení](#známá-omezení)),
 - **1chipMSX** (ve stylu OCM-PLD, třída MSX2+, V9958), který zavádí BIOS z obrazu SD karty.
 
 Pro plnou funkci jádro potřebuje také **konfiguraci rozšiřujících modulů** (*FW PACK*) s dalšími ROM. Je **nezávislá na konkrétním modelu MSX** a umožňuje:
@@ -20,17 +20,17 @@ Pro plnou funkci jádro potřebuje také **konfiguraci rozšiřujících modulů
 Třetím konfiguračním souborem je **databáze ROM podle CRC32** (*DB MAPPERS*), která známým kontrolním součtům přiřazuje správný typ mapperu. Jádro tak pro každý načtený obraz ROM samo vybere vhodný mapper.
 
 ## Podporované modely MSX
-**[Podporované modely MSX](ComputersModel.cs.md)** – 224 definic strojů od 36 výrobců:
+**[Podporované modely MSX](ComputersModel.cs.md)** – 225 definic strojů od 36 výrobců:
 
 | Generace | Strojů |
 |---|---|
 | MSX1 | 135 (124 s VDP TMS99xx, 11 s V9938 a BIOSem MSX1) |
 | MSX2 | 80 |
 | MSX2+ | 7 |
-| MSX turbo R | 1 (Panasonic FS-A1ST; FS-A1GT není podporován) |
+| MSX turbo R | 2 (Panasonic FS-A1ST, FS-A1GT) |
 | 1chipMSX / OCM (třída MSX2+) | 1 |
 
-Deset strojů z openMSX potřebuje hardware, který jádro zatím nemá; jsou vypsané na konci seznamu modelů. Obrazy ROM strojů nejsou součástí tohoto repozitáře, viz [Začínáme](#začínáme).
+Devět strojů z openMSX potřebuje hardware, který jádro zatím nemá; jsou vypsané na konci seznamu modelů. Obrazy ROM strojů nejsou součástí tohoto repozitáře, viz [Začínáme](#začínáme).
 
 ## Začínáme
 Jádro potřebuje **alespoň balíček stroje** (ROM PACK). Zbytek závisí na tom, co chcete spustit. Soubory dejte na SD kartu MiSTeru do `/media/fat/games/MSX1/`:
@@ -57,15 +57,15 @@ Stručně: nainstalujte **Python 3**, ROM dejte do adresáře `ROM` v `tools/Cre
 Jádro běží i **bez přídavné desky SDRAM**, ale jen v menších sestavách. Uvnitř FPGA má 256 KB paměti. Tam se ukládá nejdřív vše, co stroj potřebuje: jeho ROM, jeho RAM a pak cartridge ve slotech A a B. Teprve to, co se nevejde, jde do SDRAM.
 
 **Bez SDRAM funguje:**
-- **189 z 224 strojů**: téměř všechny MSX1 a většina MSX2 s 64 nebo 128 KB RAM (např. Philips VG 8020, NMS 8245/8250, VG 8235, Sony HB-F1, HB-F9P).
+- **189 z 225 strojů**: téměř všechny MSX1 a většina MSX2 s 64 nebo 128 KB RAM (např. Philips VG 8020, NMS 8245/8250, VG 8235, Sony HB-F1, HB-F9P).
 - Cartridge, pokud se vejdou do zbytku z 256 KB. Zbývá asi **160 KB** u běžného MSX1 (64 KB RAM) a asi **64 KB** u běžného MSX2 (128 KB RAM). Cartridge zabere velikost své ROM a k tomu svou SRAM nebo RAM: FM-PAC 72 KB, Game Master 2 136 KB, SCC+ 128 KB.
 
 **Potřebuje SDRAM:**
-- Těchto 35 strojů (ROM s kanji, 256 KB RAM a víc nebo velký vestavěný software):
+- Těchto 36 strojů (ROM s kanji, 256 KB RAM a víc nebo velký vestavěný software):
   - MSX1: National FS-4000, Sony HB-11, Al Alamiah AX230
   - MSX2: Daewoo CPC-400S, Hitachi MB-H70, Mitsubishi ML-G30 (oba modely), National FS-4500, FS-4600F, FS-4700F, FS-5000F2, FS-5500F1, FS-5500F2, Panasonic FS-A1F, Al Alamiah AX370, Sony HB-F700D/F/P/S, HB-F900, HB-G900AP, HB-T600, Yamaha AX350II, AX350IIF, AX500, YIS-805/256
   - MSX2+: Panasonic FS-A1FX, FS-A1WX, FS-A1WSX, Sanyo PHC-35J, PHC-70FD, PHC-70FD2, CIEL Expert Turbo
-  - MSX turbo R: Panasonic FS-A1ST; a 1chipMSX
+  - MSX turbo R: Panasonic FS-A1ST, FS-A1GT; a 1chipMSX
 - MoonSound, MegaFlashROM SCC+ SD, ASCII16-X, MegaRAM a MegaSCC.
 - Každá ROM cartridge větší než volné místo: většina her MegaROM na MSX2, ROM od 256 KB na jakémkoli stroji.
 
@@ -209,10 +209,10 @@ Jádro se integruje s MiSTerFPGA a podporuje tyto funkce platformy:
 - `Podpora SDRAM` – volitelná; potřebují ji větší stroje a cartridge, viz [Bez modulu SDRAM](#bez-modulu-sdram)
 
 ## Známá omezení
-- **Nic se neukládá trvale:** SRAM cartridge (FM-PAC, Game Master 2, KOEI, ASCII se SRAM), zápisy do flash (MegaFlashROM, ASCII16-X) a CMOS RTC se při novém načtení ztratí. Položky **SRAM Save / SRAM Load** nic nedělají. FS-A1ST nemá 16 KB SRAM svého mapperu Panasonic.
+- **Nic se neukládá trvale:** SRAM cartridge (FM-PAC, Game Master 2, KOEI, ASCII se SRAM), zápisy do flash (MegaFlashROM, ASCII16-X) a CMOS RTC se při novém načtení ztratí. Položky **SRAM Save / SRAM Load** nic nedělají. FS-A1ST a FS-A1GT nemají SRAM svého mapperu Panasonic (16 / 32 KB).
 - **Disky:** jen surové obrazy `.DSK` (720K, 640K, 360K, 320K); žádné 40stopé, 1,44 MB, XSA, D88, HFE ani DMK. WD279x Read Track je jen částečný. Cartridge FDC funguje jen ve slotu 1 a jen na strojích bez FDC; cartridge s TC8566AF neexistuje.
 - **Páska:** jen přehrávání, žádné ukládání; konec souboru se nedetekuje (po posledním bloku se přehrávají nesmyslná data).
-- **R800:** turbo R běží zhruba 2x rychleji než Z80 místo skutečných 4x (časování R800 není modelováno); chybí mikrofon turbo R, FS-A1GT.
+- **R800:** turbo R běží zhruba 2x rychleji než Z80 místo skutečných 4x (časování R800 není modelováno); chybí mikrofon turbo R.
 - **ROM:** ROM nad 64 KB potřebuje záznam v databázi, mapper se z hlavičky ROM nerozpoznává. Zrcadla ROM Konami SCC nejsou hotová.
 - **V99x8:** chybí sprity v overscanu a okno FH v textových režimech. Nastavení rychlosti VDP a hlasitosti na 1chipMSX se ukládají bez účinku.
 - **1chipMSX:** bez MoonSound, bez zvláštních kláves PrintScreen/ScrollLock (Pause je obecná pauza stroje).

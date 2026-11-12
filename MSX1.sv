@@ -96,7 +96,7 @@ localparam CONF_STR = {
    "-;",
    // load addresses = MSX::DDR3_* (package.sv)
    "FC1,MSX,Load ROM PACK,30000000;",
-   "FC2,MSX,Load FW  PACK,30300000;",
+   "FC2,MSX,Load FW  PACK,30800000;",
    "FC6,DB,Load DB MAPPERS,31600000;",
    "-;",
    // drives of FDC position 0 (internal FDC or FDC cartridge in slot A); N_FDC = 2 would add

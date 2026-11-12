@@ -16,12 +16,14 @@ REF=${REF:-2451995}
 [ -n "$DUT" ] && DUT=$(realpath "$DUT")
 cd "$(dirname "$0")"
 OUT=$(mktemp -d)
-# reference: old copy limits (3, SCC 2), its FDC block device records for the tb, the
-# SRAM of a ROM cartridge in the entry of its slot (C9; it had entry 0 for slots A and B),
-# and the file size without the 1 hps_io adds at the end of a download (1532a1ed)
+# reference: old copy limits (3, SCC 2), its FW pack address (now MSX::DDR3_FW_PACK), its FDC
+# block device records for the tb, the SRAM of a ROM cartridge in the entry of its slot (C9; it
+# had entry 0 for slots A and B), and the file size without the 1 hps_io adds at the end of a
+# download (1532a1ed)
 if [ -f "$REF" ]; then cat "$REF"; else git -C .. show "$REF:rtl/memory_upload.sv"; fi |
     sed "s/ref_sram                 <= 2'd0;/ref_sram                 <= conf[3][0] ? 2'd2 : 2'd1;/" |
     sed "s/conf\[3\]\[0\] ? 28'h1100000 : 28'hC00000;/conf[3][0] ? MSX::DDR3_ROM_B : MSX::DDR3_ROM_A;/" |
+    sed "s/28'h300010 + /MSX::DDR3_FW_PACK + 28'h10 + /g; s/{4'b0, 4'h3, conf\[2\]\[3:0\], conf\[1\], conf\[0\]}/MSX::DDR3_FW_PACK + {8'b0, conf[2][3:0], conf[1], conf[0]}/g" |
     sed "s/if ((ref_sram == 2'd0 \&\& lookup_SRAM\[ref_sram\].size == '0) || ref_sram != 2'd0) begin/if (ref_sram != 2'd0) begin/" |
     sed 's/^module memory_upload\r\?$/module memory_upload_ref/' |
     sed "s/\(ioctl_size\[size_[A-Z_]*\] <= \)ioctl_addr;/\1ioctl_addr - 27'd1;/" |
@@ -32,6 +34,7 @@ grep -q "^module memory_upload_ref" "$OUT/memory_upload_ref.sv" || { echo "refer
 grep -q "lookup_SRAM\[ref_sram\].size == '0" "$OUT/memory_upload_ref.sv" && { echo "reference C9 patch did not apply"; exit 1; }
 grep -q "28'hC00000" "$OUT/memory_upload_ref.sv" && { echo "reference ROM address patch did not apply"; exit 1; }
 [ "$(grep -c "<= ioctl_addr - 27'd1;" "$OUT/memory_upload_ref.sv")" = 5 ] || { echo "reference file size patch did not apply"; exit 1; }
+grep -q "28'h300010\|4'h3, conf" "$OUT/memory_upload_ref.sv" && { echo "reference FW address patch did not apply"; exit 1; }
 verilator --binary --timing -O3 -Wno-fatal -Wno-lint -Wno-style \
     --top-module mu_equiv_tb -Mdir "$OUT" \
     ../package.sv "${DUT:-../memory_upload.sv}" "$OUT/memory_upload_ref.sv" ../peripheral/ddram.sv ../lib/crc32.sv mu_equiv_tb.sv \

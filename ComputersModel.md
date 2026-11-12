@@ -4,14 +4,14 @@
 
 Back to the [Readme](Readme.md).
 
-The core is not tied to one computer: each machine below is a definition (an XML file in `tools/CreateMSXpack/Computer/`) that is turned into a ROM PACK (`.msx`). There are **224 definitions** from 36 manufacturers:
+The core is not tied to one computer: each machine below is a definition (an XML file in `tools/CreateMSXpack/Computer/`) that is turned into a ROM PACK (`.msx`). There are **225 definitions** from 36 manufacturers:
 
 | Generation | Count |
 |---|---|
 | MSX1 | 135 (124 with a TMS99xx VDP, 11 with a V9938 and an MSX1 BIOS) |
 | MSX2 | 80 |
 | MSX2+ | 7 |
-| MSX turbo R | 1 |
+| MSX turbo R | 2 |
 | 1chipMSX / OCM (MSX2+ class) | 1 |
 
 158 of them were added in November 2026 by converting the openMSX machine descriptions
@@ -200,6 +200,7 @@ Notes on the tables:
 | FS-A1FX | MSX2+ | Japanese MSX2+ with a disk drive and built-in software, no MSX-MUSIC. | V9958, 64 KB mapper, RTC, Kanji ROM, TC8566AF FDC + 1 drive, A1 Cockpit ROM, not emulated: 5.37 MHz turbo and firmware SRAM |
 | FS-A1MK2 | MSX2 | Basic Japanese MSX2, the FS-A1 with a numeric keypad. | 64 KB RAM, RTC, A1 Cockpit 1, A1 Cockpit 2, A1 Cockpit 3 ROM |
 | [FS-A1ST](https://www.msx.org/wiki/Panasonic_FS-A1ST) | turbo R | The first MSX turbo R: R800, MSX-MUSIC, PCM, MSX-DOS2, drive and software. R800 runs at about 2x Z80 speed (see [Readme](Readme.md#known-limitations)). | V9958, 256 KB RAM, R800/S1990, MSX-MUSIC, PCM, RTC, Kanji ROM, TC8566AF FDC + 1 drive |
+| [FS-A1GT](https://www.msx.org/wiki/Panasonic_FS-A1GT) | turbo R | The last MSX turbo R: the FS-A1ST with 512 KB RAM, MSX-MIDI and more built-in software (MSX-View). R800 runs at about 2x Z80 speed (see [Readme](Readme.md#known-limitations)). | V9958, 512 KB RAM, R800/S1990, MSX-MUSIC, PCM, MSX-MIDI, RTC, Kanji ROM, TC8566AF FDC + 1 drive, not emulated: SRAM of the firmware |
 | FS-A1WSX | MSX2+ | Successor of the FS-A1WX: MSX2+ with MSX-MUSIC, disk drive and built-in software. | V9958, 64 KB mapper, RTC, MSX-MUSIC, Kanji ROM, TC8566AF FDC + 1 drive, firmware ROM, not emulated: 5.37 MHz turbo and firmware SRAM |
 | FS-A1WX | MSX2+ | Japanese MSX2+ with MSX-MUSIC, disk drive and built-in software. | V9958, 64 KB mapper, RTC, MSX-MUSIC, Kanji ROM, TC8566AF FDC + 1 drive, firmware ROM, not emulated: 5.37 MHz turbo and firmware SRAM |
 
@@ -404,5 +405,4 @@ These openMSX machines need hardware the core does not have yet:
 | Victor HC-90A, HC-95A | Victor floppy controller wiring, system control register 7FFD |
 | Panasonic FS-A1FM | FS-A1FM firmware and modem mappers |
 | Sony HB-F1XDJ, HB-F1XV | Halnote mapper (MSX-JE firmware) |
-| Panasonic FS-A1GT | 4 MB firmware ROM (the pack format holds up to 4080 KB per ROM), MSX-MIDI |
 | Aucnet NIA-2001 | MSX-DOS2 ROM mapper |

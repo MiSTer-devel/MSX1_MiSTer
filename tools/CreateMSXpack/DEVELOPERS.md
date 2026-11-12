@@ -89,7 +89,7 @@ Children, each at most once per block (except `<device>`, which may repeat, e.g.
 
 | Child | Attributes and content | Effect |
 |---|---|---|
-| `<memory>ROM</memory>` | `SHA1` (lowercase hex, required), `filename` (informational, printed in the "not found" message), `skip` and `size` (bytes, decimal or hex, cut a slice from the dump), `exactFilename` (path, bypasses the SHA1 lookup; supported, unused) | ROM block. Stored in the pack padded with FF to a multiple of 16 kB (ceil(size/16 kB) must be at most 255) |
+| `<memory>ROM</memory>` | `SHA1` (lowercase hex, required), `filename` (informational, printed in the "not found" message), `skip` and `size` (bytes, decimal or hex, cut a slice from the dump), `exactFilename` (path, bypasses the SHA1 lookup; supported, unused) | ROM block. Stored in the pack padded with FF to a multiple of 16 kB |
 | `<memory>RAM</memory>` | `size` (bytes, default = pages x 16 kB), `pattern` (fill, default 1) | RAM block. 4 MB is encoded as 0. Fill patterns: 1 = FF, 2 = 00, 3/4/5 = DRAM power-on stripes (0 = "data from DDR", do not use for RAM). Machines use 1, 2, 3, 4 |
 | `<shared_memory>` | text `ROM` = read-only, anything else read/write; `slot`, `subslot`, `block` (source), `offset`, `size` (bytes) | a window into another block's memory. The source block must already exist in the pack. See the `offset` pitfall in section 6 |
 | `<mapper>NAME</mapper>` | name from `mapper.json`; optional `param` 0-3 | MAPPER record. `param` is used only by `DRAM` (which 16 kB page of the top 64 kB RAM). A ROM block without a mapper is linear (`MAPPER_OFFSET`) in the core |
@@ -305,7 +305,7 @@ The OSD item value is converted to `cart_typ_t` in `rtl/msx_config.sv`, and the 
 | Block type | Name | Parameters (createComp) |
 |---|---|---|
 | 0 | RAM | p0 = size/16 kB (0 = 256 = 4 MB), p1 = fill pattern |
-| 1 | ROM | p0 = ceil(size/16 kB); data follows |
+| 1 | ROM | p0, p1 = ceil(size/16 kB) low and high byte; data follows |
 | 2 | SRAM | FW pack only |
 | 3 | DEVICE | p0 = device id, p1 = param |
 | 4 | MAPPER | p0 = mapper id, p1 = (param&3)<<2 |

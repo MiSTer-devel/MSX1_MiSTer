@@ -4,14 +4,14 @@
 
 Zpět na [Readme](Readme.cs.md).
 
-Jádro není svázáno s jedním počítačem: každý stroj níže je definice (soubor XML v `tools/CreateMSXpack/Computer/`), která se převede na ROM PACK (`.msx`). Je zde **224 definic** od 36 výrobců:
+Jádro není svázáno s jedním počítačem: každý stroj níže je definice (soubor XML v `tools/CreateMSXpack/Computer/`), která se převede na ROM PACK (`.msx`). Je zde **225 definic** od 36 výrobců:
 
 | Generace | Počet |
 |---|---|
 | MSX1 | 135 (124 s VDP TMS99xx, 11 s V9938 a BIOSem MSX1) |
 | MSX2 | 80 |
 | MSX2+ | 7 |
-| MSX turbo R | 1 |
+| MSX turbo R | 2 |
 | 1chipMSX / OCM (třída MSX2+) | 1 |
 
 158 z nich přibylo v listopadu 2026 převodem popisů strojů z openMSX (`share/machines`).
@@ -200,6 +200,7 @@ Poznámky k tabulkám:
 | FS-A1FX | MSX2+ | Japonský MSX2+ s disketovou mechanikou a vestavěným softwarem, bez MSX-MUSIC. | V9958, mapper 64 KB, RTC, Kanji ROM, FDC TC8566AF + 1 mechanika, ROM A1 Cockpit, chybí: turbo 5,37 MHz a SRAM firmwaru |
 | FS-A1MK2 | MSX2 | Základní japonský MSX2, FS-A1 s numerickou klávesnicí. | 64 KB RAM, RTC, ROM A1 Cockpit 1, A1 Cockpit 2, A1 Cockpit 3 |
 | [FS-A1ST](https://www.msx.org/wiki/Panasonic_FS-A1ST) | turbo R | První MSX turbo R: R800, MSX-MUSIC, PCM, MSX-DOS2, mechanika a software. R800 běží zhruba 2x rychleji než Z80 (viz [Readme](Readme.cs.md#známá-omezení)). | V9958, 256 KB RAM, R800/S1990, MSX-MUSIC, PCM, RTC, Kanji ROM, FDC TC8566AF + 1 mechanika |
+| [FS-A1GT](https://www.msx.org/wiki/Panasonic_FS-A1GT) | turbo R | Poslední MSX turbo R: FS-A1ST s 512 KB RAM, MSX-MIDI a dalším vestavěným softwarem (MSX-View). R800 běží zhruba 2x rychleji než Z80 (viz [Readme](Readme.cs.md#známá-omezení)). | V9958, 512 KB RAM, R800/S1990, MSX-MUSIC, PCM, MSX-MIDI, RTC, Kanji ROM, FDC TC8566AF + 1 mechanika, neemulováno: SRAM firmwaru |
 | FS-A1WSX | MSX2+ | Nástupce FS-A1WX: MSX2+ s MSX-MUSIC, disketovou mechanikou a vestavěným softwarem. | V9958, mapper 64 KB, RTC, MSX-MUSIC, Kanji ROM, FDC TC8566AF + 1 mechanika, ROM firmware, chybí: turbo 5,37 MHz a SRAM firmwaru |
 | FS-A1WX | MSX2+ | Japonský MSX2+ s MSX-MUSIC, disketovou mechanikou a vestavěným softwarem. | V9958, mapper 64 KB, RTC, MSX-MUSIC, Kanji ROM, FDC TC8566AF + 1 mechanika, ROM firmware, chybí: turbo 5,37 MHz a SRAM firmwaru |
 
@@ -404,5 +405,4 @@ Tyto stroje z openMSX potřebují hardware, který jádro zatím nemá:
 | Victor HC-90A, HC-95A | zapojení řadiče disket Victor, systémový registr 7FFD |
 | Panasonic FS-A1FM | mappery firmwaru a modemu FS-A1FM |
 | Sony HB-F1XDJ, HB-F1XV | mapper Halnote (firmware MSX-JE) |
-| Panasonic FS-A1GT | ROM firmwaru 4 MB (formát packu unese nejvýš 4080 KB na ROM), MSX-MIDI |
 | Aucnet NIA-2001 | ROM mapper MSX-DOS2 |

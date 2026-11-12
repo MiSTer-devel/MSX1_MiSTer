@@ -25,6 +25,7 @@ module tape
 	input           play,
 	input           rewind,
 	input 			enable,
+	input   [26:0]  size,           // file size in bytes, 0 = unknown (plays on past the end)
 	output  logic [27:0]	ram_a,
 	input   [7:0]   ram_di,
 	output  logic     ram_rd,
@@ -37,6 +38,7 @@ module tape
 // LSB first, 2 stop bits 1. Each CAS block (8-byte header in DDR3) is sent as
 // a sync of ones followed by the data up to the next header; silence before the first.
 // Headers may start at any byte (not every CAS file pads blocks to 8 bytes).
+// After the last byte of the file the output goes silent.
 
 typedef enum
 {
@@ -57,7 +59,10 @@ logic [63:0] win      = '0;
 logic  [3:0] win_cnt  = 4'd0;
 logic        rd_pend  = 1'b0;     // read of ram_a issued, byte not taken yet
 
-wire        sig      = win_cnt == 4'd8 && win == CAS_HEADER;
+wire [27:0] end_a     = MSX::DDR3_CAS + {1'b0, size};
+wire        at_end    = size != '0 && ram_a == end_a;     // nothing more to fetch
+wire        win_ready = win_cnt == 4'd8 || at_end;        // look-ahead complete
+wire        sig       = win_cnt == 4'd8 && win == CAS_HEADER;
 logic [1:0] cnt      = 2'h0;      // phase of the current bit
 logic       ce_baud  = 1'b0;
 logic [3:0] byte_pos = 4'd0;      // bits left in byte_out, 0 = load next byte
@@ -67,12 +72,15 @@ logic [10:0] counter = '0;
 
 // Next byte is a sync byte (all ones) during the sync and when the next header is reached
 wire sync_byte = state == STATE_PLAY_SYNC || (state == STATE_PLAY_DATA && sig);
-wire consume   = state == STATE_PLAY_DATA && byte_pos == 0 && ~sig;   // win[7:0] goes out
-wire skip      = (state == STATE_PLAY_DATA && byte_pos == 0 && sig) || (state == STATE_SEARCH && sig);
+wire data_turn = state == STATE_PLAY_DATA && byte_pos == 0 && win_ready;
+wire consume   = data_turn && ~sig && win_cnt != 4'd0;                // win[7:0] goes out
+wire skip      = (data_turn && sig) || (state == STATE_SEARCH && sig);
+// a data frame waits for a complete window; at the end of the file nothing is loaded
+wire load      = byte_pos == 0 && (state != STATE_PLAY_DATA || (win_ready && (sig || win_cnt != 4'd0)));
 wire fetching  = state == STATE_SEARCH || state == STATE_PLAY_SILENT || state == STATE_PLAY_SYNC || state == STATE_PLAY_DATA;
 
-logic       out_en = 1'b0;      // output_on taken at a bit boundary: no partial first pulse
-assign cas_out = output_bit & output_on & out_en;
+logic       out_en = 1'b0;      // output_on taken at a bit boundary: no partial first or last bit
+assign cas_out = output_bit & out_en;
 
 // Player: finds the first header, then keeps the window full and drops each header from it
 always_ff @(posedge clk) begin
@@ -94,7 +102,7 @@ always_ff @(posedge clk) begin
 				win_cnt <= win_cnt + 1'd1;
 				ram_a   <= ram_a + 1'd1;
 				rd_pend <= 0;
-			end else if (win_cnt != 4'd8) begin
+			end else if (win_cnt != 4'd8 && ~at_end) begin
 				ram_rd  <= 1;
 				rd_pend <= 1;
 			end
@@ -114,7 +122,7 @@ always_ff @(posedge clk) begin
 				end
 			STATE_SEARCH:
 				begin
-					if (win_cnt == 4'd8) begin
+					if (win_ready) begin
 						if (sig) begin
 							state <= STATE_PLAY_SILENT;
 							counter <= 1000;
@@ -144,9 +152,14 @@ always_ff @(posedge clk) begin
 				end
 			STATE_PLAY_DATA:
 				begin
-					if (sig && byte_pos == 0) begin
-						state <= STATE_PLAY_SYNC;
-						counter <= 1454;
+					if (data_turn) begin
+						if (sig) begin
+							state <= STATE_PLAY_SYNC;
+							counter <= 1454;
+						end else if (win_cnt == 4'd0) begin   // end of the file
+							output_on <= 0;
+							state <= STATE_SLEEP;
+						end
 					end
 				end
 			default: ;
@@ -154,14 +167,15 @@ always_ff @(posedge clk) begin
 	end
 end
 
-// Serializer: loads a frame when empty, shifts at the start of each bit
+// Serializer: loads a frame when empty, shifts at the start of each bit.
+// Shifts in ones: while a frame waits, the line stays at 1 (like extra stop bits).
 logic [10:0] byte_out = '1;
 always_ff @(posedge clk) begin
-	if (byte_pos == 0) begin
+	if (load) begin
 		byte_out <= sync_byte ? 11'b11111111111 : {2'b11, win[7:0], 1'b0};
 		byte_pos <= 4'd11;
-	end else if (cnt == 0 && ce_baud) begin
-		byte_out <= {1'b0, byte_out[10:1]};
+	end else if (byte_pos != 0 && cnt == 0 && ce_baud) begin
+		byte_out <= {1'b1, byte_out[10:1]};
 		byte_pos <= byte_pos - 1'b1;
 	end
 end

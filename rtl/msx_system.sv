@@ -333,6 +333,10 @@ always_ff @(posedge clock_bus.clk) begin
    ioctl_download_last <= ioctl_isCAS;
 end
 
+// File size: sent by HPS at the start of a download straight into DDR3, held in ioctl_addr
+logic [26:0] cas_size = '0;
+always_ff @(posedge clock_bus.clk) if (ioctl_isCAS) cas_size <= ioctl_addr;
+
 tape cass
 (
    .clk(clock_bus.clk),
@@ -344,7 +348,8 @@ tape cass
    .buff_mem_ready(ddr3_ready),
    .play(~motor & cas_load),
    .rewind(status[9] | ioctl_isCAS | reset),
-   .enable(cas_load)
+   .enable(cas_load),
+   .size(cas_size)
 );
 
 /////////////////   FLOPPY DRIVES   /////////////////

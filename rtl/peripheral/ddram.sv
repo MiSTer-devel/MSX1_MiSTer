@@ -49,16 +49,20 @@ module ddram (
 
 typedef enum logic [1:0] {INIT, IDLE, READ} state_t;
 
+// A request is latched when it arrives and issued once DDRAM_BUSY (Avalon waitrequest)
+// is low: a request during BUSY used to be lost while ready stayed 1.
 logic   old_rd, old_we;
 logic   rd_rq, wr_rq, cache_en;
+logic   rd_pend = 0, wr_pend = 0;
 logic  [7:0] cached;
 logic  [7:0] ram_q;
 logic [27:0] ram_address;
 logic [63:0] ram_cache;
+logic  [7:0] wr_data;
 
 state_t state;
 
-assign ready      = state == IDLE || DDRAM_BUSY;
+assign ready      = state == IDLE && ~rd_pend && ~wr_pend;
 assign dout     = ram_q;
 assign dout64   = ram_cache;
 
@@ -76,13 +80,29 @@ begin
 	old_rd <= rd;
 	old_we <= we;
 
-	if(old_reset && ~reset) begin
-		state  <= INIT;
-		cached <= 0;
+	// latch requests: a read hit is served at once, a miss or a write waits for the bus
+	if(wr_rq) begin
+		wr_pend                            <= 1;
+		wr_data                            <= din;
+		ram_cache[{addr[2:0], 3'b000} +:8] <= din;
+		ram_address                        <= addr;
+		cached                             <= ((ram_address[27:3] == addr[27:3]) ? cached : 8'h00) | (8'd1<<addr[2:0]);
+	end
+	else if(rd_rq) begin
+		if(cache_en) ram_q <= ram_cache[{addr[2:0], 3'b000} +:8];
+		else begin
+			rd_pend     <= 1;
+			cached      <= 0;
+			ram_address <= addr;
+		end
 	end
 
-	if(rd_rq && cache_en) begin
-		ram_q <= ram_cache[{addr[2:0], 3'b000} +:8];
+	// read data may arrive while BUSY is high
+	if(state == READ && DDRAM_DOUT_READY) begin
+		ram_q     <= DDRAM_DOUT[{ram_address[2:0], 3'b000} +:8];
+		ram_cache <= DDRAM_DOUT;
+		cached    <= 8'hFF;
+		state     <= IDLE;
 	end
 
 	if(!DDRAM_BUSY) begin
@@ -94,38 +114,32 @@ begin
 					state <= IDLE;
 			end
 			IDLE: begin
-				if(wr_rq) begin
-					DDRAM_BURSTCNT                     <= 1;
-					DDRAM_WE 	                       <= 1;
-					DDRAM_BE                           <= (8'd1<<addr[2:0]);			
-					DDRAM_DIN[{addr[2:0], 3'b000} +:8] <= din;				
-					DDRAM_ADDR                         <= {4'b0011, addr[27:3]}; // RAM at 0x30000000
-
-					ram_cache[{addr[2:0], 3'b000} +:8] <= din;
-					ram_address                        <= addr;			
-					cached                             <= ((ram_address[27:3] == addr[27:3]) ? cached : 8'h00) | (8'd1<<addr[2:0]);
+				if(wr_pend) begin
+					wr_pend                                   <= 0;
+					DDRAM_BURSTCNT                            <= 1;
+					DDRAM_WE                                  <= 1;
+					DDRAM_BE                                  <= (8'd1<<ram_address[2:0]);
+					DDRAM_DIN[{ram_address[2:0], 3'b000} +:8] <= wr_data;
+					DDRAM_ADDR                                <= {4'b0011, ram_address[27:3]}; // RAM at 0x30000000
 				end
-
-				if(rd_rq && ~cache_en) begin
+				else if(rd_pend) begin
+					rd_pend        <= 0;
 					DDRAM_BURSTCNT <= 1;
 					DDRAM_RD       <= 1;
 					DDRAM_BE       <= 8'hFF;
-					DDRAM_ADDR     <= {4'b0011, addr[27:3]}; // RAM at 0x30000000
+					DDRAM_ADDR     <= {4'b0011, ram_address[27:3]}; // RAM at 0x30000000
 					state          <= READ;
-					cached         <= 0;
-					ram_address    <= addr;
 				end
-			end
-			READ: begin
-				if(DDRAM_DOUT_READY) begin
-					ram_q     <= DDRAM_DOUT[{ram_address[2:0], 3'b000} +:8];
-					ram_cache <= DDRAM_DOUT;
-					cached    <= 8'hFF;
-					state     <= IDLE;
-				end	
 			end
 			default: ;
 		endcase
+	end
+
+	if(old_reset && ~reset) begin
+		state   <= INIT;
+		cached  <= 0;
+		rd_pend <= 0;
+		wr_pend <= 0;
 	end
 end
 

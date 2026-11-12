@@ -3,16 +3,20 @@
 // frame = start 0, 8 data bits LSB first, 2 stop bits 1).
 // Blocks are split as openMSX does: a header may start at any byte, not only at
 // a multiple of 8. Checks: silence before the first block, sync of ones before each
-// block, data bytes of each block exactly as in the image, pulse widths.
-// Run: wsl.exe -- bash rtl/peripheral/tb/run_tape.sh [alt_tape.sv]
+// block, data bytes of each block exactly as in the image, pulse widths, silence after
+// the end of the file. The DDR3 model is randomly busy (Avalon waitrequest).
+// Run: wsl.exe -- bash rtl/peripheral/tb/run_tape.sh [alt_tape.sv]   (DDRAM=alt_ddram.sv)
 //      +cas=<file> plays a real CAS image, +blocks=<n> limits the checked blocks
-//      (default: all of the synthetic image, 4 of a real one)
+//      (default: all of the synthetic image, 4 of a real one); +nosize: size 0 (unknown);
+//      +nobusy: DDR3 never busy
 module tape_tb;
 
 localparam int PHASE = 560;              // clk per phase with ce_5m3 = 1 (4 phases per bit)
 localparam int LAT   = 7;                // DDR3 read latency in clk
 
 logic clk = 0, reset = 1, rewind = 1;
+logic [26:0] size = '0;                  // CAS file size from the download
+logic        busy_en = 1, DDRAM_BUSY = 0;
 always #1 clk = ~clk;
 
 // ------------------------------------------------------------------ DUT + ddram
@@ -21,7 +25,7 @@ wire   [7:0] ram_di;
 wire         ram_rd, ram_ready, cas_out;
 
 tape dut (
-    .clk(clk), .ce_5m3(1'b1), .play(1'b1), .rewind(rewind), .enable(1'b1),
+    .clk(clk), .ce_5m3(1'b1), .play(1'b1), .rewind(rewind), .enable(1'b1), .size(size),
     .ram_a(ram_a), .ram_di(ram_di), .ram_rd(ram_rd),
     .buff_mem_ready(ram_ready), .cas_out(cas_out)
 );
@@ -32,7 +36,7 @@ logic [63:0] DDRAM_DOUT, DDRAM_DIN;
 logic        DDRAM_DOUT_READY = 0, DDRAM_RD, DDRAM_WE;
 
 ddram ddr (
-    .reset(reset), .DDRAM_CLK(clk), .DDRAM_BUSY(1'b0), .DDRAM_BURSTCNT(DDRAM_BURSTCNT),
+    .reset(reset), .DDRAM_CLK(clk), .DDRAM_BUSY(DDRAM_BUSY), .DDRAM_BURSTCNT(DDRAM_BURSTCNT),
     .DDRAM_ADDR(DDRAM_ADDR), .DDRAM_DOUT(DDRAM_DOUT), .DDRAM_DOUT_READY(DDRAM_DOUT_READY),
     .DDRAM_RD(DDRAM_RD), .DDRAM_DIN(DDRAM_DIN), .DDRAM_BE(DDRAM_BE), .DDRAM_WE(DDRAM_WE),
     .addr(ram_a), .dout(ram_di), .din(8'h00), .we(1'b0), .rd(ram_rd), .ready(ram_ready),
@@ -104,6 +108,8 @@ initial begin
     end else
         build_synthetic();
     split_blocks();
+    if (!$test$plusargs("nosize")) size = 27'(image.size());
+    if ($test$plusargs("nobusy")) busy_en = 0;
     nb_check = exp_len.size();
     void'($value$plusargs("blocks=%d", nb));
     if (nb_check > nb) nb_check = nb;
@@ -112,12 +118,14 @@ initial begin
     $display("");
 end
 
-// DDR3 model: one 64-bit word per read, after LAT clk; outside the image 00
+// DDR3 model: one 64-bit word per read, after LAT clk; outside the image 00.
+// Busy at random (also while a read is in flight); a read is taken only when not busy.
 logic [28:0] rd_addr;
 int          rd_wait = -1;
 always_ff @(posedge clk) begin
     DDRAM_DOUT_READY <= 1'b0;
-    if (DDRAM_RD) begin rd_addr <= DDRAM_ADDR; rd_wait <= LAT; end
+    DDRAM_BUSY <= busy_en && $urandom_range(3) == 0;
+    if (DDRAM_RD && !DDRAM_BUSY) begin rd_addr <= DDRAM_ADDR; rd_wait <= LAT; end
     else if (rd_wait > 0) rd_wait <= rd_wait - 1;
     else if (rd_wait == 0) begin
         for (int b = 0; b < 8; b++) begin
@@ -131,7 +139,7 @@ end
 
 // ------------------------------------------------------------------ decoder
 int errors = 0;
-int t = 0, t_rise = 0;
+int t = 0, t_rise = 0, t_edge = 0;
 int first_rise = -1;
 logic out_q = 0;
 int half_ones = 0;                       // short high pulses (half of a "1")
@@ -168,6 +176,7 @@ endtask
 always_ff @(posedge clk) begin
     t <= t + 1;
     out_q <= cas_out;
+    if (cas_out != out_q) t_edge <= t;
     if (cas_out && !out_q) begin
         if (first_rise < 0) first_rise <= t;
         t_rise <= t;
@@ -191,6 +200,7 @@ end
 initial begin
     longint limit;
     int last;
+    bit at_eof;
     repeat (10) @(posedge clk);
     reset = 0;
     repeat (10) @(posedge clk);
@@ -199,10 +209,16 @@ initial begin
     limit = 2_000_000;
     for (int k = 0; k < nb_check; k++) limit += longint'(16_000 + 11 * exp_len[k]) * 4 * PHASE;
     last = nb_check - 1;
-    // wait until the last checked block has its data plus a margin (or the next sync)
+    // wait until the last checked block has its data, then 20 bytes more (next sync,
+    // or silence at the end of the file)
     while (!(got_start.size() > nb_check ||
-             (got_start.size() == nb_check && got_len(last) >= exp_len[last] + 2)) && t < limit)
+             (got_start.size() == nb_check && got_len(last) >= exp_len[last])) && t < limit)
         @(posedge clk);
+    repeat (20 * 11 * 4 * PHASE) @(posedge clk);
+    at_eof = nb_check == exp_len.size() && size != 0;
+    if (at_eof && t - t_edge < 10 * 11 * 4 * PHASE) begin
+        errors++; $display("FAIL signal goes on after the end of the file (last edge %0d clk ago)", t - t_edge);
+    end
 
     if (first_rise < 900 * PHASE) begin
         errors++; $display("FAIL no silence before the first block: first edge at %0d clk", first_rise);
@@ -215,8 +231,8 @@ initial begin
         end
         n = got_len(k);
         if (max_run[k] < 8000) begin errors++; $display("FAIL block %0d: sync only %0d ones", k, max_run[k]); end
-        // a block ends exactly where the next sync starts; the last one may be followed by 00
-        if (k < nb_check - 1 || nb_check < exp_len.size() ? n != exp_len[k] : n < exp_len[k]) begin
+        // a block ends where the next sync or the file ends; without size the last one goes on
+        if ((k < nb_check - 1 || nb_check < exp_len.size() || size != 0) ? n != exp_len[k] : n < exp_len[k]) begin
             errors++; $display("FAIL block %0d: %0d bytes, expected %0d", k, n, exp_len[k]);
         end
         for (int i = 0, e = 0; i < exp_len[k] && i < n; i++)

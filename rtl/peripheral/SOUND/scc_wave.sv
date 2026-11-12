@@ -128,8 +128,12 @@ end
 
 // tone generator (openMSX SCC::generateChannels): a step every period + 1 ticks. A period of
 // 8 or less holds the channel at its position. A frequency write restarts the current byte.
+logic [11:0] ff_cnt[5];
+logic  [4:0] ff_new;            // the channel takes a new sample: step or frequency write
+always_comb
+   for (int i = 0; i < 5; i++) ff_new[i] = clkena & (ff_wr[i] | (reg_per[i] > 12'd8 & ff_cnt[i] == 12'd0));
+
 always @(posedge clk) begin
-   logic [11:0] ff_cnt[5];
    if (reset) begin
       ff_ptr <= '{ 5'd0,  5'd0,  5'd0,  5'd0,  5'd0};
       ff_cnt <= '{12'd0, 12'd0, 12'd0, 12'd0, 12'd0};
@@ -192,6 +196,28 @@ wire [2:0] ram_wave        = wave5_rd ? 3'd4 : adr[7:5] > 3'd4 ? 3'd4 : adr[7:5]
 wire [4:0] ram_shift       = ~wrt & rotate[ram_wave] ? rot_shift[ram_wave] : 5'd0;
 wire [7:0] ram_adr_rot     = {ram_adr[7:5], ram_adr[4:0] + ram_shift};
 
+// Channel output latch (openMSX out[]): wave x volume is taken when the channel takes a new
+// sample (ff_new). A volume change or a write to the sample being played waits for it; a
+// disabled channel outputs 0 and stays silent after enabling until its next sample.
+// lat_req is taken with the wave address (ff_ch_num) and follows the data (ff_lat2).
+logic  [4:0] lat_req;
+logic        ff_lat1, ff_lat2;
+logic signed [11:0] out_mul[5];
+
+always @(posedge clk) begin
+   if (reset) begin
+      lat_req <= 5'd0;
+      ff_lat1 <= 1'b0;
+      ff_lat2 <= 1'b0;
+   end else begin
+      for (int i = 0; i < 5; i++)
+         if (ff_new[i])                lat_req[i] <= 1'b1;
+         else if (ff_ch_num == 3'(i))  lat_req[i] <= 1'b0;
+      ff_lat1 <= ff_ch_num <= 3'd4 ? lat_req[ff_ch_num] : 1'b0;
+      ff_lat2 <= ff_lat1;
+   end
+end
+
 // delay signal
 always @(posedge clk) begin
    if (reset) begin
@@ -204,9 +230,19 @@ always @(posedge clk) begin
 end
 
 wire [2:0] ff_ch_num_dl_sel = ff_ch_num_dl - 3'd1;
-wire       w_ch_bit         = ff_ch_num_dl_sel > 3'd4 ? 1'b0        : reg_ch_sel[ff_ch_num_dl_sel];
-wire [3:0] w_ch_vol         = ff_ch_num_dl_sel > 3'd4 ? 4'b0        : reg_vol[ff_ch_num_dl_sel];
-wire [7:0] w_wave           = w_ch_bit                ? ff_wave_dat : 8'd0;
+wire       w_sel_ok         = ff_ch_num_dl_sel <= 3'd4;
+wire [2:0] w_sel            = w_sel_ok ? ff_ch_num_dl_sel : 3'd0;
+wire       w_ch_bit         = w_sel_ok & reg_ch_sel[w_sel];
+wire [3:0] w_ch_vol         = reg_vol[w_sel];
+wire signed [11:0] w_out    = ~w_ch_bit ? 12'sd0 : ff_lat2 ? w_mul : out_mul[w_sel];
+
+always @(posedge clk) begin
+   if (reset)
+      out_mul <= '{12'sd0, 12'sd0, 12'sd0, 12'sd0, 12'sd0};
+   else if (w_sel_ok)
+      if (~w_ch_bit)    out_mul[w_sel] <= 12'sd0;
+      else if (ff_lat2) out_mul[w_sel] <= w_mul;
+end
 
 
 always @(posedge clk) begin
@@ -227,7 +263,7 @@ always @(posedge clk) begin
       if (ff_ch_num_dl == 3'd0)
          ff_mix <= 15'd0;
       else
-         ff_mix <= {w_mul[11], w_mul[11], w_mul[11], w_mul} + ff_mix;
+         ff_mix <= {w_out[11], w_out[11], w_out[11], w_out} + ff_mix;
 end
 
 // wave out
@@ -277,7 +313,7 @@ wave_ram wavemem
 wire signed [11:0] w_mul;
 scc_wave_mul u_mul
 (
-   .a(w_wave),
+   .a(ff_wave_dat),
    .b(w_ch_vol),
    .c(w_mul)
 );

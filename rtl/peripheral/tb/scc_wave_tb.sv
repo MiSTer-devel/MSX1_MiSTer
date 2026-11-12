@@ -107,6 +107,11 @@ module scc_wave_tb;
         else          ok($sformatf("%s: read %02h = %02h", name, a, d));
     endtask
 
+    task automatic expect_out(input string name, input int exp);
+        if (int'(wave) != exp) fail($sformatf("%s: output %0d, expected %0d", name, wave, exp));
+        else                   ok($sformatf("%s: output %0d", name, wave));
+    endtask
+
     task automatic fill_waves(input int n);
         for (int i = 0; i < n; i++) wr(8'(i), 8'(i));     // wave n, sample k = 32n + k
     endtask
@@ -212,6 +217,50 @@ module scc_wave_tb;
         wr(8'hE0, 8'h00);
         expect_rd("C0h: channel 2 protected", 8'h23, 8'h23);
         expect_rd("C0h: channel 4 protected", 8'h63, 8'h63);
+
+        // --- channel output latch (openMSX out[]): wave x volume taken at a step or a frequency
+        //     write; volume and sample changes wait for it, a disabled channel restarts silent
+        for (int i = 0; i < 32; i++) wr(8'(i), 8'h10);
+        freq(0, 12'h020);
+        ticks(40);
+        freq(0, 12'h005);                               // hold: output = 10h x 15
+        repeat (30) @(posedge clk);
+        expect_out("latch: held channel", 16'h10 * 15);
+        wr(8'h8A, 8'h08);
+        repeat (30) @(posedge clk);
+        expect_out("latch: volume waits", 16'h10 * 15);
+        wr(8'h80, 8'h05);
+        repeat (30) @(posedge clk);
+        expect_out("latch: volume after a frequency write", 16'h10 * 8);
+        wr(8'(dut.ff_ptr[0]), 8'h20);
+        repeat (30) @(posedge clk);
+        expect_out("latch: sample write waits", 16'h10 * 8);
+        wr(8'h80, 8'h05);
+        repeat (30) @(posedge clk);
+        expect_out("latch: sample after a frequency write", 16'h20 * 8);
+        wr(8'h8F, 8'h00);
+        repeat (30) @(posedge clk);
+        expect_out("latch: disabled channel", 0);
+        wr(8'h8F, 8'h01);
+        repeat (30) @(posedge clk);
+        expect_out("latch: enabled again, silent until a step", 0);
+        wr(8'h80, 8'h05);
+        repeat (30) @(posedge clk);
+        expect_out("latch: plays after a frequency write", 16'h20 * 8);
+        wr(8'h8A, 8'h0F);
+        for (int i = 0; i < 32; i++) wr(8'(i), 8'(3 * i));
+        freq(0, 12'h020);
+        begin
+            int bad = 0;
+            for (int n = 0; n < 8; n++) begin
+                p = dut.ff_ptr[0];
+                while (dut.ff_ptr[0] == p) @(posedge clk);
+                ticks(10);
+                if (int'(wave) != int'(8'(3 * dut.ff_ptr[0]) * 15)) bad++;
+            end
+            if (bad != 0) fail($sformatf("playing channel: %0d of 8 steps with a wrong output", bad));
+            else          ok("playing channel outputs the sample at its position");
+        end
 
         // --- SCC+ in SCC+ mode: registers at A0 / C0, bit 7 ignored, wave 5 writable and rotating
         sel = 1; plus_mode = 1; fbase = 8'hA0; dbase = 8'hC0;

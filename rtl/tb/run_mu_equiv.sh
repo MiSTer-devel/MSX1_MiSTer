@@ -16,19 +16,22 @@ REF=${REF:-2451995}
 [ -n "$DUT" ] && DUT=$(realpath "$DUT")
 cd "$(dirname "$0")"
 OUT=$(mktemp -d)
-# reference: old copy limits (3, SCC 2), its FDC block device records for the tb, and the
-# SRAM of a ROM cartridge in the entry of its slot (C9; it had entry 0 for slots A and B)
+# reference: old copy limits (3, SCC 2), its FDC block device records for the tb, the
+# SRAM of a ROM cartridge in the entry of its slot (C9; it had entry 0 for slots A and B),
+# and the file size without the 1 hps_io adds at the end of a download (1532a1ed)
 if [ -f "$REF" ]; then cat "$REF"; else git -C .. show "$REF:rtl/memory_upload.sv"; fi |
     sed "s/ref_sram                 <= 2'd0;/ref_sram                 <= conf[3][0] ? 2'd2 : 2'd1;/" |
     sed "s/conf\[3\]\[0\] ? 28'h1100000 : 28'hC00000;/conf[3][0] ? MSX::DDR3_ROM_B : MSX::DDR3_ROM_A;/" |
     sed "s/if ((ref_sram == 2'd0 \&\& lookup_SRAM\[ref_sram\].size == '0) || ref_sram != 2'd0) begin/if (ref_sram != 2'd0) begin/" |
     sed 's/^module memory_upload\r\?$/module memory_upload_ref/' |
+    sed "s/\(ioctl_size\[size_[A-Z_]*\] <= \)ioctl_addr;/\1ioctl_addr - 27'd1;/" |
     sed "s/MSX::dev_copies(device_t'(conf\[1\]))/(device_t'(conf[1]) == DEV_SCC ? 2'd2 : 2'd3)/g" |
     sed "/^endmodule/i\\    wire tb_fdc_rec = state == STATE_PROCESS_BLOCK \&\& block_t'(conf[2]) == BLOCK_DEVICE \&\& (device_t'(conf[3]) == DEV_WD2793 || device_t'(conf[3]) == DEV_TC8566AF);\n    wire tb_load_start = state == STATE_CLEAN;" \
     > "$OUT/memory_upload_ref.sv"
 grep -q "^module memory_upload_ref" "$OUT/memory_upload_ref.sv" || { echo "reference module not found"; exit 1; }
 grep -q "lookup_SRAM\[ref_sram\].size == '0" "$OUT/memory_upload_ref.sv" && { echo "reference C9 patch did not apply"; exit 1; }
 grep -q "28'hC00000" "$OUT/memory_upload_ref.sv" && { echo "reference ROM address patch did not apply"; exit 1; }
+[ "$(grep -c "<= ioctl_addr - 27'd1;" "$OUT/memory_upload_ref.sv")" = 5 ] || { echo "reference file size patch did not apply"; exit 1; }
 verilator --binary --timing -O3 -Wno-fatal -Wno-lint -Wno-style \
     --top-module mu_equiv_tb -Mdir "$OUT" \
     ../package.sv "${DUT:-../memory_upload.sv}" "$OUT/memory_upload_ref.sv" ../peripheral/ddram.sv ../lib/crc32.sv mu_equiv_tb.sv \

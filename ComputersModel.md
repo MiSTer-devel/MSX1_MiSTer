@@ -228,7 +228,7 @@ Notes on the tables:
 | [VG 8235-39](https://www.msx.org/wiki/Philips_VG-8235) † | MSX2 | French version of the VG 8235. | 128 KB mapper, RTC, FDC + 1 single-sided drive |
 | VG 8235/02 | MSX2 | German version of the VG 8235. | 128 KB mapper, RTC, FDC + 1 single-sided drive |
 | VG 8235/19 | MSX2 | French version of the VG 8235. | 128 KB mapper, RTC, FDC + 1 single-sided drive |
-| [VG 8240](https://www.msx.org/wiki/Philips_VG-8240) | MSX2 | Unreleased prototype MSX2 (about 15 made) with video superimpose. | 64 KB mapper, RTC, FDC + 1 drive |
+| [VG 8240](https://www.msx.org/wiki/Philips_VG-8240) | MSX2 | Unreleased prototype MSX2 (about 15 made) with video superimpose. | 64 KB mapper, RTC, FDC + 1 single-sided drive |
 
 ## Pioneer
 | Model | Gen | Description | Key built-in hardware |
@@ -298,7 +298,7 @@ Notes on the tables:
 | [HB-F1](https://www.msx.org/wiki/Sony_HB-F1) | MSX2 | Japanese MSX2 with built-in software (speed controller not emulated). | 64 KB mapper, RTC, firmware ROMs |
 | HB-F1II | MSX2 | Cost-reduced HB-F1 with built-in software (speed controller not emulated). | 64 KB RAM, RTC, firmware ROM |
 | HB-F1XD | MSX2 | Japanese MSX2 with a built-in disk drive (speed controller not emulated). | 64 KB RAM, RTC, FDC + 1 drive |
-| [HB-F1XDmk2](https://www.msx.org/wiki/Sony_HB-F1XDmk2) | MSX2 | Cost-reduced HB-F1XD: Japanese MSX2 with a built-in disk drive. | 64 KB mapper, RTC, FDC + 1 drive |
+| [HB-F1XDmk2](https://www.msx.org/wiki/Sony_HB-F1XDmk2) | MSX2 | Cost-reduced HB-F1XD: Japanese MSX2 with a built-in disk drive. | 64 KB mapper, RTC, FDC + 1 single-sided drive |
 | [HB-F5](https://www.msx.org/wiki/Sony_HB-F5) | MSX2 | Sony's first MSX2 with built-in Personal Databank software. | 64 KB RAM, RTC, firmware ROM |
 | HB-F500 | MSX2 | First Sony desktop MSX2 with a double-sided drive; unusual memory layout. | 64 KB RAM, RTC, Kanji ROM, FDC + 1 drive |
 | HB-F500 (v2) | MSX2 | Second HB-F500 version with a simpler memory layout. | 64 KB RAM, RTC, Kanji ROM, FDC + 1 drive |

@@ -228,7 +228,7 @@ Poznámky k tabulkám:
 | [VG 8235-39](https://www.msx.org/wiki/Philips_VG-8235) † | MSX2 | Francouzská verze VG 8235. | mapper 128 KB, RTC, FDC + 1 jednostranná mechanika |
 | VG 8235/02 | MSX2 | Německá verze VG 8235. | mapper 128 KB, RTC, FDC + 1 jednostranná mechanika |
 | VG 8235/19 | MSX2 | Francouzská verze VG 8235. | mapper 128 KB, RTC, FDC + 1 jednostranná mechanika |
-| [VG 8240](https://www.msx.org/wiki/Philips_VG-8240) | MSX2 | Nevydaný prototyp MSX2 (vyrobeno asi 15 kusů) s video superimpose. | mapper 64 KB, RTC, FDC + 1 mechanika |
+| [VG 8240](https://www.msx.org/wiki/Philips_VG-8240) | MSX2 | Nevydaný prototyp MSX2 (vyrobeno asi 15 kusů) s video superimpose. | mapper 64 KB, RTC, FDC + 1 jednostranná mechanika |
 
 ## Pioneer
 | Model | Gen. | Popis | Klíčový vestavěný hardware |

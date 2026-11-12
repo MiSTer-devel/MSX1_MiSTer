@@ -11,10 +11,6 @@ U44
 8000h-BFFFh : not used (all FFh)
 C000h-FFFFh : cps-400s_kanji.rom
 
-cps-400s_disk.rom is not working now.
-Machine works if you use below disk.rom
-  <filename>hb-f1xdmk2_disk.rom</filename>
-  <SHA1>12f2cc79b3d09723840bae774be48c0d721ec1c6</SHA1>
 -->
 <msxConfig>
   <cpu>Z80</cpu>                   <!-- Z80 --> 

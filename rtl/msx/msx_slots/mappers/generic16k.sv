@@ -32,38 +32,32 @@ module mapper_generic16k (
     assign cs = block_info.typ == MAPPER_GENERIC16KB && cpu_bus.mreq && mapped;
 
 
-    // Bank registers for memory banking
-    logic [8:0] bank[0:1][2];
-    logic [7:0] block, nrBlocks, blockMask;
-    logic [8:0] blockCompute;
-    
-    assign nrBlocks = block_info.rom_size[21:14];
-    assign blockMask = nrBlocks  - 1'b1;
-    assign block = cpu_bus.data < nrBlocks ? cpu_bus.data : cpu_bus.data & blockMask;
-    assign blockCompute = block < nrBlocks ? {1'b0,block} : 9'h100;
+    // Bank registers hold the written value; the block is block < blocks ? block :
+    // block & (blocks - 1) (openMSX RomBlocks::setRom), also for the reset banks.
+    // 16 KB blocks, the image padded up.
+    logic [7:0] bank[0:1][2];
+    wire [11:0] nrBlocks  = {1'b0, block_info.rom_size[24:14]} + {11'd0, |block_info.rom_size[13:0]};
+    wire [11:0] blockMask = nrBlocks - 12'd1;
 
     // Bank switching logic
     always_ff @(posedge cpu_bus.clk) begin
         if (cpu_bus.reset) begin
             // Initialize bank values on reset
-            bank[0] <= '{9'h00, 9'h01};
-            bank[1] <= '{9'h00, 9'h01};
+            bank[0] <= '{8'h00, 8'h01};
+            bank[1] <= '{8'h00, 8'h01};
         end else begin
             if (cs && cpu_bus.wr && cpu_bus.req) begin
-                bank[block_info.id][cpu_bus.addr[15]] <= blockCompute;
+                bank[block_info.id][cpu_bus.addr[15]] <= cpu_bus.data;
             end
         end
     end
 
     // Calculate bank base and address mapping
-    wire  [7:0] bank_base;
-    wire        bank_unmaped;
-    wire [26:0] ram_addr;
-    assign {bank_unmaped, bank_base} = bank[block_info.id][cpu_bus.addr[15]];
-    
-    assign ram_addr = {5'b0, bank_base, cpu_bus.addr[13:0]};
-    
-    wire ram_valid = cs && ~bank_unmaped && cpu_bus.rd;
+    wire  [7:0] bank_reg  = bank[block_info.id][cpu_bus.addr[15]];
+    wire  [7:0] bank_base = {4'd0, bank_reg} < nrBlocks ? bank_reg : bank_reg & blockMask[7:0];
+    wire [26:0] ram_addr  = {5'b0, bank_base, cpu_bus.addr[13:0]};
+
+    wire ram_valid = cs && cpu_bus.rd && ram_addr < {2'b00, block_info.rom_size};
     
     // Assign the final outputs for the mapper
     assign out.ram_cs  = ram_valid;

@@ -125,6 +125,11 @@ initial begin
             // ASCII16 family (ascii16_tb): below 4 MB in whole 16 KB blocks the block count is the
             // same as in the reference; R-Type differs by design and is not compared
             if (block_info.typ == MAPPER_RTYPE) block_info.typ = MAPPER_ASCII16;
+            // Generic 8 / 16 KB (generic_tb): one fixed size where the reference block count is right
+            // and the reset banks are inside the ROM. The bank wraps when read, the reference when
+            // written, so the size must not change between the two.
+            if (block_info.typ == MAPPER_GENERIC8KB)  block_info.rom_size = 25'h0180000;   // 1.5 MB
+            if (block_info.typ == MAPPER_GENERIC16KB) block_info.rom_size = 25'h0300000;   // 3 MB
             if (block_info.typ == MAPPER_ASCII16 || block_info.typ == MAPPER_MSXWRITE || block_info.typ == MAPPER_SUPERSWANGI) begin
                 block_info.rom_size[24:22] = '0;
                 block_info.rom_size[13:0]  = '0;

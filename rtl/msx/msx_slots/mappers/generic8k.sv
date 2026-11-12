@@ -31,15 +31,11 @@ module mapper_generic8k (
     // Mapper is enabled if type is KONAMI and there is a memory request
     assign cs = block_info.typ == MAPPER_GENERIC8KB & cpu_bus.mreq && mapped;
 
-    // Bank registers for memory banking
-    logic [8:0] bank[0:1][4];
-    logic [7:0] block, nrBlocks, blockMask;
-    logic [8:0] blockCompute;
-    
-    assign nrBlocks = block_info.rom_size[20:13];
-    assign blockMask = nrBlocks  - 1'b1;
-    assign block = cpu_bus.data < nrBlocks ? cpu_bus.data : cpu_bus.data & blockMask;
-    assign blockCompute = block < nrBlocks ? {1'b0,block} : 9'h100;
+    // Bank registers hold the written value; the block is block < blocks ? block :
+    // block & (blocks - 1) (openMSX RomBlocks::setRom), also for the reset banks
+    logic [7:0] bank[0:1][4];
+    wire [12:0] nrBlocks  = {1'b0, block_info.rom_size[24:13]};
+    wire [12:0] blockMask = nrBlocks - 13'd1;
     
     
     wire [1:0] sel_bank = {cpu_bus.addr[15],cpu_bus.addr[13]};
@@ -47,26 +43,23 @@ module mapper_generic8k (
     always_ff @(posedge cpu_bus.clk) begin
         if (cpu_bus.reset) begin
             // Initialize bank values on reset
-            bank[0] <= '{9'h000, 9'h001, 9'h002, 9'h003};
-            bank[1] <= '{9'h000, 9'h001, 9'h002, 9'h003};
+            bank[0] <= '{8'h00, 8'h01, 8'h02, 8'h03};
+            bank[1] <= '{8'h00, 8'h01, 8'h02, 8'h03};
         end else begin
             if (cs && cpu_bus.wr && cpu_bus.req) begin
                 // Bank switching logic based on address
-                bank[block_info.id][sel_bank] <= blockCompute;
+                bank[block_info.id][sel_bank] <= cpu_bus.data;
             end
         end
     end
 
     // Calculate bank base and address mapping
-    wire  [7:0] bank_base;
-    wire        bank_unmaped;
-    wire [26:0] ram_addr;
-    assign {bank_unmaped, bank_base} = bank[block_info.id][sel_bank];
-
-    assign ram_addr = {6'b0, bank_base, cpu_bus.addr[12:0]};
+    wire  [7:0] bank_reg  = bank[block_info.id][sel_bank];
+    wire  [7:0] bank_base = {5'd0, bank_reg} < nrBlocks ? bank_reg : bank_reg & blockMask[7:0];
+    wire [26:0] ram_addr  = {6'b0, bank_base, cpu_bus.addr[12:0]};
 
     // Check if the calculated RAM address is within the valid range of the ROM size
-    wire ram_valid = cs && ~bank_unmaped && cpu_bus.rd;
+    wire ram_valid = cs && cpu_bus.rd && ram_addr < {2'b00, block_info.rom_size};
 
     // Assign the final outputs for the mapper
     assign out.ram_cs  = ram_valid;

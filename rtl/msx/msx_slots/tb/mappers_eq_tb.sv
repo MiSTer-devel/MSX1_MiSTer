@@ -109,6 +109,8 @@ initial begin
             block_info.mapper_param  = 2'($urandom);    // turbo R fields: other mappers ignore them
             // OFFSET: bit 0 = memory in the upper 8 kB of the page (offset_tb), not in the reference
             if (block_info.typ == MAPPER_OFFSET) block_info.mapper_param[0] = 1'b0;
+            // KONAMI_SCC: a bank past the ROM end wraps (konami_scc_tb); from 2 MB none does
+            if (block_info.typ == MAPPER_KONAMI_SCC) block_info.rom_size[24] = 1'b1;
             block_info.main_ram_size = 17'($urandom);
             block_info.dram          = 1'($urandom);
             megaSD_en             = 1'($urandom);
@@ -120,6 +122,8 @@ initial begin
         addr           = 16'($urandom);
         // ESE_RAM maps 0x4000-0xBFFF only (eseram_tb); the reference mirrored pages 0 and 3
         if (block_info.typ == MAPPER_ESE_RAM) addr[15] = ~addr[14];
+        // KONAMI_SCC mirrors pages 1-2 in pages 3 and 0 (konami_scc_tb); the reference did not
+        if (block_info.typ == MAPPER_KONAMI_SCC) addr[15] = ~addr[14];
         cpu_data       = 8'($urandom);
         data_to_mapper = 8'($urandom);
         flash_q        = 8'($urandom);

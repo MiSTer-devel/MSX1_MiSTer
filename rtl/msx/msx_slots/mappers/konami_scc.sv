@@ -30,8 +30,9 @@ module mapper_konami_scc (
     assign cs = (block_info.typ == MAPPER_KONAMI_SCC || block_info.typ == MAPPER_KONAMI_SCC_PLUS) && cpu_bus.mreq;
     assign sccType = block_info.typ == MAPPER_KONAMI_SCC_PLUS;
 
-    // Address is mapped if it is between 0x4000 and 0xBFFF and within ROM size
-    assign mapped = (cpu_bus.addr >= 16'h4000) && (cpu_bus.addr < 16'hC000) && (ram_addr < {2'b0, block_info.rom_size});
+    // SCC+ (openMSX MSXSCCPlusCart) maps 4000-BFFF. The SCC ROM type (RomKonamiSCC) mirrors
+    // 4000-7FFF in C000-FFFF and 8000-BFFF in 0000-3FFF: the bank follows addr[14:13].
+    assign mapped = (!sccType || cpu_bus.addr[15] ^ cpu_bus.addr[14]) && (ram_addr < {2'b0, block_info.rom_size});
 
 
     assign sccModeRegAccess = {cpu_bus.addr[15:1],1'b0} == 16'hBFFE && sccType == 1'b1;
@@ -95,13 +96,17 @@ module mapper_konami_scc (
     // Bank selection logic based on the current address range
     wire [7:0] bank_reg;
     wire       is_ram_segment;
-    assign {bank_reg, is_ram_segment} = (cpu_bus.addr[15:13] == 3'b010) ? {bank1[block_info.id], isRamSegment1[block_info.id]} :  // Bank 1 for 4000-5FFFh
-                                         (cpu_bus.addr[15:13] == 3'b011) ? {bank2[block_info.id], isRamSegment2[block_info.id]} :  // Bank 2 for 6000-7FFFh
-                                         (cpu_bus.addr[15:13] == 3'b100) ? {bank3[block_info.id], isRamSegment3[block_info.id]} :  // Bank 3 for 8000-9FFFh
-                                                                           {bank4[block_info.id], isRamSegment4[block_info.id]} ;  // Bank 4 for A000-BFFFh
+    assign {bank_reg, is_ram_segment} = (cpu_bus.addr[14:13] == 2'b10) ? {bank1[block_info.id], isRamSegment1[block_info.id]} :  // Bank 1 for 4000-5FFFh (C000)
+                                         (cpu_bus.addr[14:13] == 2'b11) ? {bank2[block_info.id], isRamSegment2[block_info.id]} :  // Bank 2 for 6000-7FFFh (E000)
+                                         (cpu_bus.addr[14:13] == 2'b00) ? {bank3[block_info.id], isRamSegment3[block_info.id]} :  // Bank 3 for 8000-9FFFh (0000)
+                                                                          {bank4[block_info.id], isRamSegment4[block_info.id]} ;  // Bank 4 for A000-BFFFh (2000)
 
-    // SCC+ 128 KB: 16 blocks, higher bank numbers mirror (openMSX subtype "expanded")
-    wire [7:0] bank_base = sccType ? {4'b0, bank_reg[3:0]} : bank_reg;
+    // SCC+ 128 KB: 16 blocks, higher bank numbers mirror (openMSX subtype "expanded").
+    // SCC ROM: a bank past the end wraps, block < blocks ? block : block & (blocks - 1)
+    // (openMSX RomBlocks::setRom; the image is padded to 8 KB blocks).
+    wire [12:0] blocks    = {1'b0, block_info.rom_size[24:13]} + {12'd0, |block_info.rom_size[12:0]};
+    wire [12:0] bank_rom  = {5'd0, bank_reg} < blocks ? {5'd0, bank_reg} : {5'd0, bank_reg} & (blocks - 13'd1);
+    wire  [7:0] bank_base = sccType ? {4'b0, bank_reg[3:0]} : bank_rom[7:0];
 
     // Generate RAM address based on bank and lower address bits
     wire [26:0] ram_addr = {6'b0, bank_base, cpu_bus.addr[12:0]};

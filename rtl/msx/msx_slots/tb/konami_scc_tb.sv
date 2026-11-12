@@ -126,6 +126,27 @@ initial begin
     write(16'h5000, 8'h07);
     expect_mem("SCC bank 7", 16'h4000, 7);
 
+    // openMSX RomKonamiSCC: 4000-7FFF mirrored in C000-FFFF, 8000-BFFF in 0000-3FFF;
+    // a bank past the ROM end wraps (RomBlocks::setRom, blockMask = blocks - 1)
+    expect_mem("SCC mirror C000 = 4000 (bank 7)",  16'hC000, 7);
+    expect_mem("SCC mirror E123 = 6000 (bank 1)",  16'hE123, 1);
+    expect_mem("SCC mirror 0000 = 8000 (3Fh -> 15)", 16'h0000, 15);
+    expect_mem("SCC mirror 2123 = A000 (bank 3)",  16'h2123, 3);
+    expect_mem("SCC mirror 1800 is ROM, not the SCC", 16'h1800, 15);
+    write(16'h1000, 8'h02);                              // not a bank register
+    write(16'hD000, 8'h02);
+    expect_mem("SCC no bank switch in the mirrors", 16'h4000, 7);
+    expect_mem("SCC bank 3Fh -> 15 at 8000", 16'h8000, 15);
+    write(16'h5000, 8'h25);
+    expect_mem("SCC bank 25h -> 5 (128 KB)", 16'h4000, 5);
+    block_info.rom_size = 25'h6000;                      // 24 KB: 3 blocks, mask 2
+    write(16'h5000, 8'h05);
+    expect_mem("SCC 24 KB bank 5 -> 0", 16'h4000, 0);
+    write(16'h7000, 8'h03);
+    expect_mem("SCC 24 KB bank 3 -> 2", 16'h6000, 2);
+    write(16'h7000, 8'h02);
+    expect_mem("SCC 24 KB bank 2", 16'h6000, 2);
+
     if (errors == 0) $display("PASS konami_scc_tb");
     else             $display("FAILED konami_scc_tb: %0d errors", errors);
     $finish;

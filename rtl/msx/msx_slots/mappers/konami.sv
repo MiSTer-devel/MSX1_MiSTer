@@ -28,8 +28,8 @@ module mapper_konami (
     // Mapper is enabled if type is KONAMI and there is a memory request
     assign cs = (block_info.typ == MAPPER_KONAMI) & cpu_bus.mreq;
 
-    // Address is mapped if it's between 0x4000 and 0xBFFF and within ROM size
-    assign mapped = (cpu_bus.addr >= 16'h4000) && (cpu_bus.addr < 16'hC000) && (ram_addr < {2'b0, block_info.rom_size});
+    // openMSX RomKonami: 4000-7FFF mirrored in 0000-3FFF, 8000-BFFF in C000-FFFF; within the ROM
+    assign mapped = ram_addr < {2'b0, block_info.rom_size};
 
     // Bank registers for memory banking
     logic [7:0] bank1[2], bank2[2], bank3[2];
@@ -57,11 +57,15 @@ module mapper_konami (
         end
     end
 
-    // Bank selection logic based on address ranges
-    wire [7:0] bank_base = (cpu_bus.addr[15:13] == 3'b010) ? 8'h00 :                 // Fixed bank for 4000-5FFFh
-                           (cpu_bus.addr[15:13] == 3'b011) ? bank1[block_info.id] :  // Bank 1 for 6000-7FFFh
-                           (cpu_bus.addr[15:13] == 3'b100) ? bank2[block_info.id] :  // Bank 2 for 8000-9FFFh
-                                                             bank3[block_info.id];   // Bank 3 for A000-BFFFh
+    // Bank selection by {addr[15], addr[13]}, which also covers the mirrors
+    wire [7:0] bank_reg  = {cpu_bus.addr[15], cpu_bus.addr[13]} == 2'b00 ? 8'h00 :                 // 4000-5FFFh fixed (0000)
+                           {cpu_bus.addr[15], cpu_bus.addr[13]} == 2'b01 ? bank1[block_info.id] :  // 6000-7FFFh (2000)
+                           {cpu_bus.addr[15], cpu_bus.addr[13]} == 2'b10 ? bank2[block_info.id] :  // 8000-9FFFh (C000)
+                                                                           bank3[block_info.id];   // A000-BFFFh (E000)
+
+    // A bank past the ROM end is masked with 31 (setBlockMask(31)); still past the end reads FF
+    wire [12:0] blocks    = {1'b0, block_info.rom_size[24:13]};
+    wire  [7:0] bank_base = {5'd0, bank_reg} < blocks ? bank_reg : {3'b000, bank_reg[4:0]};
 
     // Generate RAM address based on bank and lower address bits
     wire [26:0] ram_addr = {6'b0, bank_base, cpu_bus.addr[12:0]};

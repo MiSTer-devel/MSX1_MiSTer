@@ -4349,23 +4349,40 @@ module tc8566af #(
         endcase
     end
 
-    crcgenn #(.DATWIDTH(8), .WIDTH(16)) CRCG (
-        .POLY(17'b10000100000010001),
-		.DATA(crcin),
-		.DIR('0),
-		.WRITE(crcwr),
-		.BITIN('0),
-		.BITWR('0),
-		.CLR(crcclr),
-		.CLRDAT(16'hffff),
-		.CRC(crcdat),
-		.BUSY(crcbusy),
-		.DONE(crcdone),
-		.CRCZERO(crczero),
-
-		.clk(fclk),
-		.rstn(rstn)
-    );
+    // CRC-CCITT of the fields (FDC::crc16). Busy and done keep the timing of the bit serial
+    // generator of PC88_MiSTer (crcgenn): the byte is taken 8 clocks after the write.
+    logic  [7:0] crcbyte;
+    logic  [3:0] crccnt;
+    logic        crcbusybuf;
+    always_ff @(posedge fclk or negedge rstn) begin
+        if (!rstn) begin
+            crcdat     <= '0;
+            crcbyte    <= '0;
+            crccnt     <= '0;
+            crcdone    <= 1'b0;
+            crcbusybuf <= 1'b0;
+        end else begin
+            crcdone <= 1'b0;
+            if (crcclr) begin
+                crcdat <= FDC::CRC_INIT;
+                crccnt <= '0;
+            end else if (crccnt != '0) begin
+                crccnt <= crccnt - 4'd1;
+                if (crccnt == 4'd1) begin
+                    crcdat     <= FDC::crc16(crcdat, crcbyte);
+                    crcdone    <= 1'b1;
+                    crcbusybuf <= 1'b0;
+                end
+            end
+            if (crcwr) begin
+                crcbyte    <= crcin;
+                crccnt     <= 4'd8;
+                crcbusybuf <= 1'b1;
+            end
+        end
+    end
+    assign crcbusy = crcbusybuf | crcwr;
+    assign crczero = crcdat == '0;
 
     fmdem #(.bwidth(maxbwidth)) FMD (
         	.bitlen(bitwidth),

@@ -1,4 +1,3 @@
-set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) crcgenn.sv     ]
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) digifilter.sv  ]
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) headseek.sv    ]
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) nrdet.sv       ]

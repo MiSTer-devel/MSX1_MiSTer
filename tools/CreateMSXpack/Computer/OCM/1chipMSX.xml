@@ -1,6 +1,6 @@
 <?xml version="1.0" ?>
 <!--
-  1chipMSX (OCM / OCM-PLD by KdL), behaves like MSX_MiSTer (MiSTer-devel).
+  1chipMSX (OCM / OCM-PLD by KdL), converted from MSX_MiSTer (https://github.com/MiSTer-devel/MSX_MiSTer, Sorgelig).
   Boot: IPL ROM (slot 3-3 page 0, mapper OCM_IPL, visible until the first write to A8h)
   loads OCM-BIOS.DAT (512 kB) from the SD card (VHD) into ESE-RAM (slot 3-2).
   MAIN/XBASIC/OPLL/EXT/FREE ROMs are windows into ESE-RAM.

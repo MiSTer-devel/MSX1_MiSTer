@@ -16,6 +16,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 
+// ROM contents: iplrom.vhd of MSX_MiSTer (https://github.com/MiSTer-devel/MSX_MiSTer), ESE Artists' factory / KdL.
 // IPL ROM of OCM (slot 3-3): visible only before the OCM-BIOS is loaded, i.e. from
 // reset until the first write to PPI port A8h (ipl_en from dev_ocm, OCM ff_ldbios_n).
 module mapper_ocm_ipl (

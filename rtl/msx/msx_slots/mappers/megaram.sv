@@ -34,6 +34,8 @@
 //
 //  modified by t.hara / KdL
 //
+// Taken from OCM-PLD by KdL as used in MSX_MiSTer (https://github.com/MiSTer-devel/MSX_MiSTer).
+//
 // rewrite in Verilog and integrated MiserFpga project by Molekula 2024-2025
 //
 

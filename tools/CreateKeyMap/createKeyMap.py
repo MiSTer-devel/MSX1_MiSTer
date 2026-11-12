@@ -1,3 +1,8 @@
+# CreateKeyMap: PS/2 -> MSX keyboard matrix tables from the JSON maps
+#
+# Copyright (c) 2024-2026 Molekula
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 import os
 import json
 

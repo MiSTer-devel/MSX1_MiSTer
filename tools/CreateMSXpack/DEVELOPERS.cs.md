@@ -78,7 +78,7 @@ Zařízení nejvyšší úrovně bez `shared_slot` se zapisují první, zaříze
 - Nerozšířený slot má buď `<block>` přímo pod `<primary>`, nebo jeden `<secondary slot="0">`. Obojí dává podslot 0.
 - **Expander (registr podslotů FFFFh) se zapne automaticky**, když je některý `<secondary slot>` větší než 0, nebo ho vynutí `expander="1"`. `expander_init` je hodnota FFFFh po resetu (1chipMSX používá `0x2B`). `expander_wo` se uloží, ale RTL ho zatím ignoruje.
 - **Nemíchejte `<block>` a `<secondary>` v jednom `<primary>`**: zapíšou se jen přímé bloky.
-- Sloty se zapisují v pořadí v XML. Konvence ve všech souborech: externí sloty (`<cart>`) nakonec. Důvod není zdokumentován; pravděpodobně proto, že blok `FLASH` (oddíl 3.2) rozšiřuje paměť alokovanou jako poslední (jako tvrdý požadavek neověřeno).
+- Sloty se zapisují v pořadí v XML. Externí sloty (`<cart>`) patří nakonec: blok `FLASH` (oddíl 3.2) rozšiřuje paměť přidělenou jako poslední a tou musí být ROM cartridge.
 - Limity jádra: nejvýše 64 bloků (4 sloty x 4 podsloty x 4 stránky), 16 paměťových záznamů, 8 záznamů zařízení mapovaných do paměti.
 
 ### 2.4 `<block>`
@@ -325,7 +325,7 @@ Hodnota položky OSD se převede na `cart_typ_t` v `rtl/msx_config.sv` a zavadě
 
 ## 6. Úskalí
 
-1. **Chybějící pojmenovaný parametr se kóduje jako 0**, ne jako jeho `default` (např. WD2793 bez `fdd_count` nedá žádné bity povolení mechaniky; účinek v jádře ověřen nebyl).
+1. **Chybějící pojmenovaný parametr se kóduje jako 0**, ne jako jeho `default` (např. WD2793 bez `fdd_count` nedá žádné bity povolení mechaniky).
 2. **MEM_MAPPER `size` 4 MB: atribut vynechte.** `size="4194304"` dá 256 segmentů, což je nad maximem 255, takže se vypíše varování a použije se výchozí hodnota (1 segment, 16 kB). Chybějící znamená 256 segmentů.
 3. **`shared_memory offset="0"` jádro dekóduje jako 4 MB.** Offset 0 nepoužívejte.
 4. **Atribut `variant` u OPM nemá žádný účinek** (OPM nemá záznam v `deviceParams.json` a modul `param` ignoruje). `variant` u YM2148 (`SFG-01`/`SFG-05`) funguje.

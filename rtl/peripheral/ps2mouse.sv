@@ -1,4 +1,5 @@
-// MSX mouse on a joystick port from the MiSTer PS/2 mouse (after MSX_MiSTer ps2mouse.v).
+// MSX mouse on a joystick port from the MiSTer PS/2 mouse (after MSX_MiSTer ps2mouse.v,
+// https://github.com/MiSTer-devel/MSX_MiSTer).
 // Protocol: each strobe (pin 8) edge gives the next nibble: X high, X low, Y high, Y low;
 // the counts are latched on the first rising edge, at most once per ~1.5 ms.
 // data[5:4] = buttons (active low), data[3:0] = nibble.

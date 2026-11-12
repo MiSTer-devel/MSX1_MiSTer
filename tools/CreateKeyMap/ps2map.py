@@ -1,3 +1,8 @@
+# CreateKeyMap: PS/2 scancode and modifier definitions
+#
+# Copyright (c) 2024-2026 Molekula
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 # Definice bitových příznaků
 LCTRL        = 0x000100
 LSHIFT       = 0x000200

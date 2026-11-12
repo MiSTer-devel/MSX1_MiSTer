@@ -1,5 +1,6 @@
 // Original megasd.vhd SD/MMC card interface
 // Copyright (c) 2006 Kazuhiro Tsujikawa (ESE Artists' factory)
+// Taken from OCM-PLD by KdL as used in MSX_MiSTer (https://github.com/MiSTer-devel/MSX_MiSTer).
 //
 // Rewrite and modify 2024-2025 Molekula
 //

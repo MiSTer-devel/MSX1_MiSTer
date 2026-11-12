@@ -3,7 +3,7 @@
 [English](Readme.md) | **Česky**
 
 > [!CAUTION]
-> **Upozornění (WIP)**: Toto jádro je ve vývoji (**Work in Progress**). Některé součásti jsou rozpracované a mohou obsahovat ladicí výstupy nebo experimentální funkce. Některé funkce zatím nemusí fungovat stoprocentně. Mapper ASCII16-X a MoonSound jsou přeložené a vyzkoušené na skutečném hardware. Mappery NEO-8 a NEO-16 zatím na skutečném hardware vyzkoušeny nebyly a časování V99x8, R800 a řadič TC8566AF také nejsou na hardware ověřeny. Viz [Známá omezení](#známá-omezení).
+> **Upozornění (WIP)**: Toto jádro je ve vývoji (**Work in Progress**). Některé součásti jsou rozpracované a mohou obsahovat ladicí výstupy nebo experimentální funkce. Některé funkce zatím nemusí fungovat stoprocentně. Viz [Známá omezení](#známá-omezení).
 
 ## Přehled jádra
 Jádro (na MiSTeru se stále jmenuje `MSX1`, proto složka `games/MSX1`) není přímou syntézou konkrétního počítače MSX. Poskytuje **dynamicky konfigurovatelné hardwarové prostředí**, které se za běhu sestaví z vybrané definice (*ROM PACK*). Každá definice stroje obsahuje nejen zapojení hardware, ale i příslušný **obsah ROM.** Jádro umí spustit:
@@ -70,8 +70,6 @@ Jádro běží i **bez přídavné desky SDRAM**, ale jen v menších sestavách
 - Každá ROM cartridge větší než volné místo: většina her MegaROM na MSX2, ROM od 256 KB na jakémkoli stroji.
 
 **Co se stane, když se to nevejde:** nahrávání skončí hlášením **SMALL MEMORY** v OSD a jádro zůstane v resetu. Nahrajte menší stroj nebo cartridge, nebo osaďte desku SDRAM. Velikost SDRAM jádro zná od menu jádra MiSTeru, které modul při startu zjišťuje. Spustí-li se jádro bez menu (neobvyklé), velikost nezná a nekontroluje. Konfigurace, která se nevejde, pak nad 256 KB čte nesmysly.
-
-Čísla pocházejí z nahrání všech 224 balíčků strojů v simulaci. V simulaci bez SDRAM nastartoval Philips NMS 8245 do BASICu a do SDRAM vůbec nesáhl. Bez sáhnutí do SDRAM běžel i Philips VG 8020 se 128KB cartridgí. Kontrola SMALL MEMORY je vyzkoušená v simulaci loaderu. **Na skutečném hardware bez desky SDRAM neověřeno.**
 
 Se SDRAM stačí modul 32 MB. Největší stroj (1chipMSX) potřebuje asi 8 MB, MoonSound 4 MB, ASCII16-X 8 MB. Nevešly by se jen dvě ROM po 16 MB (SMALL MEMORY).
 
@@ -207,7 +205,6 @@ Jádro se integruje s MiSTerFPGA a podporuje tyto funkce platformy:
 - `Podpora SDRAM` – volitelná; potřebují ji větší stroje a cartridge, viz [Bez modulu SDRAM](#bez-modulu-sdram)
 
 ## Známá omezení
-- Mappery NEO-8 a NEO-16 nejsou vyzkoušené na hardware. Časování V99x8, R800 a TC8566AF není na hardware ověřeno.
 - **Nic se neukládá trvale:** SRAM cartridge (FM-PAC, Game Master 2, KOEI, ASCII se SRAM), zápisy do flash (MegaFlashROM, ASCII16-X) a CMOS RTC se při novém načtení ztratí. Položky **SRAM Save / SRAM Load** nic nedělají. FS-A1ST nemá 16 KB SRAM svého mapperu Panasonic.
 - **Disky:** jen surové obrazy `.DSK` (720K, 640K, 360K, 320K); žádné 40stopé, 1,44 MB, XSA, D88, HFE ani DMK. WD279x Read Track je jen částečný. Cartridge FDC funguje jen ve slotu 1 a jen na strojích bez FDC; cartridge s TC8566AF neexistuje.
 - **Páska:** jen přehrávání, žádné ukládání; konec souboru se nedetekuje (po posledním bloku se přehrávají nesmyslná data).
@@ -218,6 +215,8 @@ Jádro se integruje s MiSTerFPGA a podporuje tyto funkce platformy:
 - Žádný MIDI OUT, žádná hlasitost ani ztlumení po zdrojích v OSD, chybí deform bity 0/1 SCC+, žádné V9990.
 
 ## Poděkování
+- [MSX_MiSTer](https://github.com/MiSTer-devel/MSX_MiSTer) od Sorgeliga – port OCM-PLD od KdL na MiSTer a inspirace pro toto jádro. Stroj 1chipMSX byl převeden z něj: IPL ROM, systémové I/O porty a řízení rychlosti CPU, ESE-RAM s MegaSD, MegaSCC/MegaRAM a myš PS/2.
+- [OCM-PLD](https://github.com/gnogni/ocm-pld-dev) od KdL a ESE Artists' Factory (Kazuhiro Tsujikawa) s ESE-VDP od Kunihiko Ohnaky – původ CPU T80 (přepsaného do SystemVerilogu), VDP V99x8, SCC a kódu MegaSD/MegaRAM.
 - [muhanpong/MSX1_MiSTer](https://github.com/muhanpong/MSX1_MiSTer) (větev `nextz80_v9990`) – fork tohoto jádra. Jeho analýzy chyb a hlášení ze skutečného hardware upozornily na chyby v emulaci flash a na úskalí mapperu ASCII16-X a MoonSound. Žádný kód z něj nebyl převzat; zdejší implementace jsou nezávislé.
 - [openMSX](https://openmsx.org/) – reference pro chování mapperu ASCII16-X a jeho flash čipu, mapperů NEO-8 a NEO-16, vlnové části OPL4 (YMF278B), sběrnicového rozhraní a časovačů a časování V99x8.
 - [Grauw](https://www.grauw.nl/projects/ascii-x/ascii16-x/) – specifikace mapperu ASCII16-X.

@@ -1,3 +1,8 @@
+# CreateKeyMap: prints the PS/2 scancodes of pressed keys
+#
+# Copyright (c) 2024-2026 Molekula
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 import keyboard
 import time
 

@@ -3,7 +3,7 @@
 **English** | [Česky](Readme.cs.md)
 
 > [!CAUTION]
-> **WIP Notice**: This core is currently in **WIP (Work in Progress)** status. Some components are still under development and may include debug outputs or experimental features. Certain functionalities may not yet work 100% as intended. The ASCII16-X mapper and the MoonSound have been built and tested on real hardware. The NEO-8 and NEO-16 mappers have not been tested on real hardware yet, and V99x8 timing, the R800 and the TC8566AF controller are not verified on hardware either. See [Known limitations](#known-limitations).
+> **WIP Notice**: This core is currently in **WIP (Work in Progress)** status. Some components are still under development and may include debug outputs or experimental features. Certain functionalities may not yet work 100% as intended. See [Known limitations](#known-limitations).
 
 ## Core Overview
 The core (its MiSTer name is still `MSX1`, hence the folder `games/MSX1`) is not a direct synthesis of a specific MSX computer model. Instead, it provides a **dynamically configurable hardware environment** that is built at run time from a selected definition (a *ROM PACK*). Each machine definition includes not only the hardware setup but also the corresponding **ROM binary content.** The core can run:
@@ -70,8 +70,6 @@ The core also runs **without the SDRAM add-on board**, but only for smaller conf
 - Any ROM cartridge bigger than the free space: most MegaROM games on an MSX2, ROMs of 256 KB and more on any machine.
 
 **What happens when it does not fit:** loading stops with **SMALL MEMORY** in the OSD and the core stays in reset. Load a smaller machine or cartridge, or fit the SDRAM board. The core knows the SDRAM size from the MiSTer menu core, which checks the module at start. If the core is started without the menu (unusual), it does not know the size and does not check. A configuration that does not fit then reads garbage above 256 KB.
-
-The numbers come from loading all 224 machine packs in simulation. In simulation without SDRAM, the Philips NMS 8245 started to BASIC without touching the SDRAM at all. The Philips VG 8020 with a 128 KB cartridge also ran without touching it. The SMALL MEMORY check was tested in simulation of the loader. **Not verified on real hardware without the SDRAM board.**
 
 With SDRAM, a 32 MB module is enough. The largest machine (1chipMSX) needs about 8 MB, a MoonSound 4 MB, an ASCII16-X 8 MB. Only two ROMs of 16 MB each would not fit (SMALL MEMORY).
 
@@ -207,7 +205,6 @@ The core integrates with MiSTerFPGA and supports the following features provided
 - `SDRAM support` – optional; needed for the bigger machines and cartridges, see [Without the SDRAM module](#without-the-sdram-module)
 
 ## Known Limitations
-- The NEO-8 and NEO-16 mappers are not tested on hardware. V99x8 timing, the R800 and the TC8566AF are not verified on hardware.
 - **Nothing is persistent:** cartridge SRAM (FM-PAC, Game Master 2, KOEI, ASCII with SRAM), flash writes (MegaFlashROM, ASCII16-X) and the RTC CMOS are lost on reload. The **SRAM Save / SRAM Load** items do nothing. The FS-A1ST lacks the 16 KB SRAM of its Panasonic mapper.
 - **Disks:** only raw `.DSK` images (720K, 640K, 360K, 320K); no 40-track, 1.44 MB, XSA, D88, HFE or DMK. WD279x Read Track is partial. The FDC cartridge works only in slot 1 and only in machines without an FDC; there is no TC8566AF cartridge.
 - **Tape:** playback only, no saving; the end of the file is not detected (garbage is played after the last block).
@@ -218,6 +215,8 @@ The core integrates with MiSTerFPGA and supports the following features provided
 - No MIDI OUT, no per-source volume or mute in the OSD, SCC+ deform bits 0/1 missing, no V9990.
 
 ## Acknowledgements
+- [MSX_MiSTer](https://github.com/MiSTer-devel/MSX_MiSTer) by Sorgelig – the MiSTer port of KdL's OCM-PLD and the inspiration for this core. The 1chipMSX machine was converted from it: the IPL ROM, the system I/O ports and CPU speed logic, the ESE-RAM with the MegaSD, the MegaSCC/MegaRAM and the PS/2 mouse.
+- [OCM-PLD](https://github.com/gnogni/ocm-pld-dev) by KdL and the ESE Artists' Factory (Kazuhiro Tsujikawa), with the ESE-VDP by Kunihiko Ohnaka – the origin of the T80 CPU (rewritten to SystemVerilog), the V99x8 VDP, the SCC and the MegaSD/MegaRAM code.
 - [muhanpong/MSX1_MiSTer](https://github.com/muhanpong/MSX1_MiSTer) (branch `nextz80_v9990`) – a fork of this core. Its bug analyses and reports from real hardware pointed out faults in the flash emulation and the pitfalls of the ASCII16-X mapper and the MoonSound. No code was taken from it; the implementations here are independent.
 - [openMSX](https://openmsx.org/) – reference for the behaviour of the ASCII16-X mapper and its flash chip, of the NEO-8 and NEO-16 mappers, of the OPL4 (YMF278B) wave part, bus interface and timers, and of the V99x8 timing.
 - [Grauw](https://www.grauw.nl/projects/ascii-x/ascii16-x/) – specification of the ASCII16-X mapper.

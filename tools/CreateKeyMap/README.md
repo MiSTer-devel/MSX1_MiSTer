@@ -4,6 +4,8 @@
 
 Back to [tools](../README.md) | [main Readme](../../Readme.md).
 
+Author: Molekula (design of the tool, the maps and the matrix description).
+
 ## Purpose
 
 The core translates the PS/2 keyboard (as MiSTer delivers it) to the MSX keyboard matrix with a
@@ -100,7 +102,7 @@ The `.bin` files are therefore **not copied to the SD card**. All machine XMLs c
 - **The `us` and `International` maps have no SHIFT key.** Their `assign` uses the name `SHIFT`,
   but `ps2.json` has only `SHIFT_L` and `SHIFT_R`, so the entries are dropped (the Shift scancodes
   stay `FF`). `International` also loses `~ ^ : @`, and `us` loses `~`. These two maps describe a
-  different matrix than `eu`; where it comes from has not been verified.
+  different matrix than `eu`.
 - **The keypad (`NUM_*` keys) is not mapped in any of the three tables.**
 - **All machines use the `eu` map.** The other two are not used by any machine XML.
 - One PC key maps to one matrix position; no Shift-dependent translation.

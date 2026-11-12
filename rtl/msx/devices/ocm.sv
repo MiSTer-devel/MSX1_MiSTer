@@ -1,5 +1,8 @@
 // OCM device
 //
+// Converted from MSX_MiSTer (https://github.com/MiSTer-devel/MSX_MiSTer, Sorgelig), the MiSTer port
+// of OCM-PLD by KdL: swioports.vhd, emsx_top.vhd.
+//
 // Copyright (c) 2024-2025 Molekula
 //
 // All rights reserved

@@ -4,6 +4,8 @@
 
 Zpět na [nástroje](../README.cs.md) | [hlavní Readme](../../Readme.md).
 
+Autor: Molekula (návrh nástroje, map a popisu matice).
+
 ## Účel
 
 Jádro překládá klávesnici PS/2 (tak, jak ji doručí MiSTer) na klávesnicovou matici MSX pomocí
@@ -99,7 +101,7 @@ Soubory `.bin` se tedy **na SD kartu nekopírují**. Všechna XML strojů dnes o
 - **Mapy `us` a `International` nemají klávesu SHIFT.** Jejich `assign` používá jméno `SHIFT`,
   ale `ps2.json` má jen `SHIFT_L` a `SHIFT_R`, takže se záznamy zahodí (scancody Shiftu zůstanou
   `FF`). `International` navíc ztratí `~ ^ : @` a `us` ztratí `~`. Tyto dvě mapy popisují jinou
-  matici než `eu`; odkud pochází, nebylo ověřeno.
+  matici než `eu`.
 - **Numerická klávesnice (klávesy `NUM_*`) není namapovaná v žádné ze tří tabulek.**
 - **Všechny stroje používají mapu `eu`.** Zbylé dvě nepoužívá žádné XML stroje.
 - Jedna klávesa PC dává jednu pozici matice; překlad závislý na Shiftu neexistuje.

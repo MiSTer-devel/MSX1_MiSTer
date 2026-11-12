@@ -38,8 +38,7 @@ The assembler is `pasmo.exe` 0.6.0 (copied from the Sord M5 project). The option
 **FPGA:** in the OSD load `vdptest.rom` into slot A (Cartridge = ROM).
 - The FW pack (`CART_FW_EN.msx`) must be loaded.
 - The mapper database does not have to be loaded: a ROM that the core does not find in it is
-  started as a plain ROM according to its header (`doc/mappery.md`, chapter "ROM in the cartridge
-  slot: mapper selection").
+  started as a plain ROM according to its header (see [Supported ROM Mappers](../../Readme.md#supported-rom-mappers)).
 - If a database is loaded, vdptest must not be in it, otherwise the record from the database
   would be used.
 - Requires a core with commit `e5dc75c` (branch `ROM_no_db`). An older core starts only a ROM
@@ -95,13 +94,12 @@ wsl.exe -- bash rtl/tb/run_machine_boot.sh <machine.msx> none \
   next frame is measured.
 - **Page 7, Y = 191** (sprite on lines 192-199):
   - openMSX checks V99x8 sprites on line 192 too, so it reports C;
-  - a TMS9929A measured on the Sord M5 does not report a collision on line 192;
-  - how the V9938 behaves has not been measured.
+  - a TMS9929A measured on the Sord M5 does not report a collision on line 192.
 
 ## Results
 
-**Simulation** of the whole machine (`machine_boot_tb`, 2026-11-10, branch `VDP_fork` = VDP fixes
-from chapter 3.1 of `doc/fork-muhanpong.md`). The openMSX column: Philips NMS 8245 (V9938 PAL),
+**Simulation** of the whole machine (`machine_boot_tb`, 2026-11-10, branch `VDP_fork` with VDP
+fixes). The openMSX column: Philips NMS 8245 (V9938 PAL),
 2026-11-10. The FPGA column: NMS 8245 on a MiSTer, 2026-11-10.
 
 | Page | NMS 8245, V9938 PAL (sim.) | VG-8020, TMS (sim.) | FPGA | openMSX |
@@ -124,7 +122,7 @@ from chapter 3.1 of `doc/fork-muhanpong.md`). The openMSX column: Philips NMS 82
   - openMSX checks the sprites of the whole line at once at its end (comment in
     `SpriteChecker.hh`, `checkUntil`); ESE scans Y during the line before it and, according to the
     same comment, the chip most likely does it that way too.
-  - So openMSX is not an exact reference for the 5S moment. Not measured on real HW.
+  - So openMSX is not an exact reference for the 5S moment.
 - **VDP commands (page 8)**, ESE against openMSX:
   - HMMV -0.2 %, LMMV +2.5 %, YMMM +3.3 %, LMMM +2.1 %: agreement;
   - HMMM 28 % faster (7715 -> 5579);
@@ -153,5 +151,4 @@ OPENMSX_USER_DATA=<dir with systemroms> CMDBENCH_OUT=result.txt   openmsx -machi
 ```
 
 The output of openMSX 18.0 is the reference of the test
-`rtl/peripheral/VIDEO/VDP/tb/run_vdp_cmd.sh` (`cmdbench_openmsx.txt`). The model of the VDP access
-slots is described in `doc/vdp-prikazy.md`.
+`rtl/peripheral/VIDEO/VDP/tb/run_vdp_cmd.sh` (`cmdbench_openmsx.txt`).

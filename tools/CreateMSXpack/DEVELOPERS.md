@@ -78,7 +78,7 @@ Top-level devices without `shared_slot` are written first, devices with `shared_
 - A non-expanded slot has either `<block>` directly under `<primary>` or one `<secondary slot="0">`. Both give subslot 0.
 - **The expander (subslot register FFFFh) is enabled automatically** when any `<secondary slot>` is greater than 0, or forced by `expander="1"`. `expander_init` is the value of FFFFh after reset (1chipMSX uses `0x2B`). `expander_wo` is stored but currently ignored by the RTL.
 - **Do not mix `<block>` and `<secondary>` in one `<primary>`**: only the direct blocks are written.
-- Slots are written in XML order. Convention in all files: external slots (`<cart>`) last. The reason is not documented; plausibly it is because the `FLASH` block (section 3.2) extends the memory allocated last (not verified as a hard requirement).
+- Slots are written in XML order. External slots (`<cart>`) go last: the `FLASH` block (section 3.2) extends the memory allocated last, which has to be the cartridge ROM.
 - Core limits: at most 64 blocks (4 slots x 4 subslots x 4 pages), 16 memory entries, 8 memory-mapped device entries.
 
 ### 2.4 `<block>`
@@ -325,7 +325,7 @@ The OSD item value is converted to `cart_typ_t` in `rtl/msx_config.sv`, and the 
 
 ## 6. Pitfalls
 
-1. **An absent named parameter encodes as 0**, not as its `default` (e.g. WD2793 without `fdd_count` gives no enabled drive bits; the effect in the core has not been verified).
+1. **An absent named parameter encodes as 0**, not as its `default` (e.g. WD2793 without `fdd_count` gives no enabled drive bits).
 2. **MEM_MAPPER `size` of 4 MB: omit the attribute.** `size="4194304"` gives 256 segments, which is above the maximum 255, so a warning is printed and the default (1 segment, 16 kB) is used. Absent means 256 segments.
 3. **`shared_memory offset="0"` is decoded by the core as 4 MB.** Do not use offset 0.
 4. The **`variant` attribute of OPM has no effect** (OPM has no `deviceParams.json` entry and the module ignores `param`). The YM2148 `variant` (`SFG-01`/`SFG-05`) does work.

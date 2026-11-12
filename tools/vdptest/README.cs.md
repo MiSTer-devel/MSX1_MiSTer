@@ -38,7 +38,7 @@ Assembler je `pasmo.exe` 0.6.0 (zkopírovaný z projektu Sord M5). Volba
 **FPGA:** v OSD nahrát `vdptest.rom` do slotu A (Cartridge = ROM).
 - Musí být nahraný FW pack (`CART_FW_EN.msx`).
 - Databáze mapperů nahraná být nemusí: ROM, kterou v ní jádro nenajde, spustí jako plain
-  ROM podle hlavičky (`doc/mappery.md`, kapitola „ROM v cartridge slotu: výběr mapperu“).
+  ROM podle hlavičky (viz [Podporované ROM mappery](../../Readme.cs.md#podporované-rom-mappery)).
 - Pokud databáze nahraná je, vdptest v ní být nesmí, jinak by se použil záznam z ní.
 - Vyžaduje jádro s commitem `e5dc75c` (větev `ROM_no_db`). Starší jádro spustí jen ROM se
   záznamem v databázi: CRC32 + mapper „0x4000“ (21), formát v `tools/CreateCRC/createDB.py`.
@@ -92,13 +92,12 @@ wsl.exe -- bash rtl/tb/run_machine_boot.sh <stroj.msx> none \
   měří se až další snímek.
 - **Stránka 7, Y = 191** (sprite na řádcích 192–199):
   - openMSX kontroluje sprity V99x8 i na řádku 192, takže hlásí C;
-  - TMS9929A změřený na Sord M5 kolizi na řádku 192 nehlásí;
-  - jak se chová V9938, není změřeno.
+  - TMS9929A změřený na Sord M5 kolizi na řádku 192 nehlásí.
 
 ## Výsledky
 
-**Simulace** celého stroje (`machine_boot_tb`, 2026-11-10, větev `VDP_fork` = opravy VDP z
-kap. 3.1 `doc/fork-muhanpong.md`). Sloupec openMSX: Philips NMS 8245 (V9938 PAL), 2026-11-10. Sloupec FPGA: NMS 8245 na MiSTeru, 2026-11-10.
+**Simulace** celého stroje (`machine_boot_tb`, 2026-11-10, větev `VDP_fork` s opravami
+VDP). Sloupec openMSX: Philips NMS 8245 (V9938 PAL), 2026-11-10. Sloupec FPGA: NMS 8245 na MiSTeru, 2026-11-10.
 
 | Stránka | NMS 8245, V9938 PAL (sim.) | VG-8020, TMS (sim.) | FPGA | openMSX |
 |---|---|---|---|---|
@@ -120,7 +119,7 @@ kap. 3.1 `doc/fork-muhanpong.md`). Sloupec openMSX: Philips NMS 8245 (V9938 PAL)
   - openMSX kontroluje sprity celého řádku najednou na jeho konci (komentář v
     `SpriteChecker.hh`, `checkUntil`); ESE prohledává Y během řádku před ním a
     podle téhož komentáře to tak nejspíš dělá i čip.
-  - Pro okamžik 5S proto openMSX není přesná reference. Na HW neměřeno.
+  - Pro okamžik 5S proto openMSX není přesná reference.
 - **Příkazy VDP (stránka 8)**, ESE proti openMSX:
   - HMMV −0,2 %, LMMV +2,5 %, YMMM +3,3 %, LMMM +2,1 %: shoda;
   - HMMM o 28 % rychlejší (7715 → 5579);
@@ -148,4 +147,4 @@ OPENMSX_USER_DATA=<adresář s systemroms> CMDBENCH_OUT=vysledek.txt   openmsx -
 ```
 
 Výstup openMSX 18.0 je referencí testu `rtl/peripheral/VIDEO/VDP/tb/run_vdp_cmd.sh`
-(`cmdbench_openmsx.txt`). Model přístupových slotů VDP je popsaný v `doc/vdp-prikazy.md`.
+(`cmdbench_openmsx.txt`).

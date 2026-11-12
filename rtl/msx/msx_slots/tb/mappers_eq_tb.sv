@@ -122,6 +122,13 @@ initial begin
             // KONAMI_SCC: a bank past the ROM end wraps (konami_scc_tb); from 2 MB none does
             if (block_info.typ == MAPPER_KONAMI_SCC) block_info.rom_size[24] = 1'b1;
             if (block_info.typ == MAPPER_KONAMI)     block_info.rom_size[24] = 1'b1;   // konami_tb
+            // ASCII16 family (ascii16_tb): below 4 MB in whole 16 KB blocks the block count is the
+            // same as in the reference; R-Type differs by design and is not compared
+            if (block_info.typ == MAPPER_RTYPE) block_info.typ = MAPPER_ASCII16;
+            if (block_info.typ == MAPPER_ASCII16 || block_info.typ == MAPPER_MSXWRITE || block_info.typ == MAPPER_SUPERSWANGI) begin
+                block_info.rom_size[24:22] = '0;
+                block_info.rom_size[13:0]  = '0;
+            end
             // ASCII8 / KOEI / WIZARDRY (ascii8_tb): no wrap, no SRAM enable bit from the ROM size,
             // SRAM of 8 KB or more (no mirror)
             if (block_info.typ == MAPPER_ASCII8 || block_info.typ == MAPPER_KOEI || block_info.typ == MAPPER_WIZARDY) begin

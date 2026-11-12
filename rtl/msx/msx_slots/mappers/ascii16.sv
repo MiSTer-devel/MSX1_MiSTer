@@ -43,12 +43,17 @@ module mapper_ascii16 (
     
     logic [7:0] bank[2][2];
     logic [1:0] sramEnable[2];
-    logic [7:0] block, nrBlocks, blockMask;
-    
-    assign nrBlocks = rom_size[21:14];
-    assign blockMask = nrBlocks == 8'd0 ? 8'd0 : (nrBlocks - 8'd1);
-    
-    assign block = cpu_bus.data < nrBlocks ? cpu_bus.data : cpu_bus.data & blockMask;
+    // 16 KB blocks, the image padded up (openMSX RomBlocks); a bank past the end wraps:
+    // block < blocks ? block : block & (blocks - 1) (setRom)
+    logic [11:0] nrBlocks, blockMask;
+    assign nrBlocks  = {1'b0, rom_size[24:14]} + {11'd0, |rom_size[13:0]};
+    assign blockMask = nrBlocks - 12'd1;
+
+    function automatic logic [7:0] wrap(input logic [7:0] v);
+        logic [11:0] m;
+        m = blockMask;
+        return {4'd0, v} < nrBlocks ? v : v & m[7:0];
+    endfunction
     
     logic match_mapper,bank_id, sram_bank_cs;
     logic [7:0] bank_data;
@@ -59,26 +64,27 @@ module mapper_ascii16 (
         case (block_info.typ)
             MAPPER_ASCII16:  begin 
                 match_mapper = (cpu_bus.addr[15:11] == 5'b01100) || (cpu_bus.addr[15:11] == 5'b01110);
-                bank_data = cpu_bus.data < nrBlocks ? cpu_bus.data : cpu_bus.data & blockMask;
+                bank_data = wrap(cpu_bus.data);
                 bank_id = cpu_bus.addr[12];
                 bank_base = bank[block_info.id][cpu_bus.addr[15]];
                 sram_bank_cs = cpu_bus.data == 8'h10 && sram_exists;
             end
             MAPPER_RTYPE:    begin 
-                match_mapper = (cpu_bus.addr[15:12] == 4'b0111);
-                bank_data = cpu_bus.data & (cpu_bus.data[4] ? 8'h17 : 8'h1F);
+                // openMSX RomRType: page 2 switched by a write to 4000-7FFF, page 1 fixed at 17h
+                match_mapper = (cpu_bus.addr[15:14] == 2'b01);
+                bank_data = wrap(cpu_bus.data & (cpu_bus.data[4] ? 8'h17 : 8'h1F));
                 bank_id = 1'b1;
-                bank_base = cpu_bus.addr[15] ? bank[block_info.id][1] : 8'h0F;
+                bank_base = cpu_bus.addr[15] ? bank[block_info.id][1] : wrap(8'h17);
             end
             MAPPER_MSXWRITE: begin 
                 match_mapper = (cpu_bus.addr[15:11] == 5'b01100) || (cpu_bus.addr[15:11] == 5'b01110) || (cpu_bus.addr == 16'h6FFF) || (cpu_bus.addr == 16'h7FFF);
-                bank_data = cpu_bus.data < nrBlocks ? cpu_bus.data : cpu_bus.data & blockMask;
+                bank_data = wrap(cpu_bus.data);
                 bank_id = cpu_bus.addr[12];
                 bank_base = bank[block_info.id][cpu_bus.addr[15]];
             end
             MAPPER_SUPERSWANGI: begin 
                 match_mapper = (cpu_bus.addr == 16'h8000);
-                bank_data = {1'b0,cpu_bus.data[7:1]} < nrBlocks ? {1'b0,cpu_bus.data[7:1]} : {1'b0,cpu_bus.data[7:1]} & blockMask;
+                bank_data = wrap({1'b0, cpu_bus.data[7:1]});
                 bank_id = 1'b1;
                 bank_base = bank[block_info.id][cpu_bus.addr[15]];
             end

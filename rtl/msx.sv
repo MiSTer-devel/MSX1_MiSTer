@@ -40,6 +40,7 @@ module msx #(parameter sysCLK)
    //UART
    input              [7:0] uart_rx_data,
    input                    uart_rx,
+   output                   uart_tx,
    //Cassete
    output                   tape_motor_on,
    input                    tape_in,
@@ -238,6 +239,7 @@ devices #(.sysCLK(sysCLK)) devices
    .ps2_mouse(ps2_mouse),
    .rtc_time(rtc_time),
    .uart_rx(uart_rx),
+   .uart_tx(uart_tx),
    .uart_rx_data(uart_rx_data),
    .joy(joy),
    .tape_in(tape_in),

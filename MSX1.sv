@@ -22,7 +22,7 @@ module emu
 
 ///////// Default values for ports not used in this core /////////
 assign USER_OUT = '1;
-assign {UART_RTS, UART_TXD, UART_DTR} = 0;
+assign {UART_RTS, UART_DTR} = 0;
 
 assign VGA_F1 = 0;
 assign VGA_SCALER  = 0;
@@ -300,6 +300,7 @@ msx_system msx_system
    .led_pause(led_pause),
    .pause(pause),
    .uart_rxd(UART_RXD),
+   .uart_txd(UART_TXD),
    .tape_adc(tape_in),
    .ext_SD_card_bus(ext_SD_card_bus),
    .memory_bus_sdram_ch1(memory_bus_sdram_ch1),

@@ -300,6 +300,36 @@ endtask
 
 // C8: ROM B (32 kB plain, pages 1-2 of slot 2) loaded first, then a ROM A of 5.25 MB
 // (ASCII16-X in the database): ROM B must stay intact. Then a ROM A of 17 MB is refused.
+// MSX-MIDI cartridge (FW configuration 14): device at E8h-EFh, its slot empty; one copy only
+task automatic check_msx_midi(input string what);
+    int err0 = errors;
+    MSX::io_device_t d;
+    rom = {}; rom_b = {};
+    download(3, 0, 0); download(4, 0, 0);
+    cart_conf[0].typ = CART_TYP_MSX_MIDI;
+    cart_conf[1].typ = CART_TYP_EMPTY;
+    download(1, pack.size(), 1);
+    snapshot();
+    d = io_device[DEV_MSX_MIDI][0];
+    if (error !== ERR_NONE) begin errors++; $display("FAIL %s: error %0d", what, error); end
+    if (!d.enable || d.port !== 8'hE8 || d.mask !== 8'hF8) begin
+        errors++; $display("FAIL %s: device enable %b port %02h mask %02h", what, d.enable, d.port, d.mask);
+    end
+    for (int p = 0; p < 4; p++)
+        if (slot_layout[{2'd1, 2'd0, 2'(p)}].mapper !== MAPPER_NONE) begin
+            errors++; $display("FAIL %s: slot 1 page %0d mapper %0d", what, p, slot_layout[{2'd1, 2'd0, 2'(p)}].mapper);
+        end
+    cart_conf[1].typ = CART_TYP_MSX_MIDI;                 // both slots: a second copy is not built
+    download(1, pack.size(), 0);
+    wait (upload); wait (!upload || error != ERR_NONE); repeat (10) @(posedge clk);
+    if (error !== ERR_DEVICE_MISSING) begin errors++; $display("FAIL %s: in A and B error %0d (expected %0d)", what, error, ERR_DEVICE_MISSING); end
+    cart_conf[0].typ = CART_TYP_EMPTY; cart_conf[1].typ = CART_TYP_EMPTY;
+    download(1, pack.size(), 1);
+    if (io_device[DEV_MSX_MIDI][0].enable) begin errors++; $display("FAIL %s: device left enabled without the cartridge", what); end
+    cart_conf[0].typ = CART_TYP_ROM; cart_conf[1].typ = CART_TYP_ROM;
+    if (errors == err0) $display("ok   %s", what);
+endtask
+
 task automatic check_rom_areas(input string what);
     localparam int BIG = 5 * 1048576 + 262144;
     logic [31:0] crc;
@@ -426,6 +456,8 @@ initial begin
 
     // --- C8: areas of ROM A and ROM B in the DDR3
     check_rom_areas("ROM A of 5.25 MB beside ROM B, ROM A of 17 MB");
+
+    check_msx_midi("MSX-MIDI cartridge in slot A, not in both");
 
     if (errors == 0) $display("PASS cart_rom_tb");
     else             $display("FAILED cart_rom_tb: %0d errors", errors);

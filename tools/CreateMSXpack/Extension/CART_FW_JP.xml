@@ -234,6 +234,12 @@
       <device memory="block" sampleram="2097152">OPL4</device>
     </block>
   </fw>
+  <fw name="MSX_MIDI">                <!-- MSX-MIDI without a ROM (MIDI Interface 3): 8251 + 8254 at E8h-EFh,
+                                           the slot itself stays empty -->
+    <block>
+      <device port="0xE8" mask="0xF8">MSX_MIDI</device>
+    </block>
+  </fw>
   <fw name="MEGA_FLASH_ROM">
     <secondary slot="0">
       <block start="0" count="4">

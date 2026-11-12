@@ -24,7 +24,8 @@ module dev_YM2148 #(parameter COUNT=1) (
     input            [7:0] uart_rx_data,
     input                  uart_rx,
     output         [7:0]   data,
-    output                 irq
+    output                 irq,
+    output                 tx               // MIDI out, 31250 Bd 8N1
 );
 
     localparam STAT_TXRDY = 0;
@@ -47,6 +48,17 @@ module dev_YM2148 #(parameter COUNT=1) (
     logic       txIRQ;
     logic       kbIRQ;
     logic [7:0] key_row;
+
+    // transmitter (openMSX YM2148): the first byte starts at once and TXRDY stays set,
+    // a byte written while sending waits in tx_buf2 with TXRDY clear
+    localparam logic [9:0] BIT_CLK = 10'(MSX::CLK_CORE_HZ / 31250);
+    logic       tx_busy;
+    logic [9:0] tx_sh;                  // start, 8 data bits, stop; bit 0 on the line
+    logic [3:0] tx_n;                   // bit cells left
+    logic [9:0] tx_cnt;
+    logic [7:0] tx_buf2;
+    logic       tx_line;
+    assign tx = tx_line;
 
     logic [5:0] key_map  [0:48] = '{6'h07, 6'h00, 6'h01, 6'h02, 6'h04, 6'h05, 6'h06, 6'h08, 6'h09, 6'h0B, 
                                     6'h0C, 6'h0D, 6'h0E, 6'h10, 6'h11, 6'h13, 6'h14, 6'h15, 6'h16, 6'h18,
@@ -77,7 +89,28 @@ module dev_YM2148 #(parameter COUNT=1) (
             status     <= '0;
             cmd_reg    <= '0;
             irq_vector <= '{'1,'1};
+            tx_busy    <= '0;
+            tx_line    <= '1;
         end else begin
+            if (tx_busy) begin
+                if (tx_cnt != 10'd1)
+                    tx_cnt <= tx_cnt - 10'd1;
+                else begin
+                    tx_cnt <= BIT_CLK;
+                    tx_n   <= tx_n - 4'd1;
+                    tx_sh  <= tx_sh >> 1;
+                    if (tx_n != 4'd1)
+                        tx_line <= tx_sh[1];
+                    else if (!status[STAT_TXRDY]) begin     // next byte waiting
+                        status[STAT_TXRDY] <= 1;
+                        if (cmd_reg[CMD_TXIE]) txIRQ <= 1;
+                        tx_sh   <= {1'b1, tx_buf2, 1'b0};
+                        tx_n    <= 4'd10;
+                        tx_line <= 1'b0;
+                    end else
+                        tx_busy <= 1'b0;
+                end
+            end
             if (dev_wr) begin
                 case(cpu_bus.addr[2:0])
                     3'd2: key_row       <= cpu_bus.data;    // Keyboard row
@@ -85,19 +118,17 @@ module dev_YM2148 #(parameter COUNT=1) (
                     3'd4: irq_vector[0] <= cpu_bus.data;    // EXT  IRQ Vector 
                     3'd5: begin                             // Data
                         if (cmd_reg[CMD_TXEN]) begin
-                        /*
-                            if (syncTrans.pendingSyncPoint()) {
-                                // We're still sending the previous character, only buffer
-                                // this one. Don't accept any further characters.
-                                txBuffer2 = value;
-                                status &= byte(~STAT_TXRDY);
-                                txIRQ.reset();
-                            } else {
-                                // Immediately start sending this character. We're still
-                                // ready to accept a next character.
-                                send(value, time);
-                           }*/
-                           ;
+                            if (tx_busy) begin
+                                tx_buf2            <= cpu_bus.data;
+                                status[STAT_TXRDY] <= 0;
+                                txIRQ              <= 0;
+                            end else begin
+                                tx_busy <= 1'b1;
+                                tx_sh   <= {1'b1, cpu_bus.data, 1'b0};
+                                tx_n    <= 4'd10;
+                                tx_cnt  <= BIT_CLK;
+                                tx_line <= 1'b0;
+                            end
                         end
                     end
                     3'd6: begin                             // Command
@@ -108,15 +139,17 @@ module dev_YM2148 #(parameter COUNT=1) (
                             txIRQ      <= '0;
                             kbIRQ      <= '0;
                             status     <= '0;
+                            cmd_reg    <= '0;
+                            tx_busy    <= '0;
+                            tx_line    <= '1;
                         end else if (cpu_bus.data[CMD_ER]) begin
                             status[STAT_OE] <= 0;            
                             status[STAT_FE] <= 0;
                         end else begin
                             cmd_reg <= cpu_bus.data;
+                            // IRQs follow the new enables (openMSX writeCommand)
                             if (cpu_bus.data[CMD_RXEN]) begin
-                                if (cpu_bus.data[CMD_RXIE]) begin
-                                    rxIRQ          <= status[STAT_RXRDY];
-                                end
+                                rxIRQ <= cpu_bus.data[CMD_RXIE] && status[STAT_RXRDY];
                             end else begin
                                 status[STAT_RXRDY] <= 0;
                                 rxIRQ              <= 0;
@@ -124,13 +157,13 @@ module dev_YM2148 #(parameter COUNT=1) (
                             end
 
                             if (cpu_bus.data[CMD_TXEN]) begin
-                                if (~cmd_reg[CMD_TXEN]) begin
-                                    status[STAT_TXRDY] <= 1;
-                                    txIRQ              <= cpu_bus.data[CMD_TXIE];
-                                end
+                                if (~cmd_reg[CMD_TXEN]) status[STAT_TXRDY] <= 1;
+                                txIRQ <= cpu_bus.data[CMD_TXIE] && (~cmd_reg[CMD_TXEN] || status[STAT_TXRDY]);
                             end else begin
                                 status[STAT_TXRDY] <= 0;
                                 txIRQ              <= 0;
+                                tx_busy            <= 0;
+                                tx_line            <= 1;
                             end
                         end
                     end

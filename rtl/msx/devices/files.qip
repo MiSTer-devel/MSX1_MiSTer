@@ -19,5 +19,6 @@ set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) s
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) turbor_pcm.sv                      ]
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) turbor_pause.sv                    ]
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) ym2148.sv                          ]
+set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) msx_midi.sv                        ]
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) dac.sv                             ]
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) tc8566af.sv                        ]

@@ -37,6 +37,7 @@ module devices  #(parameter sysCLK)
     input            [64:0] rtc_time,
     input             [7:0] uart_rx_data,
     input                   uart_rx,
+    output                  uart_tx,                                // MIDI out (YM2148, MSX-MIDI)
     output    signed [15:0] sound_L,                                // Mixed and clipped audio (sound_mix)
     output    signed [15:0] sound_R,
     output            [7:0] data,                                   // Combined data output
@@ -70,7 +71,7 @@ module devices  #(parameter sysCLK)
     vram_bus_if             vram_bus_v99();
 
     // Výstupy kombinující jednotlivé zařízení
-    assign data = scc_data & fdc_data & msx2_ram_data & tms_data & v99_data & rtc_data & psg_data & ppi_data & ocm_data & reset_status_data & opm_data & ym2148_data & systimer_data & s1990_data & turbor_pcm_data & turbor_pause_data & opl4_data;
+    assign data = scc_data & fdc_data & msx2_ram_data & tms_data & v99_data & rtc_data & psg_data & ppi_data & ocm_data & reset_status_data & opm_data & ym2148_data & msx_midi_data & systimer_data & s1990_data & turbor_pcm_data & turbor_pause_data & opl4_data;
     assign data_oe_rq = fdc_data_oe_rq;// | TC8566AF_data_oe_rq;
     assign data_to_mapper = msx2_ram_data_to_mapper & latch_port_data_to_mapper;
 
@@ -84,7 +85,7 @@ module devices  #(parameter sysCLK)
     assign memory_bus.rnw     = '1;
 
     // VIDEO interfaces
-    assign cpu_interrupt     = tms_interrupt | v99_interrupt | opm_irq | ym2148_irq | opl4_irq;
+    assign cpu_interrupt     = tms_interrupt | v99_interrupt | opm_irq | ym2148_irq | msx_midi_irq | opl4_irq;
 
     assign video_bus         = video_bus_tms | video_bus_v99;     // only the enabled VDP drives
 
@@ -142,7 +143,7 @@ module devices  #(parameter sysCLK)
     );
 
     wire         [7:0] ym2148_data;
-    wire               ym2148_irq;
+    wire               ym2148_irq, ym2148_tx;
     dev_YM2148 ym2148 (
         .cpu_bus(cpu_bus),
         .device_bus(device_bus),
@@ -151,8 +152,22 @@ module devices  #(parameter sysCLK)
         .io_device(io_device[DEV_YM2148]),
         .uart_rx_data(uart_rx_data),
         .uart_rx(uart_rx),
-        .data(ym2148_data)
+        .data(ym2148_data),
+        .tx(ym2148_tx)
     );
+
+    wire         [7:0] msx_midi_data;
+    wire               msx_midi_irq, msx_midi_tx;
+    dev_msx_midi msx_midi (
+        .cpu_bus(cpu_bus),
+        .io_device(io_device[DEV_MSX_MIDI]),
+        .uart_rx(uart_rx),
+        .uart_rx_data(uart_rx_data),
+        .data(msx_midi_data),
+        .irq(msx_midi_irq),
+        .tx(msx_midi_tx)
+    );
+    assign uart_tx = ym2148_tx & msx_midi_tx;             // both idle high
 
     wire [7:0] scc_data;
     MSX::sound_t scc_sound;

@@ -52,6 +52,7 @@ module msx_system (
     output                      led_pause,              // machine paused, or turbo R pause LED (A7h)
     output                      pause,                  // CPU held by a pause: freeze the HDMI picture
     input                       uart_rxd,
+    output                      uart_txd,
     input                       tape_adc,               // tape input from ADC
     ext_sd_card_if.device_mp    ext_SD_card_bus,
 
@@ -163,6 +164,7 @@ msx #(.sysCLK(sysCLK)) MSX
    .joy(joy),
    .uart_rx_data(uart_rx_data),
    .uart_rx(uart_rx),
+   .uart_tx(uart_txd),
    .tape_motor_on(motor),
    .tape_in(msx_user_config.cas_audio_src == CAS_AUDIO_FILE ? CAS_dout : tape_adc),
    .rtc_time(rtc),

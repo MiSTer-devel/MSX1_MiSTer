@@ -1,1 +1,3 @@
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) uart_rx.sv                    ]
+set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) i8251.sv                      ]
+set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) i8254.sv                      ]

@@ -246,6 +246,7 @@ Hodnota položky OSD se převede na `cart_typ_t` v `rtl/msx_config.sv` a zavadě
 | není k dispozici | MegaRAM ASCII-16K 2MB | 9 | `MEGAASCII16` |
 | Empty | Empty | 12 | žádný (prázdná konfigurace) |
 | MoonSound | MoonSound | 13 | `MOONSOUND` |
+| MSX-MIDI | MSX-MIDI | 14 | `MSX_MIDI` |
 | není v nabídce | není v nabídce | 10 `CART_TYP_UNUSED10` | volné (1chipMSX používá mapper MEGARAM přímo ve svém XML) |
 
 - `CART_TYP_ROM` (11) je zvláštní: zavaděč spočítá CRC32 načtené ROM a zeptá se DB. Záznam DB dá FW ID (20-59). ROM o velikosti nejvýše 64 kB, která v DB není, běží jako prostá ROM s FW ID 20/21/22 zvoleným podle hlavičky `AB`.

@@ -10,6 +10,7 @@
   "MEGAASCII8": 8,
   "MEGAASCII16": 9,
   "MOONSOUND": 13,
+  "MSX_MIDI": 14,
   "0x0000": 20,
   "0x4000": 21,
   "0x8000": 22,

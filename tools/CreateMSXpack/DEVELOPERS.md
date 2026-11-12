@@ -246,6 +246,7 @@ The OSD item value is converted to `cart_typ_t` in `rtl/msx_config.sv`, and the 
 | not available | MegaRAM ASCII-16K 2MB | 9 | `MEGAASCII16` |
 | Empty | Empty | 12 | none (the empty configuration) |
 | MoonSound | MoonSound | 13 | `MOONSOUND` |
+| MSX-MIDI | MSX-MIDI | 14 | `MSX_MIDI` |
 | not in a menu | not in a menu | 10 `CART_TYP_UNUSED10` | free (1chipMSX uses the MEGARAM mapper directly in its XML) |
 
 - `CART_TYP_ROM` (11) is special: the loader computes the CRC32 of the loaded ROM and asks the DB. The DB record gives the FW ID (20-59). A ROM of at most 64 kB that is not in the DB runs as a plain ROM, with FW ID 20/21/22 chosen from the `AB` header.

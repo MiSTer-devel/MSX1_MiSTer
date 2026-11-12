@@ -40,9 +40,6 @@ module mapper_zemina90 (
 
 	 
 	 wire cs      = (block_info.typ == MAPPER_ZEMINA_90) && cpu_bus.mreq && cpu_bus.rd && mapped;
-    
-    // Output assignments
-    assign out.ram_cs = cs;  // RAM chip select signal
 
     
     wire  [6:0]  page = {data_to_mapper[5:0], 1'b0};
@@ -63,9 +60,9 @@ module mapper_zemina90 (
             2'b10: begin
                 case (cpu_bus.addr[15:13])
                     3'b010: addr = page & ~7'h2;
-                    3'b011: addr = page & ~7'h2;
+                    3'b011: addr = (page & ~7'h2) | 7'd1;
                     3'b100: addr = page |  7'd2;
-                    3'b101: addr = page |  7'd2;
+                    3'b101: addr = page |  7'd3;
 						  default:;
                 endcase
             end
@@ -81,8 +78,16 @@ module mapper_zemina90 (
         endcase
     end
 
-    // Calculate the address by adding the offset to the base address (only if chip select is active)
-    assign out.addr = cs ? {7'b0, addr, cpu_bus.addr[12:0]} : {27{1'b1}};
+    // A block past the ROM end wraps, block < blocks ? block : block & (blocks - 1) (openMSX setRom)
+    wire [12:0] blocks    = {1'b0, block_info.rom_size[24:13]};
+    wire [12:0] blk_mask  = blocks - 13'd1;
+    wire  [6:0] block     = {6'd0, addr} < blocks ? addr : addr & blk_mask[6:0];
+    wire [26:0] ram_addr  = {7'b0, block, cpu_bus.addr[12:0]};
+    wire        ram_valid = cs && ram_addr < {2'b00, block_info.rom_size};
+
+    // Output assignments
+    assign out.ram_cs = ram_valid;
+    assign out.addr   = ram_valid ? ram_addr : {27{1'b1}};
 
     // outputs not used by this mapper: neutral for the merge in mappers.sv
     assign out.rnw     = 1'b1;

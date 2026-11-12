@@ -134,6 +134,7 @@ initial begin
             if (block_info.typ == MAPPER_GENERIC8KB)  block_info.rom_size = 25'h0180000;   // 1.5 MB
             if (block_info.typ == MAPPER_GENERIC16KB) block_info.rom_size = 25'h0300000;   // 3 MB
             if (block_info.typ == MAPPER_ZEMINA_80)   block_info.rom_size = 25'h0100000;   // 1 MB, zemina80_tb
+            if (block_info.typ == MAPPER_ZEMINA_90)   block_info.rom_size = 25'h0100000;   // 1 MB, zemina90_tb
             if (block_info.typ == MAPPER_ASCII16 || block_info.typ == MAPPER_MSXWRITE || block_info.typ == MAPPER_SUPERSWANGI) begin
                 block_info.rom_size[24:22] = '0;
                 block_info.rom_size[13:0]  = '0;
@@ -165,6 +166,8 @@ initial begin
         if (block_info.typ == MAPPER_WIZARDY && addr[15:12] == 4'h6) cpu_data[7] = 1'b0;
         if (block_info.typ == MAPPER_GM2 && (addr[15:12] == 4'h6 || addr[15:12] == 4'h8)) cpu_data[4] = 1'b0;
         data_to_mapper = 8'($urandom);
+        // Zemina 90 mode 80h is fixed (zemina90_tb), the reference had it wrong
+        if (block_info.typ == MAPPER_ZEMINA_90 && data_to_mapper[7:6] == 2'b10) data_to_mapper[6] = 1'b1;
         flash_q        = 8'($urandom);
         sd_q           = 8'($urandom);
         flash_valid    = ($urandom_range(3) == 0);

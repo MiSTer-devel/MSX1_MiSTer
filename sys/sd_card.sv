@@ -58,10 +58,10 @@ localparam DW = WIDE  ? 15 : 7;
 localparam SZ = OCTAL ?  8 : 1;
 localparam SW = SZ-1;
 
-wire [7:0] DATA_TOKEN_CMD25    = 8'hfc;
-wire [7:0] STOP_TRAN           = 8'hfd;
-wire [7:0] DATA_TOKEN          = 8'hfe;
-wire [7:0] WRITE_DATA_RESPONSE = 8'h05;
+localparam DATA_TOKEN_CMD25    = 8'hfc;
+localparam STOP_TRAN           = 8'hfd;
+localparam DATA_TOKEN          = 8'hfe;
+localparam WRITE_DATA_RESPONSE = 8'he5;
 
 // number of bytes to wait after a command before sending the reply
 localparam NCR = 5+3; // 5 bytes are required (command length)
@@ -147,7 +147,7 @@ always @(posedge clk_sys) begin
 		csd_sdhc <= sdhc;
 		if (sdhc) begin
 			csd_size[0]     <= 0;
-			csd_size[22:1]  <= (img_size[40:19] - 1'b1); // in 512K units
+			csd_size[22:1]  <= img_size[40:19]; // in 512K units
 			csd_size[26:23] <= 0;
 		end
 		else begin
@@ -172,7 +172,6 @@ reg  [6:0] sbuf;
 reg  [2:0] bit_cnt;
 
 wire       last_bit = &bit_cnt || OCTAL;
-/* verilator lint_off WIDTHEXPAND */
 wire [7:0] ibuf = OCTAL ? mosi : {sbuf,mosi[0]};
 
 always @(posedge clk_spi) begin
@@ -276,7 +275,7 @@ always @(posedge clk_spi) begin
 				// send data
 				RD_STATE_SEND_DATA: begin
 
-					miso <= (cmd == 9) ? CSD[{~buffer_ptr[3:0],~bit_cnt} -:SZ] : (cmd == 10) ? CID[{buffer_ptr[3:0],~bit_cnt} -:SZ] : buffer_dout[~bit_cnt -:SZ];
+					miso <= (cmd == 9) ? CSD[{buffer_ptr[3:0],~bit_cnt} -:SZ] : (cmd == 10) ? CID[{buffer_ptr[3:0],~bit_cnt} -:SZ] : buffer_dout[~bit_cnt -:SZ];
 
 					if(last_bit) begin
 

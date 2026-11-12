@@ -19,6 +19,14 @@
 { "" "" "" "Ignored create_generated_clock at sys_top.sdc(16): Argument <targets> is an empty collection" {  } {  } 0 332049 "" 0 0 "Design Software" 0 -1 0 ""}
 { "" "" "" "Ignored filter at sys_top.sdc(37): VID_CLK could not be matched with a clock" {  } {  } 0 332174 "" 0 0 "Design Software" 0 -1 0 ""}
 { "" "" "" "LOCKED port on the PLL is not properly connected on instance \"pll_audio:pll_audio\|pll_audio_0002:pll_audio_inst\|altera_pll:altera_pll_i\|general\[0\].gpll\". The LOCKED port on the PLL should be connected when the FBOUTCLK port is connected. Although it is unnecessary to connect the LOCKED signal, any logic driven off of an output clock of the PLL will not know when the PLL is locked and ready." {  } {  } 0 21300 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "*" {  } {  } 0 21074 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "*" {  } {  } 0 276020 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "*" {  } {  } 0 276027 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "RST" {  } {  } 0 9999 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "altera_pll.v" {  } {  } 0 9999 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "altera_cyclonev_pll.v" {  } {  } 0 9999 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "altera_pll_reconfig_core.v" {  } {  } 0 9999 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "cyclonev_pll" {  } {  } 0 9999 "" 0 0 "Design Software" 0 -1 0 ""}
 { "" "" "" "Verilog HDL error at IKAOPLL_dac.v(138): constant value overflow" {  } {  } 0 10259 "" 0 0 "Design Software" 0 -1 0 ""}
 { "" "" "" "Verilog HDL or VHDL warning at IKAOPLL_pg.v(85): object \"debug_cyc1c_pmamt_full\" assigned a value but never read" {  } {  } 0 10036 "" 0 0 "Design Software" 0 -1 0 ""}
 { "" "" "" "Verilog HDL or VHDL warning at IKAOPLL_pg.v(361): object \"debug_phasereg_static\" assigned a value but never read" {  } {  } 0 10036 "" 0 0 "Design Software" 0 -1 0 ""}

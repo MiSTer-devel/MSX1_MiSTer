@@ -128,12 +128,13 @@ module sys_top
 wire SD_CS, SD_CLK, SD_MOSI, SD_MISO, SD_CD;
 
 `ifndef MISTER_DUAL_SDRAM
-	assign SD_CD       = mcp_en ? mcp_sdcd : SDCD_SPDIF;
+	wire   sd_cd       = SDCD_SPDIF & ~SW[2]; // SW[2]=ON workaround for faulty boards without SD card detect pin.
+	assign SD_CD       = mcp_en ? mcp_sdcd : sd_cd;
 	assign SD_MISO     = SD_CD | (mcp_en ? SD_SPI_MISO : (VGA_EN | SDIO_DAT[0]));
 	assign SD_SPI_CS   = mcp_en ?  (mcp_sdcd  ? 1'bZ : SD_CS) : (sog & ~cs1 & ~VGA_EN) ? 1'b1 : 1'bZ;
 	assign SD_SPI_CLK  = (~mcp_en | mcp_sdcd) ? 1'bZ : SD_CLK;
 	assign SD_SPI_MOSI = (~mcp_en | mcp_sdcd) ? 1'bZ : SD_MOSI;
-	assign {SDIO_CLK,SDIO_CMD,SDIO_DAT} = av_dis ? 6'bZZZZZZ : (mcp_en | (SDCD_SPDIF & ~SW[2])) ? {vga_g,vga_r,vga_b} : {SD_CLK,SD_MOSI,SD_CS,3'bZZZ};
+	assign {SDIO_CLK,SDIO_CMD,SDIO_DAT} = av_dis ? 6'bZZZZZZ : (mcp_en | sd_cd) ? {vga_g,vga_r,vga_b} : {SD_CLK,SD_MOSI,SD_CS,3'bZZZ};
 `else
 	assign SD_CD       = mcp_sdcd;
 	assign SD_MISO     = mcp_sdcd | SD_SPI_MISO;
@@ -183,10 +184,10 @@ wire io_dig = mcp_en ? mcp_mode : SW[3];
 	assign LED_USER  = VGA_TX_CLK;
 	wire   BTN_DIS   = VGA_EN;
 `else
-	wire   BTN_RESET = SDRAM2_DQ[9];
-	wire   BTN_OSD   = SDRAM2_DQ[13];
-	wire   BTN_USER  = SDRAM2_DQ[11];
-	wire   BTN_DIS   = SDRAM2_DQ[15];
+	wire   BTN_RESET = 1'b1;
+	wire   BTN_OSD   = 1'b1;
+	wire   BTN_USER  = 1'b1;
+	wire   BTN_DIS   = 1'b1;
 `endif
 
 reg BTN_EN = 0;
@@ -230,7 +231,7 @@ end
 
 // gp_in[31] = 0 - quick flag that FPGA is initialized (HPS reads 1 when FPGA is not in user mode)
 //                 used to avoid lockups while JTAG loading
-wire [31:0] gp_in = {1'b0, btn_user | btn[1], btn_osd | btn[0], io_dig, 8'd0, io_ver, io_ack, io_wide, io_dout | io_dout_sys};
+wire [31:0] gp_in = {1'b0, btn_user | btn[1], btn_osd | btn[0], io_dig, 7'd0, ~HDMI_TX_INT, io_ver, io_ack, io_wide, io_dout | io_dout_sys};
 wire [31:0] gp_out;
 
 wire  [1:0] io_ver = 1; // 0 - obsolete. 1 - optimized HPS I/O. 2,3 - reserved for future.
@@ -299,8 +300,9 @@ wire       audio_96k    = cfg[6];
 wire       csync_en     = cfg[3];
 wire       io_osd_vga   = io_ss1 & ~io_ss2;
 `ifndef MISTER_DUAL_SDRAM
-	wire    ypbpr_en     = cfg[5];
-	wire    sog          = cfg[9];
+	wire forced_scandoubler = cfg[4];
+	wire ypbpr_en           = cfg[5];
+	wire sog                = cfg[9];
 	`ifdef MISTER_DEBUG_NOHDMI
 		wire vga_scaler   = 0;
 	`else
@@ -314,6 +316,7 @@ reg [31:0] cfg_custom_p2;
 
 reg  [4:0] vol_att;
 initial vol_att = 5'b11111;
+reg  [1:0] vol_boost = 0;
 
 reg  [11:0] coef_addr;
 reg  [9:0] coef_data;
@@ -355,8 +358,10 @@ always@(posedge clk_sys) begin
 	reg        vs_d0,vs_d1,vs_d2;
 	reg  [4:0] acx_att;
 	reg  [7:0] fb_crc;
+	reg  [1:0] sl_r;
 
 	coef_wr <= 0;
+	sl_r <= FB_EN ? 2'b00 : scanlines;
 
 `ifndef MISTER_DEBUG_NOHDMI
 	shadowmask_wr <= 0;
@@ -388,11 +393,21 @@ always@(posedge clk_sys) begin
 				acy1 <=  24'd6143386;
 				acy2 <= -24'd2023767;
 				areset <= 1;
+				io_dout_sys <= 'b11;
 			end
 			if(io_din[7:0] == 'h20) io_dout_sys <= 'b11;
+`ifdef MISTER_DISABLE_ADAPTIVE
+			if(io_din[7:0] == 'h2B) io_dout_sys <= {fb_en, sl_r, 4'b0110};
+`else
+			if(io_din[7:0] == 'h2B) io_dout_sys <= {fb_en, sl_r, 4'b0111};
+`endif
+			if(io_din[7:0] == 'h2F) io_dout_sys <= 1;
+			if(io_din[7:0] == 'h3E) io_dout_sys <= 1;
 `ifndef MISTER_DEBUG_NOHDMI
 			if(io_din[7:0] == 'h40) io_dout_sys <= fb_crc;
 `endif
+			if(io_din[7:0] == 'h42) io_dout_sys <= {1'b1, frame_cnt};
+			if(io_din[7:0] == 'h44) io_dout_sys <= 1;
 		end
 		else begin
 			cnt <= cnt + 1'd1;
@@ -459,7 +474,7 @@ always@(posedge clk_sys) begin
 			if(cmd == 'h38) vs_line <= io_din[11:0];
 			if(cmd == 'h39) begin
 				case(cnt[3:0])
-					 0: acx_att          <= io_din[4:0];
+					 0: {vol_boost,acx_att} <= io_din[6:0];
 					 1: aflt_rate[15:0]  <= io_din;
 					 2: aflt_rate[31:16] <= io_din;
 					 3: acx[15:0]        <= io_din;
@@ -499,18 +514,22 @@ always@(posedge clk_sys) begin
 				endcase
 			end
 `endif
-`ifndef MISTER_DISABLE_YC
 			if(cmd == 'h41) begin
 				case(cnt[3:0])
-					 0: {pal_en,cvbs,yc_en}    <= io_din[2:0];
-					 1: PhaseInc[15:0]         <= io_din;
-					 2: PhaseInc[31:16]        <= io_din;
-					 3: PhaseInc[39:32]        <= io_din[7:0];
-					 4: ColorBurst_Range[15:0] <= io_din;
-					 5: ColorBurst_Range[16]   <= io_din[0];
+`ifndef MISTER_DISABLE_YC
+					0: {pal_en,cvbs,yc_en}    <= io_din[2:0];
+					4: ColorBurst_Range[15:0] <= io_din;
+					5: ColorBurst_Range[16]   <= io_din[0];
+`endif
+					// Subcarrier commands (independent of YC module)
+					1: PhaseInc[15:0]         <= io_din;
+					2: PhaseInc[31:16]        <= io_din;
+					3: PhaseInc[39:32]        <= io_din[7:0];
+`ifndef MISTER_DUAL_SDRAM
+					6: subcarrier             <= io_din[0];
+`endif
 				endcase
 			end
-`endif
 		end
 	end
 
@@ -527,6 +546,15 @@ always@(posedge clk_sys) begin
 
 	vs_d2 <= vs_d1;
 	if(~vs_d2 & vs_d1) vs_wait <= 0;
+end
+
+reg [7:0] frame_cnt;
+always @(posedge clk_sys) begin
+	reg vs_r, vs_old;
+	
+	vs_r <= vs_fix;
+	if(vs_r == vs_fix) vs_old <= vs_r;
+	if(~vs_old & vs_r) frame_cnt <= frame_cnt + 1'd1;
 end
 
 cyclonev_hps_interface_peripheral_uart uart
@@ -705,6 +733,9 @@ wire         bob_deint;
 		.DOWNSCALE_NN("true"),
 	`endif
 		.FRAC(8),
+`ifdef MENU_CORE
+		.N_BURST(2048),
+`endif
 		.N_DW(128),
 		.N_AW(28)
 	)
@@ -1398,7 +1429,6 @@ csync csync_vga(clk_vid, vga_hs_osd, vga_vs_osd, vga_cs_osd);
 	reg         yc_en;
 	reg         cvbs;
 	reg  [16:0] ColorBurst_Range;
-	reg  [39:0] PhaseInc;
 	wire [23:0] yc_o;
 	wire        yc_hs, yc_vs, yc_cs, yc_de;
 
@@ -1422,7 +1452,20 @@ csync csync_vga(clk_vid, vga_hs_osd, vga_vs_osd, vga_cs_osd);
 	);
 `endif
 
+reg  [39:0] PhaseInc;
+
 `ifndef MISTER_DUAL_SDRAM
+	// Subcarrier generation for external encoders (independent of YC module)
+	reg         subcarrier;
+
+	reg  [39:0] sub_accum;
+	always @(posedge clk_vid) sub_accum <= sub_accum + PhaseInc;
+
+	// 1-bit output for positive/negative of wave, no LUT required. Output 1 if disabled for further logic
+	reg subcarrier_out;
+	always @(posedge clk_vid) subcarrier_out <= ~(subcarrier & csync_en & ~ypbpr_en & ~forced_scandoubler & ~vgas_en) | sub_accum[39];
+
+
 	wire VGA_DISABLE;
 	wire [23:0] vgas_o;
 	wire vgas_hs, vgas_vs, vgas_cs, vgas_de;
@@ -1475,7 +1518,7 @@ csync csync_vga(clk_vid, vga_hs_osd, vga_vs_osd, vga_cs_osd);
 	wire cs1 = vgas_en ? vgas_cs : vga_cs;
 	wire de1 = vgas_en ? vgas_de : vga_de;
 
-	assign VGA_VS = av_dis ? 1'bZ      : ((vgas_en ? (~vgas_vs ^ VS[12])                         : VGA_DISABLE ? 1'd1 : ~vga_vs) | csync_en);
+	assign VGA_VS = av_dis ? 1'bZ      :(((vgas_en ? (~vgas_vs ^ VS[12])                         : VGA_DISABLE ? 1'd1 : ~vga_vs) | csync_en) & subcarrier_out);
 	assign VGA_HS = av_dis ? 1'bZ      :  (vgas_en ? ((csync_en ? ~vgas_cs : ~vgas_hs) ^ HS[12]) : VGA_DISABLE ? 1'd1 : (csync_en ? ~vga_cs : ~vga_hs));
 	assign VGA_R  = av_dis ? 6'bZZZZZZ :   vgas_en ? vgas_o[23:18]                               : VGA_DISABLE ? 6'd0 : vga_o[23:18];
 	assign VGA_G  = av_dis ? 6'bZZZZZZ :   vgas_en ? vgas_o[15:10]                               : VGA_DISABLE ? 6'd0 : vga_o[15:10];
@@ -1518,9 +1561,6 @@ assign SDCD_SPDIF = (mcp_en & ~spdif) ? 1'b0 : 1'bZ;
 `ifndef MISTER_DUAL_SDRAM
 	wire analog_l, analog_r;
 
-	assign AUDIO_SPDIF = av_dis ? 1'bZ : (SW[0] | mcp_en) ? HDMI_LRCLK : spdif;
-	assign AUDIO_R     = av_dis ? 1'bZ : (SW[0] | mcp_en) ? HDMI_I2S   : analog_r;
-	assign AUDIO_L     = av_dis ? 1'bZ : (SW[0] | mcp_en) ? HDMI_SCLK  : analog_l;
 `endif
 
 assign HDMI_MCLK = clk_audio;
@@ -1540,6 +1580,7 @@ audio_out audio_out
 	.clk(clk_audio),
 
 	.att(vol_att),
+	.boost(vol_boost),
 	.mix(audio_mix),
 	.sample_rate(audio_96k),
 
@@ -1571,6 +1612,18 @@ audio_out audio_out
 	.spdif(spdif)
 );
 
+`ifndef MISTER_DUAL_SDRAM
+	reg aud_spdif_q, aud_r_q, aud_l_q;
+	always @(posedge clk_audio) begin
+		aud_spdif_q <= (SW[0] | mcp_en) ? HDMI_LRCLK : spdif;
+		aud_r_q     <= (SW[0] | mcp_en) ? HDMI_I2S   : analog_r;
+		aud_l_q     <= (SW[0] | mcp_en) ? HDMI_SCLK  : analog_l;
+	end
+
+	assign AUDIO_SPDIF = av_dis ? 1'bZ : aud_spdif_q;
+	assign AUDIO_R     = av_dis ? 1'bZ : aud_r_q;
+	assign AUDIO_L     = av_dis ? 1'bZ : aud_l_q;
+`endif
 
 `ifndef MISTER_DISABLE_ALSA
 	wire aspi_sck,aspi_mosi,aspi_ss,aspi_miso;
@@ -1709,15 +1762,11 @@ wire [13:0] fb_stride;
 	assign fb_stride = 0;
 `endif
 
-reg  [1:0] sl_r;
-wire [1:0] sl = sl_r;
-always @(posedge clk_sys) sl_r <= FB_EN ? 2'b00 : scanlines;
-
 emu emu
 (
 	.CLK_50M(FPGA_CLK2_50),
 	.RESET(reset),
-	.HPS_BUS({fb_en, sl, f1, HDMI_TX_VS, 
+	.HPS_BUS({f1, HDMI_TX_VS, 
 				 clk_100m, clk_ihdmi,
 				 ce_hpix, hde_emu, hhs_fix, hvs_fix, 
 				 io_wait, clk_sys, io_fpga, io_uio, io_strobe, io_wide, io_din, io_dout}),
@@ -1740,6 +1789,12 @@ emu emu
 	.HDMI_FREEZE(freeze),
 	.HDMI_BLACKOUT(hdmi_blackout),
 	.HDMI_BOB_DEINT(bob_deint),
+
+	.LFB_FMT(LFB_FMT),
+	.LFB_BASE(LFB_BASE),
+	.LFB_WIDTH(LFB_WIDTH),
+	.LFB_HEIGHT(LFB_HEIGHT),
+	.LFB_STRIDE(LFB_STRIDE),
 
 	.CLK_VIDEO(clk_vid),
 	.CE_PIXEL(ce_pix),

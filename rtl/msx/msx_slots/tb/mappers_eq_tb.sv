@@ -118,6 +118,8 @@ initial begin
         end
         hold--;
         addr           = 16'($urandom);
+        // ESE_RAM maps 0x4000-0xBFFF only (eseram_tb); the reference mirrored pages 0 and 3
+        if (block_info.typ == MAPPER_ESE_RAM) addr[15] = ~addr[14];
         cpu_data       = 8'($urandom);
         data_to_mapper = 8'($urandom);
         flash_q        = 8'($urandom);

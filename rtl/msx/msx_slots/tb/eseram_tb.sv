@@ -76,6 +76,20 @@ initial begin
     check("empty slot write 4000", MAPPER_NONE,   16'h4123, 1, 0, '1);
     check("other slot read 4000",  MAPPER_OFFSET, 16'h4123, 0, 0, '1);
 
+    // Own slot outside 0x4000-0xBFFF (a block of pages 0 or 3): unmapped as openMSX ESE_RAM
+    check("page 0 read 0123",   MAPPER_ESE_RAM, 16'h0123, 0, 0, '1);
+    check("page 0 write 2123",  MAPPER_ESE_RAM, 16'h2123, 1, 0, '1);
+    check("page 3 read C123",   MAPPER_ESE_RAM, 16'hC123, 0, 0, '1);
+    check("page 3 write C123",  MAPPER_ESE_RAM, 16'hC123, 1, 0, '1);
+    check("page 3 read E123",   MAPPER_ESE_RAM, 16'hE123, 0, 0, '1);
+    begin
+        block_info.typ = MAPPER_ESE_RAM; addr = 16'hC123; mreq = 1; rd = 1; #1;
+        if (out.addr !== '1 || out.rnw !== 1'b1 || out.data !== 8'hFF) begin
+            errors++; $display("FAIL page 3: output not neutral (addr=%07h rnw=%b data=%02h)", out.addr, out.rnw, out.data);
+        end
+        @(posedge clk); #1 mreq = 0; rd = 0;
+    end
+
     // A write to 0x6000 in another slot must not change the bank registers
     write(MAPPER_MSX2, 16'h6000, 8'h01);
     check("bank after foreign write", MAPPER_ESE_RAM, 16'h4123, 0, 1, ram(5, 16'h4123));

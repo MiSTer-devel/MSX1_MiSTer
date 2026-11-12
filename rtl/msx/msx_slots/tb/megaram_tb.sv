@@ -86,6 +86,20 @@ initial begin
     expect_ram("RAM mode write 4000", 16'h4001, 1'b1, 27'h05 * 27'h2000 + 27'h0001);
     write(16'hBFFE, 8'h00);
 
+    // ---- as the SCC+ cartridge (C3): every segment readable in the ROM mode; in the all-RAM
+    //      mode the SCC area and the bank register addresses are RAM, no bank switch
+    expect_ram("ROM mode read 6000", 16'h6123, 1'b0, 27'h06 * 27'h2000 + 27'h0123);
+    write(16'h9000, 8'h3F);                              // SCC on, bank 2 = 3Fh
+    expect_scc("SCC 9800 in the ROM mode", 16'h9800, 1'b0);
+    write(16'hBFFE, 8'h10);
+    expect_ram("all-RAM write 9800 -> RAM", 16'h9800, 1'b1, 27'h3F * 27'h2000 + 27'h1800);
+    expect_ram("all-RAM read 9800 -> RAM",  16'h9800, 1'b0, 27'h3F * 27'h2000 + 27'h1800);
+    expect_ram("all-RAM write 5000 -> RAM", 16'h5000, 1'b1, 27'h05 * 27'h2000 + 27'h1000);
+    write(16'h5000, 8'h22);
+    expect_ram("all-RAM: no bank switch at 5000", 16'h4123, 1'b0, 27'h05 * 27'h2000 + 27'h0123);
+    write(16'hBFFE, 8'h00);
+    write(16'h9000, 8'h07);
+
     // ---- capacity probe of SofaROM (SROM.COM 36E4): per bank N: 7FFE <- 0, 5000 <- N,
     //      7FFE <- 10h (ESCC-RAM: 4000-7FFD R/W), then write / read 4100h
     for (int n = 0; n < 256; n += 51) begin

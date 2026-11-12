@@ -125,6 +125,9 @@ initial begin
             // ASCII16 family (ascii16_tb): below 4 MB in whole 16 KB blocks the block count is the
             // same as in the reference; R-Type differs by design and is not compared
             if (block_info.typ == MAPPER_RTYPE) block_info.typ = MAPPER_ASCII16;
+            // GM2 (gm2_tb): registers per slot, pages 0/3 unmapped, SRAM write half: compare one
+            // slot, pages 1-2, SRAM selected through A000 only
+            if (block_info.typ == MAPPER_GM2) block_info.id = 1'b0;
             // Generic 8 / 16 KB (generic_tb): one fixed size where the reference block count is right
             // and the reset banks are inside the ROM. The bank wraps when read, the reference when
             // written, so the size must not change between the two.
@@ -155,9 +158,11 @@ initial begin
         // KONAMI_SCC mirrors pages 1-2 in pages 3 and 0 (konami_scc_tb); the reference did not
         if (block_info.typ == MAPPER_KONAMI_SCC) addr[15] = ~addr[14];
         if (block_info.typ == MAPPER_KONAMI)     addr[15] = ~addr[14];      // mirrors: konami_tb
+        if (block_info.typ == MAPPER_GM2)        addr[15] = ~addr[14];
         cpu_data       = 8'($urandom);
         // WIZARDRY: SRAM bit only for the writable regions (shown read-only elsewhere: ascii8_tb)
         if (block_info.typ == MAPPER_WIZARDY && addr[15:12] == 4'h6) cpu_data[7] = 1'b0;
+        if (block_info.typ == MAPPER_GM2 && (addr[15:12] == 4'h6 || addr[15:12] == 4'h8)) cpu_data[4] = 1'b0;
         data_to_mapper = 8'($urandom);
         flash_q        = 8'($urandom);
         sd_q           = 8'($urandom);

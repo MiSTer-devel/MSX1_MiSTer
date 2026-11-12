@@ -34,41 +34,49 @@ module mapper_gamemaster2 (
     // Chip select (cs) is active if the mapper is enabled and the CPU is performing a memory request (mreq)
     assign cs = mapper_en && cpu_bus.mreq;
 
-    // Bank registers for memory mapping
-    logic [5:0] bank1, bank2, bank3;
+    // Bank registers for memory mapping, one set per cartridge slot
+    logic [5:0] bank1[2], bank2[2], bank3[2];
+    logic       sram_hi[2];     // openMSX sramOffset: half of the last SRAM selection, for writes
 
     // Bank switching logic
     always_ff @(posedge cpu_bus.clk) begin
         if (cpu_bus.reset) begin
             // Initialize banks after reset
-            bank1 <= 6'h01;  // Default bank 1
-            bank2 <= 6'h02;  // Default bank 2
-            bank3 <= 6'h03;  // Default bank 3
+            bank1   <= '{6'h01, 6'h01};  // Default bank 1
+            bank2   <= '{6'h02, 6'h02};  // Default bank 2
+            bank3   <= '{6'h03, 6'h03};  // Default bank 3
+            sram_hi <= '{1'b0, 1'b0};
         end else begin
             if (cs && cpu_bus.wr && cpu_bus.req) begin
                 // Update bank registers based on the address range during a write
                 case (cpu_bus.addr[15:12])
-                    4'h6: bank1 <= cpu_bus.data[5:0];  // Bank 1 (6000h - 6FFFh)
-                    4'h8: bank2 <= cpu_bus.data[5:0];  // Bank 2 (8000h - 8FFFh)
-                    4'hA: bank3 <= cpu_bus.data[5:0];  // Bank 3 (A000h - AFFFh)
+                    4'h6: bank1[block_info.id] <= cpu_bus.data[5:0];  // Bank 1 (6000h - 6FFFh)
+                    4'h8: bank2[block_info.id] <= cpu_bus.data[5:0];  // Bank 2 (8000h - 8FFFh)
+                    4'hA: bank3[block_info.id] <= cpu_bus.data[5:0];  // Bank 3 (A000h - AFFFh)
                     default: ;  // No action for other address ranges
                 endcase
+                if ((cpu_bus.addr[15:12] == 4'h6 || cpu_bus.addr[15:12] == 4'h8 || cpu_bus.addr[15:12] == 4'hA) &&
+                    cpu_bus.data[4])
+                    sram_hi[block_info.id] <= cpu_bus.data[5];
             end
         end
     end
 
     // Bank selection logic based on the CPU address range
-    wire [5:0] bank_base = (cpu_bus.addr[15:13] == 3'b010) ? 6'h00 :  // Fixed bank for 4000h - 5FFFh
-                           (cpu_bus.addr[15:13] == 3'b011) ? bank1 :  // Bank 1 (6000h - 7FFFh)
-                           (cpu_bus.addr[15:13] == 3'b100) ? bank2 :  // Bank 2 (8000h - 9FFFh)
-                                                             bank3 ;  // Bank 3 (A000h - BFFFh)
+    wire [5:0] bank_base = (cpu_bus.addr[15:13] == 3'b010) ? 6'h00 :                  // Fixed bank for 4000h - 5FFFh
+                           (cpu_bus.addr[15:13] == 3'b011) ? bank1[block_info.id] :  // Bank 1 (6000h - 7FFFh)
+                           (cpu_bus.addr[15:13] == 3'b100) ? bank2[block_info.id] :  // Bank 2 (8000h - 9FFFh)
+                                                             bank3[block_info.id] ;  // Bank 3 (A000h - BFFFh)
 
-    // Generate RAM and SRAM addresses based on the selected bank and CPU address
+    // Generate RAM and SRAM addresses based on the selected bank and CPU address; a write
+    // (B000-BFFF) goes to the half of the last SRAM selection (openMSX sramOffset)
     wire [26:0] ram_addr  = {10'b0, bank_base[3:0], cpu_bus.addr[12:0]};  // RAM address
-    wire [26:0] sram_addr = {14'b0, bank_base[5],   cpu_bus.addr[11:0]};  // SRAM address
+    wire        sram_half = cpu_bus.wr ? sram_hi[block_info.id] : bank_base[5];
+    wire [26:0] sram_addr = {14'b0, sram_half, cpu_bus.addr[11:0]};      // SRAM address
 
-    // Enable SRAM if bit 4 of the bank register is set; otherwise, enable RAM for read operations
-    wire sram_en = bank_base[4] && (cpu_bus.rd || cpu_bus.wr);
+    // Enable SRAM if bit 4 of the bank register is set; otherwise, enable RAM for read operations.
+    // Only 4000-BFFF is mapped (openMSX RomGameMaster2).
+    wire sram_en = bank_base[4] && rom_mapped && (cpu_bus.rd || cpu_bus.wr);
     wire ram_en  = ~sram_en && cpu_bus.rd && rom_mapped;
 
     // Output control signals

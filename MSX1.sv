@@ -409,7 +409,6 @@ wire       [5:0] joy[2];
 wire             tape_in;
 wire      [27:0] ddr3_addr;
 wire       [7:0] ddr3_dout;
-wire      [63:0] ddr3_dout64;
 wire             ddr3_rd, ddr3_ready;
 
 assign joy[0] = joy0[5:0];
@@ -454,7 +453,6 @@ msx_system msx_system
    .ddr3_addr(ddr3_addr),
    .ddr3_rd(ddr3_rd),
    .ddr3_dout(ddr3_dout),
-   .ddr3_dout64(ddr3_dout64),
    .ddr3_ready(ddr3_ready)
 );
 
@@ -628,7 +626,7 @@ ddram buffer
    .we(),
    .rd(ddr3_rd),
    .ready(ddr3_ready),
-   .dout64(ddr3_dout64)
+   .dout64()
 );
 
 /////////////////   SDRAM   /////////////////

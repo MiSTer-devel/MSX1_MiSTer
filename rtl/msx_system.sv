@@ -62,7 +62,6 @@ module msx_system (
     output             [27:0]   ddr3_addr,
     output                      ddr3_rd,
     input               [7:0]   ddr3_dout,
-    input              [63:0]   ddr3_dout64,
     input                       ddr3_ready
 );
 
@@ -341,7 +340,6 @@ tape cass
    .cas_out(CAS_dout),
    .ram_a(ddr3_addr_cas),
    .ram_di(ddr3_dout),
-   .ram_di64(ddr3_dout64),
    .ram_rd(ddr3_rd_cas),
    .buff_mem_ready(ddr3_ready),
    .play(~motor & cas_load),

@@ -27,7 +27,6 @@ module tape
 	input 			enable,
 	output  logic [27:0]	ram_a,
 	input   [7:0]   ram_di,
-	input   [63:0]  ram_di64,
 	output  logic     ram_rd,
 	input           buff_mem_ready,
 	output          cas_out
@@ -37,6 +36,7 @@ module tape
 // "0" = one cycle 2400 Hz, "1" = two cycles 4800 Hz. Frame: start 0, 8 data bits
 // LSB first, 2 stop bits 1. Each CAS block (8-byte header in DDR3) is sent as
 // a sync of ones followed by the data up to the next header; silence before the first.
+// Headers may start at any byte (not every CAS file pads blocks to 8 bytes).
 
 typedef enum
 {
@@ -52,7 +52,12 @@ player_state_t  state = STATE_SLEEP;
 
 localparam logic [63:0] CAS_HEADER = 64'h747d13ccbadea61f;   // 1F A6 DE BA CC 13 7D 74
 
-wire        sig      = ram_di64 == CAS_HEADER;
+// Look-ahead window: the next 8 bytes of the image, win[7:0] is sent next; ram_a = byte after it
+logic [63:0] win      = '0;
+logic  [3:0] win_cnt  = 4'd0;
+logic        rd_pend  = 1'b0;     // read of ram_a issued, byte not taken yet
+
+wire        sig      = win_cnt == 4'd8 && win == CAS_HEADER;
 logic [1:0] cnt      = 2'h0;      // phase of the current bit
 logic       ce_baud  = 1'b0;
 logic [3:0] byte_pos = 4'd0;      // bits left in byte_out, 0 = load next byte
@@ -62,11 +67,14 @@ logic [10:0] counter = '0;
 
 // Next byte is a sync byte (all ones) during the sync and when the next header is reached
 wire sync_byte = state == STATE_PLAY_SYNC || (state == STATE_PLAY_DATA && sig);
+wire consume   = state == STATE_PLAY_DATA && byte_pos == 0 && ~sig;   // win[7:0] goes out
+wire skip      = (state == STATE_PLAY_DATA && byte_pos == 0 && sig) || (state == STATE_SEARCH && sig);
+wire fetching  = state == STATE_SEARCH || state == STATE_PLAY_SILENT || state == STATE_PLAY_SYNC || state == STATE_PLAY_DATA;
 
 logic       out_en = 1'b0;      // output_on taken at a bit boundary: no partial first pulse
 assign cas_out = output_bit & output_on & out_en;
 
-// Player: finds the first header, then reads one byte ahead of the serializer
+// Player: finds the first header, then keeps the window full and drops each header from it
 always_ff @(posedge clk) begin
 
 	ram_rd <= 0;
@@ -74,25 +82,42 @@ always_ff @(posedge clk) begin
 	if (rewind) begin
 		state <= STATE_INIT;
 	end else begin
+		// window: drop a header, shift out a sent byte, or append a fetched byte
+		if (skip)
+			win_cnt <= 4'd0;
+		else if (consume) begin
+			win     <= {8'h00, win[63:8]};
+			win_cnt <= win_cnt - 1'd1;
+		end else if (fetching && buff_mem_ready && ~ram_rd) begin
+			if (rd_pend) begin
+				win[{win_cnt[2:0], 3'b000} +: 8] <= ram_di;
+				win_cnt <= win_cnt + 1'd1;
+				ram_a   <= ram_a + 1'd1;
+				rd_pend <= 0;
+			end else if (win_cnt != 4'd8) begin
+				ram_rd  <= 1;
+				rd_pend <= 1;
+			end
+		end
+
 		case (state)
 			STATE_SLEEP: ;
 			STATE_INIT:
 				begin
 					if (buff_mem_ready && ~ram_rd && enable) begin
-						ram_a <= MSX::DDR3_CAS;
+						ram_a     <= MSX::DDR3_CAS;
+						win_cnt   <= 4'd0;
+						rd_pend   <= 0;
 						output_on <= 0;
-						state <= STATE_SEARCH;
-						ram_rd <= 1;
+						state     <= STATE_SEARCH;
 					end
 				end
 			STATE_SEARCH:
 				begin
-					if (buff_mem_ready && ~ram_rd) begin
+					if (win_cnt == 4'd8) begin
 						if (sig) begin
 							state <= STATE_PLAY_SILENT;
 							counter <= 1000;
-							ram_a <= ram_a + 28'd8;
-							ram_rd <= 1;
 						end else begin
 							state <= STATE_SLEEP;
 						end
@@ -119,18 +144,9 @@ always_ff @(posedge clk) begin
 				end
 			STATE_PLAY_DATA:
 				begin
-					if (byte_pos == 0) begin
-						if (buff_mem_ready && ~ram_rd) begin
-							if (sig) begin
-								state <= STATE_PLAY_SYNC;
-								counter <= 1454;
-								ram_a <= ram_a + 28'd8;
-								ram_rd <= 1;
-							end else begin
-								ram_a <= ram_a + 1'd1;
-								ram_rd <= 1;
-							end
-						end
+					if (sig && byte_pos == 0) begin
+						state <= STATE_PLAY_SYNC;
+						counter <= 1454;
 					end
 				end
 			default: ;
@@ -142,7 +158,7 @@ end
 logic [10:0] byte_out = '1;
 always_ff @(posedge clk) begin
 	if (byte_pos == 0) begin
-		byte_out <= sync_byte ? 11'b11111111111 : {2'b11, ram_di, 1'b0};
+		byte_out <= sync_byte ? 11'b11111111111 : {2'b11, win[7:0], 1'b0};
 		byte_pos <= 4'd11;
 	end else if (cnt == 0 && ce_baud) begin
 		byte_out <= {1'b0, byte_out[10:1]};

@@ -130,7 +130,7 @@ Jádro obsahuje tyto hardwarové moduly:
 - `WD2793` – [řadič disket](https://www.msx.org/wiki/Western_Digital_WD2793), čtení i zápis včetně Write Track (formátování); obraz chráněný proti zápisu zápisy ignoruje
 - `TC8566AF` – řadič disket Toshiba v Panasonic FS-A1F a FS-A1ST, čtení i zápis
 - `OPLL` – [YM2413](https://www.msx.org/wiki/Yamaha_YM2413), [MSX-MUSIC](https://www.msx.org/wiki/MSX-MUSIC) / [FM-PAC](https://www.msx.org/wiki/FM-PAC)
-- `OPM` – [YM2151](https://www.msx.org/wiki/Yamaha_YM2151), vestavěný ve strojích Yamaha CX5/CX11
+- `OPM` – [YM2151](https://www.msx.org/wiki/Yamaha_YM2151) (SFG-01) a YM2164 (SFG-05), vestavěný ve strojích Yamaha CX5M/CX11 a CX5MII/CX7M/AX200
 - `SCC` – [Konami SCC](https://www.msx.org/wiki/Konami_SCC)
 - `SCC+` – [Konami 052539 Enhanced SCC](https://www.msx.org/wiki/Konami_052539)
 - `OPL4` – [Yamaha YMF278B](https://www.msx.org/wiki/MoonSound) (MoonSound: FM OPL3 a 24kanálová vlnová syntéza)

@@ -130,7 +130,7 @@ The core includes the following hardware modules:
 - `WD2793` – [Floppy Disk Controller](https://www.msx.org/wiki/Western_Digital_WD2793), read and write including Write Track (format); a write-protected image ignores writes
 - `TC8566AF` – Toshiba floppy disk controller of the Panasonic FS-A1F and FS-A1ST, read and write
 - `OPLL` – [YM2413](https://www.msx.org/wiki/Yamaha_YM2413), [MSX-MUSIC](https://www.msx.org/wiki/MSX-MUSIC) / [FM-PAC](https://www.msx.org/wiki/FM-PAC)
-- `OPM` – [YM2151](https://www.msx.org/wiki/Yamaha_YM2151), built into the Yamaha CX5/CX11 machines
+- `OPM` – [YM2151](https://www.msx.org/wiki/Yamaha_YM2151) (SFG-01) and YM2164 (SFG-05), built into the Yamaha CX5M/CX11 and CX5MII/CX7M/AX200 machines
 - `SCC` – [Konami SCC](https://www.msx.org/wiki/Konami_SCC)
 - `SCC+` – [Konami 052539 Enhanced SCC](https://www.msx.org/wiki/Konami_052539)
 - `OPL4` – [Yamaha YMF278B](https://www.msx.org/wiki/MoonSound) (MoonSound: OPL3 FM and 24 channel wave table synthesis)

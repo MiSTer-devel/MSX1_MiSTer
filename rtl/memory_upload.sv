@@ -39,6 +39,7 @@ module memory_upload
     output MSX::lookup_SRAM_t   lookup_SRAM[4],
     output MSX::main_ram_t      main_ram,           // turbo R: block with mapper PANASONIC_RAM
     input  MSX::config_cart_t   cart_conf[2],
+    input                [15:0] sdram_sz,           // hps_io: [15] set by the Menu core, [14] debug, [1:0] 0 none, 1 32 MB, 2 64 MB, 3 128 MB
     output MSX::io_device_t     io_device[32][3],
     output MSX::io_device_mem_ref_t io_memory[8],
     output MSX::msx_config_t    msx_config,
@@ -143,6 +144,13 @@ module memory_upload
     state_t next_state = STATE_IDLE;
     pattern_t pattern;
     logic [26:0] ram_addr;
+
+    // Memory present: BRAM + the SDRAM module reported by the Menu core. Unknown size or
+    // 128 MB (covers every address): no check.
+    wire        mem_check = sdram_sz[15] && !sdram_sz[14] && sdram_sz[1:0] != 2'd3;
+    wire [27:0] mem_limit = (28'd1 << MSX::BRAM_WIDTH) +
+                            (sdram_sz[1:0] == 2'd0 ? 28'd0 : 28'h1000000 << sdram_sz[1:0]);
+    wire        no_room   = mem_check && {1'b0, ram_addr} >= mem_limit;
     logic  [7:0] conf[8];
     // io_device is written per field and only its enable bits are read back, so entries and
     // fields that no device uses are removed by the synthesis. Enable bits of the three
@@ -812,12 +820,17 @@ module memory_upload
                     state      <= STATE_FILL_RAM;
                 end
                 STATE_FILL_RAM: begin
-                    if (memory_bus.sdram_ready && ~ram_ce) begin             // RAM je připravená
+                    if (memory_bus.sdram_ready && ~ram_ce && ~no_room) begin // RAM je připravená
                         data_size <= data_size - 25'd1;                      // Snížíme velikost dat
                         ram_ce    <= 1'b1;
                     end
                     if (pattern == PATTERN_DDR && ram_ce) ddr3_rd <= 1'b1;   // Připrav další byte z DDR, pokud je vzor DDR
                     if (data_size == 25'd0) state <= STATE_SET_LAYOUT;       // Poslední byte
+                    else if (~ram_ce && no_room) begin                       // the next byte has no memory (no SDRAM)
+                        $display("NO MEMORY at %x (sdram_sz %x)", ram_addr, sdram_sz);
+                        error <= ERR_NO_MEMORY;
+                        state <= STATE_STOP;
+                    end
                 end
                 STATE_SET_LAYOUT: begin
                     if (size == 2'b00) begin                                 // Kontrola, zda jsme na konci

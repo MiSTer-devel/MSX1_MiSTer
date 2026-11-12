@@ -52,7 +52,28 @@ Jak balíčky a databázi vytvořit:
 
 Stručně: nainstalujte **Python 3**, ROM dejte do adresáře `ROM` v `tools/CreateMSXpack` nebo jinou složku předejte volbou `--rom-dir` (soubory se hledají podle SHA1, na názvech nezáleží) a spusťte `python3 createComp.py` (stroje) a `python3 createDev.py` (cartridge); volby vypíše `--help`. Soubory `.msx` vzniknou v `MSX/`.
 
-SDRAM: MoonSound, ASCII16-X, MegaFlashROM a 1chipMSX (mapper 4 MB) potřebují modul SDRAM. Zda malé konfigurace MSX1 běží bez něj a jaká velikost SDRAM je potřeba, nebylo ověřeno.
+### Bez modulu SDRAM
+
+Jádro běží i **bez přídavné desky SDRAM**, ale jen v menších sestavách. Uvnitř FPGA má 256 KB paměti. Tam se ukládá nejdřív vše, co stroj potřebuje: jeho ROM, jeho RAM a pak cartridge ve slotech A a B. Teprve to, co se nevejde, jde do SDRAM.
+
+**Bez SDRAM funguje:**
+- **189 z 224 strojů**: téměř všechny MSX1 a většina MSX2 s 64 nebo 128 KB RAM (např. Philips VG 8020, NMS 8245/8250, VG 8235, Sony HB-F1, HB-F9P).
+- Cartridge, pokud se vejdou do zbytku z 256 KB. Zbývá asi **160 KB** u běžného MSX1 (64 KB RAM) a asi **64 KB** u běžného MSX2 (128 KB RAM). Cartridge zabere velikost své ROM a k tomu svou SRAM nebo RAM: FM-PAC 72 KB, Game Master 2 136 KB, SCC+ 128 KB.
+
+**Potřebuje SDRAM:**
+- Těchto 35 strojů (ROM s kanji, 256 KB RAM a víc nebo velký vestavěný software):
+  - MSX1: National FS-4000, Sony HB-11, Al Alamiah AX230
+  - MSX2: Daewoo CPC-400S, Hitachi MB-H70, Mitsubishi ML-G30 (oba modely), National FS-4500, FS-4600F, FS-4700F, FS-5000F2, FS-5500F1, FS-5500F2, Panasonic FS-A1F, Al Alamiah AX370, Sony HB-F700D/F/P/S, HB-F900, HB-G900AP, HB-T600, Yamaha AX350II, AX350IIF, AX500, YIS-805/256
+  - MSX2+: Panasonic FS-A1FX, FS-A1WX, FS-A1WSX, Sanyo PHC-35J, PHC-70FD, PHC-70FD2, CIEL Expert Turbo
+  - MSX turbo R: Panasonic FS-A1ST; a 1chipMSX
+- MoonSound, MegaFlashROM SCC+ SD, ASCII16-X, MegaRAM a MegaSCC.
+- Každá ROM cartridge větší než volné místo: většina her MegaROM na MSX2, ROM od 256 KB na jakémkoli stroji.
+
+**Co se stane, když se to nevejde:** nahrávání skončí hlášením **SMALL MEMORY** v OSD a jádro zůstane v resetu. Nahrajte menší stroj nebo cartridge, nebo osaďte desku SDRAM. Velikost SDRAM jádro zná od menu jádra MiSTeru, které modul při startu zjišťuje. Spustí-li se jádro bez menu (neobvyklé), velikost nezná a nekontroluje. Konfigurace, která se nevejde, pak nad 256 KB čte nesmysly.
+
+Čísla pocházejí z nahrání všech 224 balíčků strojů v simulaci. V simulaci bez SDRAM nastartoval Philips NMS 8245 do BASICu a do SDRAM vůbec nesáhl. Bez sáhnutí do SDRAM běžel i Philips VG 8020 se 128KB cartridgí. Kontrola SMALL MEMORY je vyzkoušená v simulaci loaderu. **Na skutečném hardware bez desky SDRAM neověřeno.**
+
+Se SDRAM stačí modul 32 MB. Největší stroj (1chipMSX) potřebuje asi 8 MB, MoonSound 4 MB, ASCII16-X 8 MB. Nevešly by se jen dvě ROM po 16 MB (SMALL MEMORY).
 
 ## Funkce OSD
 
@@ -79,7 +100,7 @@ SDRAM: MoonSound, ASCII16-X, MegaFlashROM a 1chipMSX (mapper 4 MB) potřebují m
 1chipMSX má navíc blok: CPU speed (Normal / Turbo, přepíná F11), CPU type (Z80 / R800 – jen násobicí instrukce R800), Slot1, Slot2, Internal Mapper (2048 / 4096 KB), Joysticks Swap, Mouse Port 1/2, Reset after Mount.
 
 ### Chybová hlášení OSD
-Když načtení selže, informační řádek OSD zobrazí jedno z těchto hlášení. Po **No CRC32 DB**, **Not find CRC32 in DB** a **ROM too big** zůstane jádro v resetu do dalšího načtení.
+Když načtení selže, informační řádek OSD zobrazí jedno z těchto hlášení. Po **No CRC32 DB**, **Not find CRC32 in DB**, **SMALL MEMORY** a **ROM too big** zůstane jádro v resetu do dalšího načtení.
 
 | Hlášení | Význam |
 |---|---|
@@ -92,6 +113,7 @@ Když načtení selže, informační řádek OSD zobrazí jedno z těchto hláš
 | No CRC32 DB | ROM větší než 64 KB potřebuje mapper, ale databáze mapperů není načtena. |
 | Not find CRC32 in DB | ROM větší než 64 KB není v databázi mapperů. |
 | FDC already in machine | Dva FDC na stejné pozici – chyba definice stroje. |
+| SMALL MEMORY | Stroj s cartridgemi potřebuje víc paměti, než je k dispozici: bez modulu SDRAM víc než 256 KB (viz [Bez modulu SDRAM](#bez-modulu-sdram)), s modulem 32 nebo 64 MB víc než jeho velikost. |
 | ROM too big | Soubor ROM je větší než 16 MB. |
 
 ## Podporované hardwarové součásti
@@ -182,7 +204,7 @@ Jádro se integruje s MiSTerFPGA a podporuje tyto funkce platformy:
 - `MIDI IN` – přes nastavení UART/MIDI MiSTeru, předává se do YM2148 ve strojích Yamaha
 - `Video` – nativní časování MSX, PAL/NTSC podle definice stroje (TMS) nebo softwarově (V99xx), volby škálování a scandoubleru
 - `LED` – aktivita SD/VHD, LED turbo a pause u turbo R
-- `Podpora SDRAM` – využívá externí SDRAM pro větší paměťové nároky
+- `Podpora SDRAM` – volitelná; potřebují ji větší stroje a cartridge, viz [Bez modulu SDRAM](#bez-modulu-sdram)
 
 ## Známá omezení
 - Mappery NEO-8 a NEO-16 nejsou vyzkoušené na hardware. Časování V99x8, R800 a TC8566AF není na hardware ověřeno.

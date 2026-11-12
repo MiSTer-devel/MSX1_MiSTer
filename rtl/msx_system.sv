@@ -220,6 +220,7 @@ memory_upload memory_upload(
    .lookup_SRAM(lookup_SRAM),
    .main_ram(main_ram),
    .cart_conf(cart_conf),
+   .sdram_sz(sdram_sz),
    .load_sram(load_sram),
    .io_device(io_device),
    .io_memory(io_memory),
@@ -262,7 +263,7 @@ assign memory_bus_backup.sram_cs = 1'b0;
 assign backup_ram_dout           = memory_bus_backup.q;
 assign backup_ram_ready          = memory_bus_backup.sdram_ready;
 
-system_memory #(.BRAM_WIDTH(18)) system_memory(
+system_memory #(.BRAM_WIDTH(MSX::BRAM_WIDTH)) system_memory(
    .clk(clock_bus.clk),
    .memory_bus_msx(memory_bus_msx),
    .memory_bus_upload(memory_bus_upload),

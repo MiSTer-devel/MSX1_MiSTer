@@ -5,9 +5,11 @@
 // Two ROMs with SRAM in slots A and B each get their own SRAM; blocks without SRAM see none (C9).
 // DDR3 as the HPS fills it: every file whole at its OSD address (CONF_STR of MSX1.sv, given by
 // run_cart_rom.sh), the later download wins where two overlap. A ROM A over 5 MB must not
-// destroy ROM B, a ROM over the area of its slot is refused (C8).
+// destroy ROM B, a ROM over the area of its slot is refused (C8). Without an SDRAM module
+// (sdram_sz of the Menu core) memory above the BRAM stops the load with ERR_NO_MEMORY.
 // Run: wsl.exe -- bash rtl/tb/run_cart_rom.sh <Philips_VG_8020-00.msx> <CART_FW_EN.msx>
 //   OLD=<git rev>: memory_upload.sv of that revision
+//   NOSZ=1: memory_upload without the sdram_sz port (before the memory check)
 module cart_rom_tb;
 
 logic clk = 0;
@@ -91,6 +93,7 @@ MSX::io_device_t         io_device[32][3];
 MSX::io_device_mem_ref_t io_memory[8];
 MSX::msx_config_t        msx_config;
 error_t                  error;
+logic             [15:0] sdram_sz = '0;    // hps_io: unset
 wire                     upload, load_sram, upload_reset;
 
 memory_upload dut (
@@ -105,6 +108,9 @@ memory_upload dut (
     .layout_id(layout_id), .active_block(active_block), .active_RAM(active_RAM), .main_RAM(main_RAM),
 `endif
     .lookup_SRAM(lookup_SRAM), .cart_conf(cart_conf), .io_device(io_device), .io_memory(io_memory),
+`ifndef NO_SDRAM_SZ
+    .sdram_sz(sdram_sz),
+`endif
     .msx_config(msx_config), .load_sram(load_sram), .error(error), .reset(upload_reset)
 );
 
@@ -156,6 +162,13 @@ task automatic make_rom(input int size, input int hdr, input logic [15:0] init);
     for (int i = 0; i < size; i++) rom.push_back(8'(i * 7 + (i >> 9) + 3));
     for (int i = 0; i < size; i += 16384) begin rom[i] = 8'h00; rom[i + 1] = 8'h00; end   // no stray 'AB'
     if (hdr >= 0) begin rom[hdr] = 8'h41; rom[hdr + 1] = 8'h42; rom[hdr + 2] = init[7:0]; rom[hdr + 3] = init[15:8]; end
+endtask
+
+// Database with one entry: the CRC32 of rom as KONAMI (cart_device.json 52)
+task automatic db_konami();
+    logic [31:0] crc = crc32(rom);
+    db = {crc[7:0], crc[15:8], crc[23:16], crc[31:24], 8'd52, 8'h00, 8'h00, 8'h00};
+    download(6, db.size(), 0);
 endtask
 
 // Load ROM A; expect the pages of slot 1-0 (-1: no ROM there, else ROM offset in kB / 16)
@@ -382,6 +395,22 @@ initial begin
     end
     download(6, db.size(), 0);
     check("32 kB in DB as KONAMI", 0, 0, 0, 0, MAPPER_KONAMI);
+
+    // --- no SDRAM module: the cartridge must fit into the BRAM after the machine
+    begin
+        int unsigned base = lookup_RAM[slot_layout[{2'd1, 2'd0, 2'd1}].ref_ram].addr;
+        int unsigned room = (1 << MSX::BRAM_WIDTH) - base;
+        $display("cartridge memory from %0d kB, %0d kB left in the BRAM", base / 1024, room / 1024);
+        make_rom(room, 0, 16'h4010);          db_konami();
+        sdram_sz = 16'h8000; check("no SDRAM, ROM fills the BRAM exactly", 0, 0, 0, 0, MAPPER_KONAMI);
+        make_rom(room + 16384, 0, 16'h4010);  db_konami();
+        sdram_sz = 16'h8000; check("no SDRAM, ROM 16 kB over the BRAM", -1, -1, -1, -1, MAPPER_OFFSET, ERR_NO_MEMORY);
+        sdram_sz = 16'h0000; check("SDRAM unknown (no Menu core), same ROM", 0, 0, 0, 0, MAPPER_KONAMI);
+        sdram_sz = 16'h8001; check("32 MB SDRAM, same ROM", 0, 0, 0, 0, MAPPER_KONAMI);
+        sdram_sz = 16'hC000; check("Menu core debug mode, same ROM", 0, 0, 0, 0, MAPPER_KONAMI);
+        sdram_sz = 16'h8000; check("no SDRAM again, same ROM", -1, -1, -1, -1, MAPPER_OFFSET, ERR_NO_MEMORY);
+        sdram_sz = '0;
+    end
 
     // --- ASCII16-X: flash of 8 MB with the ROM image at its start
     make_rom(131072, 0, 16'h4010);  check_ascii16x("128 kB in DB as ASCII16-X");

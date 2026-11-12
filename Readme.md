@@ -52,7 +52,28 @@ How to build the packs and the database:
 
 In short: install **Python 3**, put the ROM binaries into the `ROM` directory of `tools/CreateMSXpack` or pass another folder with `--rom-dir` (files are matched by SHA1, names do not matter), then run `python3 createComp.py` (machines) and `python3 createDev.py` (cartridges); `--help` lists the options. The `.msx` files appear in `MSX/`.
 
-SDRAM: the MoonSound, ASCII16-X, MegaFlashROM and the 1chipMSX (4 MB mapper) need the SDRAM module. Whether small MSX1 configurations run without it, and the required SDRAM size, has not been verified.
+### Without the SDRAM module
+
+The core also runs **without the SDRAM add-on board**, but only for smaller configurations. It has 256 KB of memory inside the FPGA. Everything the machine needs is stored there first: its ROMs, its RAM, then the cartridges in slots A and B. Only what does not fit goes to the SDRAM.
+
+**Works without SDRAM:**
+- **189 of the 224 machines**: almost all MSX1 machines and most MSX2 machines with 64 or 128 KB of RAM (e.g. Philips VG 8020, NMS 8245/8250, VG 8235, Sony HB-F1, HB-F9P).
+- Cartridges, as long as they fit into the rest of the 256 KB. The rest is about **160 KB** on a typical MSX1 (64 KB RAM) and about **64 KB** on a typical MSX2 (128 KB RAM). A cartridge takes the size of its ROM, plus its SRAM or RAM: FM-PAC 72 KB, Game Master 2 136 KB, SCC+ 128 KB.
+
+**Needs SDRAM:**
+- These 35 machines (a Kanji ROM, 256 KB or more of RAM, or large built-in software):
+  - MSX1: National FS-4000, Sony HB-11, Al Alamiah AX230
+  - MSX2: Daewoo CPC-400S, Hitachi MB-H70, Mitsubishi ML-G30 (both models), National FS-4500, FS-4600F, FS-4700F, FS-5000F2, FS-5500F1, FS-5500F2, Panasonic FS-A1F, Al Alamiah AX370, Sony HB-F700D/F/P/S, HB-F900, HB-G900AP, HB-T600, Yamaha AX350II, AX350IIF, AX500, YIS-805/256
+  - MSX2+: Panasonic FS-A1FX, FS-A1WX, FS-A1WSX, Sanyo PHC-35J, PHC-70FD, PHC-70FD2, CIEL Expert Turbo
+  - MSX turbo R: Panasonic FS-A1ST; and the 1chipMSX
+- MoonSound, MegaFlashROM SCC+ SD, ASCII16-X, MegaRAM and MegaSCC.
+- Any ROM cartridge bigger than the free space: most MegaROM games on an MSX2, ROMs of 256 KB and more on any machine.
+
+**What happens when it does not fit:** loading stops with **SMALL MEMORY** in the OSD and the core stays in reset. Load a smaller machine or cartridge, or fit the SDRAM board. The core knows the SDRAM size from the MiSTer menu core, which checks the module at start. If the core is started without the menu (unusual), it does not know the size and does not check. A configuration that does not fit then reads garbage above 256 KB.
+
+The numbers come from loading all 224 machine packs in simulation. In simulation without SDRAM, the Philips NMS 8245 started to BASIC without touching the SDRAM at all. The Philips VG 8020 with a 128 KB cartridge also ran without touching it. The SMALL MEMORY check was tested in simulation of the loader. **Not verified on real hardware without the SDRAM board.**
+
+With SDRAM, a 32 MB module is enough. The largest machine (1chipMSX) needs about 8 MB, a MoonSound 4 MB, an ASCII16-X 8 MB. Only two ROMs of 16 MB each would not fit (SMALL MEMORY).
 
 ## OSD Features
 
@@ -79,7 +100,7 @@ SDRAM: the MoonSound, ASCII16-X, MegaFlashROM and the 1chipMSX (4 MB mapper) nee
 1chipMSX has an extra block: CPU speed (Normal / Turbo, F11 toggles), CPU type (Z80 / R800 – only the R800 multiply instructions), Slot1, Slot2, Internal Mapper (2048 / 4096 KB), Joysticks Swap, Mouse Port 1/2, Reset after Mount.
 
 ### OSD error messages
-When a load fails, the OSD info line shows one of these. After **No CRC32 DB**, **Not find CRC32 in DB** and **ROM too big** the core stays in reset until the next load.
+When a load fails, the OSD info line shows one of these. After **No CRC32 DB**, **Not find CRC32 in DB**, **SMALL MEMORY** and **ROM too big** the core stays in reset until the next load.
 
 | Message | Meaning |
 |---|---|
@@ -92,6 +113,7 @@ When a load fails, the OSD info line shows one of these. After **No CRC32 DB**, 
 | No CRC32 DB | A ROM larger than 64 KB needs a mapper but no mapper database is loaded. |
 | Not find CRC32 in DB | A ROM larger than 64 KB is not in the mapper database. |
 | FDC already in machine | Two FDCs in the same position – an error of the machine definition. |
+| SMALL MEMORY | The machine with its cartridges needs more memory than there is: without the SDRAM module more than 256 KB (see [Without the SDRAM module](#without-the-sdram-module)), with a 32 or 64 MB module more than its size. |
 | ROM too big | The ROM file is larger than 16 MB. |
 
 ## Supported Hardware Components
@@ -182,7 +204,7 @@ The core integrates with MiSTerFPGA and supports the following features provided
 - `MIDI IN` – via the MiSTer UART/MIDI setting, delivered to the YM2148 of the Yamaha machines
 - `Video` – native MSX timing, PAL/NTSC per machine definition (TMS) or software (V99xx), scaling and scandoubler options
 - `LEDs` – SD/VHD activity, turbo R turbo and pause LEDs
-- `SDRAM support` – utilizes external SDRAM for extended memory requirements
+- `SDRAM support` – optional; needed for the bigger machines and cartridges, see [Without the SDRAM module](#without-the-sdram-module)
 
 ## Known Limitations
 - The NEO-8 and NEO-16 mappers are not tested on hardware. V99x8 timing, the R800 and the TC8566AF are not verified on hardware.

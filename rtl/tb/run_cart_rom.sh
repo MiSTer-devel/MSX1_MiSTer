@@ -5,6 +5,7 @@
 #   OLD=<git rev or file>: memory_upload.sv of that revision (a file for a git worktree, whose
 #                          gitdir WSL may not read)
 #   ALT=<file>: another memory_upload.sv with the ports of the current one
+#   NOSZ=1: memory_upload without the sdram_sz port (with OLD or ALT before the memory check)
 #   EXTRA="+realrom=<file> +realdb=<vampier.db>": report how a real ROM is found and mapped
 #   TOP=<git rev>: OSD load addresses from MSX1.sv of that revision (default: working tree)
 set -e
@@ -22,6 +23,7 @@ MU=${ALT:-../memory_upload.sv}
 if [ -f "$OLD" ]; then MU="$OLD"
 elif [ -n "$OLD" ]; then git -C .. show "$OLD:rtl/memory_upload.sv" > "$OUT/memory_upload.sv"; MU="$OUT/memory_upload.sv"; fi
 DEF=""; [ -n "$OLD" ] && DEF="+define+OLD_MU"     # OLD: a revision with the tables as arrays
+[ -n "$NOSZ" ] && DEF="$DEF +define+NO_SDRAM_SZ"
 verilator --binary --timing -O3 -Wno-fatal -Wno-lint -Wno-style $DEF \
     --top-module cart_rom_tb -Mdir "$OUT" \
     ../package.sv "$MU" ../peripheral/ddram.sv ../lib/crc32.sv cart_rom_tb.sv \

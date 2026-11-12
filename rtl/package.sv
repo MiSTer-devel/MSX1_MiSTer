@@ -564,6 +564,9 @@ package MSX;
     localparam logic [27:0] DDR3_ROM_B    = 28'h3000000;   // 16 MB
     localparam logic [26:0] ROM_MAX       = 27'h1000000;   // larger ROM: ERR_ROM_TOO_BIG
 
+    // System memory below 2^BRAM_WIDTH is BRAM in the FPGA, the rest SDRAM (system_memory).
+    localparam int BRAM_WIDTH = 18;
+
     // ---------------------------------------------------------------- synthesized copies
     // The one place to set how many copies of a device are built (io_device keeps 3 slots
     // per type). Values = what the machine XMLs and the OSD cartridges need, see

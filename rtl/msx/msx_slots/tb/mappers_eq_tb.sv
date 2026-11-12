@@ -135,6 +135,12 @@ initial begin
             if (block_info.typ == MAPPER_GENERIC16KB) block_info.rom_size = 25'h0300000;   // 3 MB
             if (block_info.typ == MAPPER_ZEMINA_80)   block_info.rom_size = 25'h0100000;   // 1 MB, zemina80_tb
             if (block_info.typ == MAPPER_ZEMINA_90)   block_info.rom_size = 25'h0100000;   // 1 MB, zemina90_tb
+            // Mirror (mirror_tb): the reference used (page + 2 x offset) % blocks, equal only for
+            // offset 0 and 8 / 16 / 32 KB
+            if (block_info.typ == MAPPER_MIRROR) begin
+                block_info.offset_ram     = 2'd0;
+                block_info.rom_size[15:0] = 16'h2000 << $urandom_range(2);
+            end
             if (block_info.typ == MAPPER_ASCII16 || block_info.typ == MAPPER_MSXWRITE || block_info.typ == MAPPER_SUPERSWANGI) begin
                 block_info.rom_size[24:22] = '0;
                 block_info.rom_size[13:0]  = '0;

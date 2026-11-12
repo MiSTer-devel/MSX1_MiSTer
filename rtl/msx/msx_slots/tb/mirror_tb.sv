@@ -1,4 +1,6 @@
-// mapper_mirror exhaustive test: all pages x offsets x rom_size[15:0] against reference %.
+// mapper_mirror exhaustive test: all pages x offsets x rom_size[15:0] against openMSX RomPlain
+// (MIRRORED*): ROM page r = page - firstPage (unsigned, firstPage = 2 x offset), r if r < blocks,
+// else r & (blocks - 1).
 // Run: wsl.exe -- bash rtl/msx/msx_slots/tb/run_mirror.sh [alt_mirror.sv]
 module mirror_tb;
 
@@ -19,10 +21,11 @@ assign cpu_bus.wr   = wr;
 int errors = 0, checked = 0;
 
 function automatic logic [2:0] ref_prefix(input logic [15:0] rom, input logic [2:0] page, input logic [1:0] ofs);
-    int bc, s;
+    int unsigned bc, r;
     bc = (int'(rom) + 8191) / 8192;            // 0 when rom_size[15:0] == 0 (64 KB)
-    s  = int'(page) + 2 * int'(ofs);
-    return (bc == 0) ? 3'(s % 8) : 3'(s % bc);
+    if (bc == 0) bc = 8;
+    r  = int'(page) - 2 * int'(ofs);           // unsigned: below firstPage it is huge
+    return r < bc ? 3'(r) : 3'(r & (bc - 1));
 endfunction
 
 initial begin

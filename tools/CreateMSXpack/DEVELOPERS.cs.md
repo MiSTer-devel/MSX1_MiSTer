@@ -131,6 +131,7 @@ U zařízení se záznamem každý pojmenovaný atribut přispívá bity a výsl
 | RESET_STATUS | `inverted` | bit 0 | `reset_status.sv` |
 | OPL4 | `sampleram` v bajtech, děleno 131072, 0..16 | bity 4:0 | `opl4.sv` |
 | YM2148 | `variant` SFG-01/SFG-05 | bit 0 | `ym2148.sv` |
+| OPM | `variant` YM2151/YM2164 | bit 0 | `opm.sv` (YM2164: testovací registr 09h, časovač B poloviční rychlostí) |
 
 Zařízení bez záznamu berou surový atribut `param` (8 bitů, výchozí 0).
 
@@ -329,11 +330,10 @@ Hodnota položky OSD se převede na `cart_typ_t` v `rtl/msx_config.sv` a zavadě
 1. **Chybějící pojmenovaný parametr se kóduje jako 0**, ne jako jeho `default` (např. WD2793 bez `fdd_count` nedá žádné bity povolení mechaniky).
 2. **MEM_MAPPER `size` 4 MB: atribut vynechte.** `size="4194304"` dá 256 segmentů, což je nad maximem 255, takže se vypíše varování a použije se výchozí hodnota (1 segment, 16 kB). Chybějící znamená 256 segmentů.
 3. **`shared_memory offset="0"` jádro dekóduje jako 4 MB.** Offset 0 nepoužívejte.
-4. **Atribut `variant` u OPM nemá žádný účinek** (OPM nemá záznam v `deviceParams.json` a modul `param` ignoruje). `variant` u YM2148 (`SFG-01`/`SFG-05`) funguje.
-5. **V XML rozšíření dostane zařízení s `port` surový `param`**, ne zakódované pojmenované parametry (záznam IO_DEVICE se zapíše se surovým atributem a v jádře přepíše param zařízení DEVICE). Spoléhá na to MegaFlashROM SCC+ SD: MEM_MAPPER `param="32"` = 32 x 16 kB = 512 kB. createComp naproti tomu zapisuje do IO_DEVICE zakódovanou hodnotu.
-6. Hexadecimální čísla fungují v XML počítače, ale **ne v XML rozšíření**.
-7. Nemíchejte `<block>` a `<secondary>` v jednom `<primary>`.
-8. SHA1 v XML musí být malými hexadecimálními písmeny.
+4. **V XML rozšíření dostane zařízení s `port` surový `param`**, ne zakódované pojmenované parametry (záznam IO_DEVICE se zapíše se surovým atributem a v jádře přepíše param zařízení DEVICE). Spoléhá na to MegaFlashROM SCC+ SD: MEM_MAPPER `param="32"` = 32 x 16 kB = 512 kB. createComp naproti tomu zapisuje do IO_DEVICE zakódovanou hodnotu.
+5. Hexadecimální čísla fungují v XML počítače, ale **ne v XML rozšíření**.
+6. Nemíchejte `<block>` a `<secondary>` v jednom `<primary>`.
+7. SHA1 v XML musí být malými hexadecimálními písmeny.
 9. Pack se zapíše i při chybějících ROM; smaže se jen při chybějící ROM `ROM_SHA1` zařízení nejvyšší úrovně. Kontrolujte konzoli.
 10. `<sram>` funguje jen ve FW konfiguracích; XML počítače nemůže deklarovat SRAM.
 11. `expander_wo` se uloží, ale RTL ho ignoruje.

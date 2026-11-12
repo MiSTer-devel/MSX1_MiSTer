@@ -71,6 +71,13 @@ module dev_opm #(parameter COUNT = MSX::N_OPM) (   // synthesized copies, io_dev
             wire cs_dev       = (io_device[i].enable && io_device[i].device_ref == device_bus.device_ref && device_bus.en);
             wire [7:0] data_tmp;
 
+            // param[0]: YM2164 (OPP). Its test register is 09h instead of 01h (openMSX YM2151.cc):
+            // the register number 09h selects 01h of jt51, 01h selects the unused 00h.
+            wire       ym2164 = io_device[i].param[0];
+            wire [7:0] din    = !ym2164 || cpu_bus.addr[0] ? cpu_bus.data :
+                                cpu_bus.data == 8'h09   ? 8'h01 :
+                                cpu_bus.data == 8'h01   ? 8'h00 : cpu_bus.data;
+
             assign jt51_data_out[i] = (cs_io || cs_dev) && cpu_bus.rd ? data_tmp : '1;
 
             jt51 jt51_i (
@@ -80,7 +87,8 @@ module dev_opm #(parameter COUNT = MSX::N_OPM) (   // synthesized copies, io_dev
                 .cs_n(~(cs_io || cs_dev)),
                 .wr_n(~(cpu_bus.wr && cpu_bus.req)),
                 .a0(cpu_bus.addr[0]),
-                .din(cpu_bus.data),
+                .din(din),
+                .ym2164(ym2164),
                 .dout(data_tmp),
                 .ct1(),
                 .ct2(),

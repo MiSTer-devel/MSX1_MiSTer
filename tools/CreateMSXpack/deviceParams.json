@@ -133,5 +133,14 @@
             "max": 1,
             "default": 0
         }
+    },
+    "OPM": {
+        "variant": {
+            "param_type": "enum",
+            "enums": ["YM2151", "YM2164"],
+            "min": 0,
+            "max": 1,
+            "default": 0
+        }
     }
 }

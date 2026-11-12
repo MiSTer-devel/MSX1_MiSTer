@@ -131,6 +131,7 @@ For a device with an entry, each named attribute contributes bits and the result
 | RESET_STATUS | `inverted` | bit 0 | `reset_status.sv` |
 | OPL4 | `sampleram` bytes, divided by 131072, 0..16 | bits 4:0 | `opl4.sv` |
 | YM2148 | `variant` SFG-01/SFG-05 | bit 0 | `ym2148.sv` |
+| OPM | `variant` YM2151/YM2164 | bit 0 | `opm.sv` (YM2164: test register 09h, timer B at half rate) |
 
 Devices without an entry take the raw `param` attribute (8 bit, default 0).
 
@@ -329,11 +330,10 @@ The OSD item value is converted to `cart_typ_t` in `rtl/msx_config.sv`, and the 
 1. **An absent named parameter encodes as 0**, not as its `default` (e.g. WD2793 without `fdd_count` gives no enabled drive bits).
 2. **MEM_MAPPER `size` of 4 MB: omit the attribute.** `size="4194304"` gives 256 segments, which is above the maximum 255, so a warning is printed and the default (1 segment, 16 kB) is used. Absent means 256 segments.
 3. **`shared_memory offset="0"` is decoded by the core as 4 MB.** Do not use offset 0.
-4. The **`variant` attribute of OPM has no effect** (OPM has no `deviceParams.json` entry and the module ignores `param`). The YM2148 `variant` (`SFG-01`/`SFG-05`) does work.
-5. **In the extension XML a device with `port` gets the raw `param`**, not the encoded named parameters (the IO_DEVICE record is written with the raw attribute and overwrites the DEVICE param in the core). MegaFlashROM SCC+ SD relies on it: MEM_MAPPER `param="32"` = 32 x 16 kB = 512 kB. createComp, in contrast, writes the encoded value into IO_DEVICE.
-6. Hex numbers work in the machine XML but **not in the extension XML**.
-7. Do not mix `<block>` and `<secondary>` in one `<primary>`.
-8. SHA1 values in XML must be lowercase hex.
+4. **In the extension XML a device with `port` gets the raw `param`**, not the encoded named parameters (the IO_DEVICE record is written with the raw attribute and overwrites the DEVICE param in the core). MegaFlashROM SCC+ SD relies on it: MEM_MAPPER `param="32"` = 32 x 16 kB = 512 kB. createComp, in contrast, writes the encoded value into IO_DEVICE.
+5. Hex numbers work in the machine XML but **not in the extension XML**.
+6. Do not mix `<block>` and `<secondary>` in one `<primary>`.
+7. SHA1 values in XML must be lowercase hex.
 9. A pack is written even when ROMs are missing; only a missing top-level device `ROM_SHA1` deletes it. Check the console.
 10. `<sram>` works only in FW configurations; a machine XML cannot declare SRAM.
 11. `expander_wo` is stored but ignored by the RTL.

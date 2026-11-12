@@ -133,6 +133,7 @@ initial begin
             // written, so the size must not change between the two.
             if (block_info.typ == MAPPER_GENERIC8KB)  block_info.rom_size = 25'h0180000;   // 1.5 MB
             if (block_info.typ == MAPPER_GENERIC16KB) block_info.rom_size = 25'h0300000;   // 3 MB
+            if (block_info.typ == MAPPER_ZEMINA_80)   block_info.rom_size = 25'h0100000;   // 1 MB, zemina80_tb
             if (block_info.typ == MAPPER_ASCII16 || block_info.typ == MAPPER_MSXWRITE || block_info.typ == MAPPER_SUPERSWANGI) begin
                 block_info.rom_size[24:22] = '0;
                 block_info.rom_size[13:0]  = '0;

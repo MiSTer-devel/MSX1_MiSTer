@@ -146,6 +146,9 @@ localparam CONF_STR = {
    "T[21],Reset;",
    "H3R[10],Reset & Detach ROM Cartridge;",
    "R[21],Reset and close OSD;",
+   // joystick button names (joy bit 4 = trigger A, 5 = trigger B); not "J1", it forces
+   // keyboard joystick emulation and takes the cursor keys
+   "J,Fire 1,Fire 2;",
    "I,BAD MSX CONF,NOT SUPPORTED CONF,NOT SUPPORTED BLOCK,BAD MSX FW CONF,NOT FW CONF,DEVICE MISSING,Device not in this core build,No CRC32 DB,Not find CRC32 in DB,SMALL MEMORY,FDC already in machine,ROM too big;",
    "V,v",`BUILD_DATE
 };

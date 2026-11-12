@@ -196,7 +196,7 @@ OSD nabízí v **Slot1** a **Slot2** tyto typy:
 
 ## Podpora platformy MiSTerFPGA
 Jádro se integruje s MiSTerFPGA a podporuje tyto funkce platformy:
-- `Joystick` – dva joystickové porty MSX (čtyři směry a dvě tlačítka) z prvních dvou joysticků MiSTeru; volba prohození joysticků existuje jen na 1chipMSX
+- `Joystick` – dva joystickové porty MSX (čtyři směry a dvě tlačítka, v mapování tlačítek MiSTeru pojmenovaná Fire 1 / Fire 2) z prvních dvou joysticků MiSTeru; volba prohození joysticků existuje jen na 1chipMSX
 - `Klávesnice` – klávesnice PS/2, maticové rozložení pro každý stroj (`kbd_layout` v definici stroje, generuje [CreateKeyMap](tools/CreateKeyMap/README.cs.md)); klávesa Pause pozastaví stroj (CPU drženo, zvuk ztlumený, obraz na HDMI zamrzne; u turbo R ji jako na skutečném stroji čte BIOS z portu A7h), F11 = turbo na 1chipMSX
 - `Myš` – myš PS/2 jako myš MSX, jen 1chipMSX
 - `Kazeta` – přehrávání souborů `.CAS` (musí být zapnutý motor MSX) nebo skutečná páska přes analogový vstup MiSTeru (ADC); páska je slyšet. Výstup na pásku neexistuje.

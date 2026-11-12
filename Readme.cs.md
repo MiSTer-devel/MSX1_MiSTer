@@ -90,6 +90,7 @@ Se SDRAM stačí modul 32 MB. Největší stroj (1chipMSX) potřebuje asi 8 MB, 
 | Tape Rewind | Přetočí obraz pásky na začátek. |
 | Firmware switch | Off / On, jen u strojů s S1990 (turbo R). |
 | Video | Poměr stran, scandoubler (None, HQ2x, CRT 25/50/75 %), Vertical Crop, Scale (Normal, V-Integer, Narrower/Wider HV-Integer, HV-Integer), Border (platí pro VDP TMS i V99xx). |
+| Pause when OSD open | No (výchozí) / Yes: stroj stojí, dokud je OSD otevřené (CPU drženo, zvuk ztlumený). |
 | Reset | Reset stroje. |
 | Reset & Detach ROM Cartridge | Vyprázdní ROM cartridge v obou slotech a znovu načte. Na 1chipMSX se nezobrazuje. |
 | Reset and close OSD | Reset a zavření menu. |
@@ -196,12 +197,12 @@ OSD nabízí v **Slot1** a **Slot2** tyto typy:
 ## Podpora platformy MiSTerFPGA
 Jádro se integruje s MiSTerFPGA a podporuje tyto funkce platformy:
 - `Joystick` – dva joystickové porty MSX (čtyři směry a dvě tlačítka) z prvních dvou joysticků MiSTeru; volba prohození joysticků existuje jen na 1chipMSX
-- `Klávesnice` – klávesnice PS/2, maticové rozložení pro každý stroj (`kbd_layout` v definici stroje, generuje [CreateKeyMap](tools/CreateKeyMap/README.cs.md)); klávesa Pause u turbo R, F11 = turbo na 1chipMSX
+- `Klávesnice` – klávesnice PS/2, maticové rozložení pro každý stroj (`kbd_layout` v definici stroje, generuje [CreateKeyMap](tools/CreateKeyMap/README.cs.md)); klávesa Pause pozastaví stroj (CPU drženo, zvuk ztlumený; u turbo R ji jako na skutečném stroji čte BIOS z portu A7h), F11 = turbo na 1chipMSX
 - `Myš` – myš PS/2 jako myš MSX, jen 1chipMSX
 - `Kazeta` – přehrávání souborů `.CAS` (musí být zapnutý motor MSX) nebo skutečná páska přes analogový vstup MiSTeru (ADC); páska je slyšet. Výstup na pásku neexistuje.
 - `MIDI IN` – přes nastavení UART/MIDI MiSTeru, předává se do YM2148 ve strojích Yamaha
 - `Video` – nativní časování MSX, PAL/NTSC podle definice stroje (TMS) nebo softwarově (V99xx), volby škálování a scandoubleru
-- `LED` – aktivita SD/VHD, LED turbo a pause u turbo R
+- `LED` – aktivita SD/VHD, pauza (stroj pozastavený nebo LED pause u turbo R), LED turbo u turbo R
 - `Podpora SDRAM` – volitelná; potřebují ji větší stroje a cartridge, viz [Bez modulu SDRAM](#bez-modulu-sdram)
 
 ## Známá omezení
@@ -211,7 +212,8 @@ Jádro se integruje s MiSTerFPGA a podporuje tyto funkce platformy:
 - **R800:** turbo R běží zhruba 2x rychleji než Z80 místo skutečných 4x (časování R800 není modelováno); chybí mikrofon turbo R, FS-A1GT.
 - **ROM:** ROM nad 64 KB potřebuje záznam v databázi, mapper se z hlavičky ROM nerozpoznává. Zrcadla ROM Konami SCC nejsou hotová.
 - **V99x8:** chybí sprity v overscanu a okno FH v textových režimech. Nastavení rychlosti VDP a hlasitosti na 1chipMSX se ukládají bez účinku.
-- **1chipMSX:** bez MoonSound, bez zvláštních kláves (Pause/PrintScreen/ScrollLock).
+- **1chipMSX:** bez MoonSound, bez zvláštních kláves PrintScreen/ScrollLock (Pause je obecná pauza stroje).
+- **Pauza:** stojí jen CPU; kazeta (CAS) a řadiče disket běží dál, takže pauza během nahrávání může skončit chybou čtení.
 - Žádný MIDI OUT, žádná hlasitost ani ztlumení po zdrojích v OSD, chybí deform bity 0/1 SCC+, žádné V9990.
 
 ## Poděkování

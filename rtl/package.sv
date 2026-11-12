@@ -473,6 +473,7 @@ package MSX;
         logic           mouse_port;     // OCM: PS/2 mouse on port 1 (0) / 2 (1)
         logic           ocm_r800;       // OCM: CPU type R800 (MULUB / MULUW)
         logic           turbor_firmware; // turbo R: firmware switch on (S1990 register 5)
+        logic           osd_pause;      // OSD open and "Pause when OSD open" on
     } user_config_t;    
     
     typedef struct {

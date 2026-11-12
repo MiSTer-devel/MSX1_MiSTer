@@ -24,7 +24,8 @@ module dev_ppi (
     output            [7:0] data,
     output            [7:0] slot_config,
     output                  tape_motor_on,
-    output                  keybeep
+    output                  keybeep,
+    output                  pause_key           // Pause key state (keyboard.sv)
 );
 
     
@@ -70,7 +71,8 @@ module dev_ppi (
         .ps2_key(ps2_key),
         .kb_row(ppi_out_c[3:0]),
         .kb_data(d_from_kb),
-        .upload_memory(kb_upload_memory)
+        .upload_memory(kb_upload_memory),
+        .pause(pause_key)
     );
 
 endmodule

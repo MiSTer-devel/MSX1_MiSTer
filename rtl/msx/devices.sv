@@ -55,8 +55,8 @@ module devices  #(parameter sysCLK)
     output                  opl4_wait,              // CPU wait: OPL4 wave part busy
     output                  turbor_r800,            // S1990: R800 selected
     output                  turbor_dram,            // S1990: DRAM mode (ROM read from the main RAM)
-    output                  turbor_pause,           // hardware pause: hold the CPU
-    output                  turbor_pause_led,
+    output                  pause,                  // hold the CPU: machine pause or turbo R hardware pause
+    output                  pause_led,
     output                  turbor_turbo_led,
     input                   ocm_mmc_on,
     output                  ocm_megaSD_enable,
@@ -303,7 +303,8 @@ module devices  #(parameter sysCLK)
     // Turbo R: S1990 (E4h / E5h), PCM (A4h / A5h), pause (A7h); the firmware switch is an OSD
     // option, the pause key the PS/2 Pause key (doc/turboR.md)
     wire [7:0] s1990_data, turbor_pcm_data, turbor_pause_data;
-    wire       turbor_mute;
+    wire       turbor_mute, turbor_hw_pause, turbor_pause_led;
+    wire       pause_key;                           // Pause key state (dev_ppi, keyboard.sv)
     MSX::sound_t turbor_pcm_sound;
     dev_s1990 dev_s1990 (
         .cpu_bus(cpu_bus),
@@ -323,12 +324,19 @@ module devices  #(parameter sysCLK)
     dev_turbor_pause dev_turbor_pause (
         .cpu_bus(cpu_bus),
         .io_device(io_device[DEV_TURBOR_PAUSE]),
-        .ps2_key(ps2_key),
+        .pause_key(pause_key),
         .data(turbor_pause_data),
-        .hw_pause(turbor_pause),
+        .hw_pause(turbor_hw_pause),
         .pause_led(turbor_pause_led),
         .turbo_led(turbor_turbo_led)
     );
+
+    // Machine pause (doc/pauza.md): the open OSD with "Pause when OSD open", or the Pause key
+    // unless the machine reads it itself (turbo R A7h). CPU held by WAIT, sound muted.
+    wire       machine_pause = msx_user_config.osd_pause
+                               || (pause_key && !io_device[DEV_TURBOR_PAUSE][0].enable);
+    assign pause     = machine_pause || turbor_hw_pause;
+    assign pause_led = machine_pause || turbor_pause_led;
 
     // Single clipping point for all sound sources
     sound_mix sound_mix (
@@ -338,7 +346,7 @@ module devices  #(parameter sysCLK)
         .psg(psg_sound),
         .dac(dac_sound),
         .pcm(turbor_pcm_sound),
-        .mute(turbor_mute),
+        .mute(turbor_mute || machine_pause),
         .opm_L(opm_sound_L),
         .opm_R(opm_sound_R),
         .opl4_L(opl4_sound_L),
@@ -359,7 +367,8 @@ module devices  #(parameter sysCLK)
         .ps2_key(ps2_key),
         .slot_config(slot_config),
         .keybeep(keybeep),
-        .tape_motor_on(tape_motor_on)
+        .tape_motor_on(tape_motor_on),
+        .pause_key(pause_key)
     );
 
     wire [7:0] reset_status_data;

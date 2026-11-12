@@ -40,6 +40,7 @@ module msx_system (
     input                       img_readonly,
     input              [63:0]   img_size,
     input                       sd_img_mounted,         // virtual SD card image (block_device_SD)
+    input                       osd_status,             // OSD open (emu OSD_STATUS)
     block_device_if.device_mp   block_device_FDD[2*MSX::N_FDC],
     output MSX::msx_config_t    msx_config,
 
@@ -48,7 +49,7 @@ module msx_system (
     output             [15:0]   audio_L,
     output             [15:0]   audio_R,
     output                      led_turbo,              // turbo R: R800 running (pause device bit 7)
-    output                      led_pause,
+    output                      led_pause,              // machine paused, or turbo R pause LED (A7h)
     input                       uart_rxd,
     input                       tape_adc,               // tape input from ADC
     ext_sd_card_if.device_mp    ext_SD_card_bus,
@@ -123,6 +124,7 @@ user_config user_config
    .clk(clock_bus.clk),
    .reset(reset),
    .HPS_status(status[63:0]),
+   .osd_status(osd_status),
    .sdram_size(sdram_sz[15] ? sdram_sz[1:0] : 2'b00),
    .cart_conf(cart_conf),
    .reload(reload),

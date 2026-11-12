@@ -12,14 +12,14 @@ MSX::io_device_t io_s1990[3], io_pause[3];
 wire  [7:0] s1990_data, pause_data;
 wire        r800, dram, hw_pause, pause_led, turbo_led;
 logic       firmware_sw = 0;
-logic [10:0] ps2_key = '0;
-task automatic key(input logic [9:0] k);         // one hps_io key event: toggle bit flips
-    @(negedge clk); ps2_key = {~ps2_key[10], k}; @(negedge clk);
+logic       pause_key = 0;                       // Pause key state from keyboard.sv (keyboard_tb)
+task automatic key;                              // the Pause key toggles the state
+    @(negedge clk); pause_key = ~pause_key; @(negedge clk);
 endtask
 
 dev_s1990 s1990 (.cpu_bus(cpu_bus), .io_device(io_s1990), .firmware_sw(firmware_sw),
                  .data(s1990_data), .r800(r800), .dram(dram));
-dev_turbor_pause pause (.cpu_bus(cpu_bus), .io_device(io_pause), .ps2_key(ps2_key),
+dev_turbor_pause pause (.cpu_bus(cpu_bus), .io_device(io_pause), .pause_key(pause_key),
                         .data(pause_data), .hw_pause(hw_pause), .pause_led(pause_led), .turbo_led(turbo_led));
 
 logic [15:0] addr = '0;
@@ -77,16 +77,12 @@ initial begin
 
     // --- Pause
     in(8'hA7, v); expect8("A7 after reset", v, 8'h00);
-    key(10'h077); key(10'h177);                             // Num Lock pressed / extended released
-    in(8'hA7, v); expect8("A7 after another key", v, 8'h00);
-    key(10'h377);                                           // Pause (hps_io: pressed, extended, 77h)
+    key;
     in(8'hA7, v); expect8("A7 after the pause key", v, 8'h01);
-    @(negedge clk); ps2_key[9] = 1'b0; @(negedge clk);     // a release of 377h never comes, but is ignored
-    in(8'hA7, v); expect8("A7 unchanged by a release", v, 8'h01);
     expect1("no hardware pause without bit 1", hw_pause, 0); expect1("pause LED off", pause_led, 0);
     out(8'hA7, 8'h02);
     expect1("hardware pause", hw_pause, 1); expect1("pause LED with hardware pause", pause_led, 1);
-    key(10'h377);
+    key;
     expect1("pause released", hw_pause, 0);
     out(8'hA7, 8'h81);
     expect1("pause LED bit 0", pause_led, 1); expect1("turbo LED bit 7", turbo_led, 1);

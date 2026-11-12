@@ -23,7 +23,8 @@ module keyboard
    input           [10:0] ps2_key,
    input            [3:0] kb_row,
    output           [7:0] kb_data,
-   input MSX::kb_memory_t upload_memory
+   input MSX::kb_memory_t upload_memory,
+   output logic           pause = 1'b0    // toggled by the Pause key, cleared by reset
 );
 
 wire [3:0] row;
@@ -44,6 +45,12 @@ always_ff @(posedge clk) begin
       down       <= ps2_key[9];
       change     <= 1'b1;
    end
+   // hps_io turns the whole Pause sequence into one event 377h, sent on release and on every
+   // autorepeat (Main_MiSTer user_io.cpp); table entry 177h is FFh, no matrix key
+   if (reset)
+      pause <= 1'b0;
+   else if (old_key != ps2_key && ps2_key[9:0] == 10'h377)
+      pause <= ~pause;
 end
 
 assign row = map_key[7:4];

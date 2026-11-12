@@ -83,13 +83,14 @@ reset_sync rst_sync_sdram (.clk(clk_sdram), .arst(~locked_sdram),          .rst(
 //  [24:23]  OCM slot 2 (internal ESE-SCC / MegaRAM)
 //  [25]     vertical crop
 //  [26]     turbo R firmware switch
+//  [27]     pause when OSD open
 //  [32:29]  slot B cartridge type (not OCM)
 //  [38]     SRAM save
 //  [39]     SRAM load
 //  [40]     tape input (file / ADC)
 //  [41]     border
 //  [42]     tape monitor (0 = on)
-// Free: [28:27], [37:33], [127:43]
+// Free: [28], [37:33], [127:43]
 `include "build_id.v"
 localparam CONF_STR = {
    "MSX1;UART115200,MIDI;",
@@ -142,6 +143,7 @@ localparam CONF_STR = {
    "P1O[8:6],Scale,Normal,V-Integer,Narrower HV-Integer,Wider HV-Integer,HV-Integer;",
    "P1O[41],Border,No,Yes;",
    "-;",
+   "O[27],Pause when OSD open,No,Yes;",
    "T[21],Reset;",
    "H3R[10],Reset & Detach ROM Cartridge;",
    "R[21],Reset and close OSD;",
@@ -282,6 +284,7 @@ msx_system msx_system
    .img_readonly(img_readonly),
    .img_size(img_size),
    .sd_img_mounted(block_device_SD.img_mounted),
+   .osd_status(OSD_STATUS),
    .block_device_FDD(block_device_FDD),
    .msx_config(msx_config),
    .video_bus(video_bus),
@@ -335,7 +338,7 @@ always_ff @(posedge clock_bus.clk) begin
     if((old_mosi ^ sdmosi) || (old_miso ^ sdmiso)) timeout <= 0;
 end
 
-// turbo R: R800 on the user LED, pause on the disk LED (VHD / SD activity otherwise)
+// turbo R: R800 on the user LED; machine pause / turbo R pause LED on the disk LED (VHD / SD activity otherwise)
 wire   led_turbo, led_pause;
 assign LED_USER = (vsd_sel & sd_act) | led_turbo;
 assign LED_DISK = {1'b1, (~vsd_sel & sd_act) | led_pause};

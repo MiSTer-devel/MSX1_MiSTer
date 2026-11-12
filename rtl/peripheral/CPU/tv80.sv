@@ -1030,7 +1030,7 @@ module TV80#( parameter Mode      = 0,
         else if (CEN) begin
             if (~(IntCycle && MCycle == 3'd1))
                 IntWait <= 2'd2;
-            else if (TState == 3'd2 && Wait_i && IntWait != 2'd0)
+            else if (TState == 3'd2 && IntWait != 2'd0)     // /WAIT counts only after them
                 IntWait <= IntWait - 2'd1;
         end
     end

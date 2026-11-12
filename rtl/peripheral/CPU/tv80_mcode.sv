@@ -1089,7 +1089,7 @@ module TV80_MCode #(
                     8'b11001001: begin                                  // RET
                         MCycles = 3'd3;
                         case (MCycle)
-                            3'd1: begin TStates = 3'd5; Set_Addr_To = aSP; end
+                            3'd1: begin Set_Addr_To = aSP; end                  // 10 T (RET cc: 11 T)
                             3'd2: begin IncDec_16 = 4'b0111; Set_Addr_To = aSP; LDZ = '1; end
                             3'd3: begin Jump = '1; IncDec_16 = 4'b0111; end
                             default: ;

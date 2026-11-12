@@ -31,14 +31,14 @@ module sound_mix (
     input  MSX::sound_t        opl4_L,      // MoonSound
     input  MSX::sound_t        opl4_R,
     input                      keybeep,
-    input                      tape,        // tape monitor
+    input                      tape,        // tape monitor (gated by motor and OSD option)
     output logic signed [15:0] sound_L,
     output logic signed [15:0] sound_R
 );
 
     localparam int W = 22;                   // 8 terms of 18 bit + sign
 
-    wire signed [W-1:0] sys    = $signed({12'd0, keybeep, 9'd0}) + $signed({13'd0, tape, 8'd0});
+    wire signed [W-1:0] sys    = $signed({12'd0, keybeep, 9'd0}) + $signed({10'd0, tape, 11'd0});
     wire signed [W-1:0] common = opll + scc + psg + dac + pcm + sys;
     wire signed [W-1:0] mix_L  = common + opm_L + opl4_L;
     wire signed [W-1:0] mix_R  = common + opm_R + opl4_R;

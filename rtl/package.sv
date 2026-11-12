@@ -467,6 +467,7 @@ package MSX;
     typedef struct {
         logic           border;
         cas_audio_src_t cas_audio_src;
+        logic           tape_monitor;   // tape signal in the sound output while the motor runs
         logic     [7:0] ocm_dip;
         logic           joy_swap;       // OCM: swap joystick ports
         logic           mouse_port;     // OCM: PS/2 mouse on port 1 (0) / 2 (1)

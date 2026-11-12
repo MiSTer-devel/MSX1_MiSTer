@@ -79,6 +79,7 @@ wire [3:0] slot_B_select   = HPS_status[32:29];
 
 assign msx_user_config.cas_audio_src         = cas_audio_src_t'(HPS_status[40]);
 assign msx_user_config.border                = HPS_status[41];
+assign msx_user_config.tape_monitor          = ~HPS_status[42];   // 0 = On (default)
 assign msx_user_config.joy_swap              = HPS_status[13];
 assign msx_user_config.mouse_port            = HPS_status[14];
 

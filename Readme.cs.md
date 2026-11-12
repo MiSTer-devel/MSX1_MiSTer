@@ -66,6 +66,7 @@ SDRAM: MoonSound, ASCII16-X, MegaFlashROM a 1chipMSX (mapper 4 MB) potřebují m
 | Slot1 / Slot2 ROM Load (`.ROM`) | Zobrazuje se, je-li slot nastaven na ROM. Až 16 MB. |
 | Load SD card (`.VHD`) | 1chipMSX (MegaSD) nebo MegaFlashROM SCC+ SD ve slotu 1. |
 | Tape Input | File nebo ADC (analogový vstup MiSTeru). Na 1chipMSX se nezobrazuje. |
+| Tape Monitor | On (výchozí) / Off: signál z pásky je slyšet ve zvuku, dokud běží motor. Na 1chipMSX se nezobrazuje. |
 | Cas File (`.CAS`) | Obraz pásky, zobrazuje se při Tape Input = File. |
 | Tape Rewind | Přetočí obraz pásky na začátek. |
 | Firmware switch | Off / On, jen u strojů s S1990 (turbo R). |

@@ -66,6 +66,7 @@ SDRAM: the MoonSound, ASCII16-X, MegaFlashROM and the 1chipMSX (4 MB mapper) nee
 | Slot1 / Slot2 ROM Load (`.ROM`) | Shown when the slot is set to ROM. Up to 16 MB. |
 | Load SD card (`.VHD`) | 1chipMSX (MegaSD) or MegaFlashROM SCC+ SD in slot 1. |
 | Tape Input | File or ADC (analog input of MiSTer). Not shown on the 1chipMSX. |
+| Tape Monitor | On (default) / Off: the tape signal is heard in the sound output while the motor runs. Not shown on the 1chipMSX. |
 | Cas File (`.CAS`) | Tape image, shown when Tape Input is File. |
 | Tape Rewind | Rewinds the tape image. |
 | Firmware switch | Off / On, only on machines with the S1990 (turbo R). |

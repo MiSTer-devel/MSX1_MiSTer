@@ -25,7 +25,7 @@ task automatic apply(input int a, b, c, d, eL, eR, input logic kb, tp);
     logic signed [15:0] expL, expR;
     opll = 18'(a); scc = 18'(b); psg = 18'(c); dac = 18'(d); opm_L = 18'(eL); opm_R = 18'(eR);
     keybeep = kb; tape = tp;
-    common = a + b + c + d + int'(pcm) + (kb ? 512 : 0) + (tp ? 256 : 0);
+    common = a + b + c + d + int'(pcm) + (kb ? 512 : 0) + (tp ? 2048 : 0);
     expL = mute ? 16'sd0 : ref_clip(common + eL + int'(opl4_L));
     expR = mute ? 16'sd0 : ref_clip(common + eR + int'(opl4_R));
     #1 clk = 1; #1 clk = 0;

@@ -344,7 +344,7 @@ module devices  #(parameter sysCLK)
         .opl4_L(opl4_sound_L),
         .opl4_R(opl4_sound_R),
         .keybeep(keybeep),
-        .tape(tape_in & ~tape_motor_on),
+        .tape(tape_in & ~tape_motor_on & msx_user_config.tape_monitor),
         .sound_L(sound_L),
         .sound_R(sound_R)
     );

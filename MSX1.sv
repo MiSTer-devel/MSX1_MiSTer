@@ -243,7 +243,8 @@ reset_sync rst_sync_sdram (.clk(clk_sdram), .arst(~locked_sdram),          .rst(
 //  [39]     SRAM load
 //  [40]     tape input (file / ADC)
 //  [41]     border
-// Free: [28:27], [37:33], [127:42]
+//  [42]     tape monitor (0 = on)
+// Free: [28:27], [37:33], [127:43]
 `include "build_id.v"
 localparam CONF_STR = {
    "MSX1;UART115200,MIDI;",
@@ -285,6 +286,7 @@ localparam CONF_STR = {
    "hCO[26],Firmware switch,Off,On;",
    "H3-;",
    "H3O[40],Tape Input,File,ADC;",
+   "H3O[42],Tape Monitor,On,Off;",
    "HBF5,CAS,Cas File,31700000;",
    "HBT9,Tape Rewind;",
    "-;",

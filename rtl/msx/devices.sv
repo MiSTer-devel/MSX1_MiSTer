@@ -63,7 +63,8 @@ module devices  #(parameter sysCLK)
     output                  ocm_megaSD_enable,
     output                  ocm_slot1_mode,
     output [1:0]            ocm_slot2_mode,
-    output                  ocm_ipl_en              // OCM IPL ROM visible (before BIOS load)
+    output                  ocm_ipl_en,             // OCM IPL ROM visible (before BIOS load)
+    output                  ocm_slot0_mode          // OCM: 1 = slot 0 expanded (1 without OCM)
 );
 
     MSX::video_t            video_bus_tms, video_bus_v99;
@@ -109,6 +110,7 @@ module devices  #(parameter sysCLK)
         .clock_bus(clock_bus),
         .io_device(io_device[DEV_OPLL]),
         .enawait(cpu_speed.en && cpu_speed.clock_sel != 2'b00),
+        .machine_io_en(ocm_slot0_mode),
         .wait_rq(opll_wait),
         .sound(opll_sound)
     );
@@ -243,7 +245,8 @@ module devices  #(parameter sysCLK)
         .Slot1Mode(ocm_slot1_mode),
         .Slot2Mode(ocm_slot2_mode),
         .rst_key_lock(ocm_reset_lock),
-        .swio_reset(ocm_reset_request)
+        .swio_reset(ocm_reset_request),
+        .Slot0Mode(ocm_slot0_mode)
     );
 
     wire  [7:0] tms_data;

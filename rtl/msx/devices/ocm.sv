@@ -66,7 +66,8 @@ module dev_ocm
     output logic             Slot1Mode,             // 1 = internal SCC-I in slot 1
     output logic       [1:0] Slot2Mode,             // 00 ext, 10 SCC-I, 01 ASCII8K, 11 ASCII16K
     output                   rst_key_lock,
-    output logic             swio_reset             // reset request (smart commands 251-254)
+    output logic             swio_reset,            // reset request (smart commands 251-254)
+    output                   Slot0Mode              // 1 = slot 0 expanded, 0 = primary (cmd 249)
 );
 
     localparam logic [7:0] ID212 = 8'b0010_1011;    // port 40h read value, written as D4h
@@ -91,6 +92,7 @@ module dev_ocm
     logic       JIS2_ena, portF4_mode;
     logic       extclk3m;                           // 'external clock 3.58': F11 / DIP skip turbo
     logic       LastRst_sta, WarmMSXlogo;
+    logic       Slot0_req, slot0_exp;               // swioports Slot0_req / Slot0Mode
     logic       warm;                               // current / pending reset is a warm one
     logic       reset_q;
 
@@ -103,6 +105,7 @@ module dev_ocm
     assign megaSD_enable = MegaSD_ack;
     assign rst_key_lock  = io43_id212[5];
     assign jis2_en       = ~present || JIS2_ena;     // IPL: 0 for a 384 kB BIOS (JIS1 only)
+    assign Slot0Mode     = ~present || slot0_exp;
 
     // IPL phase: reset .. first write to A8h
     always_ff @(posedge cpu_bus.clk) begin
@@ -138,6 +141,8 @@ module dev_ocm
         portF4_mode  = 1'b0;
         WarmMSXlogo  = 1'b0;
         reset_q      = 1'b0;
+        Slot0_req    = 1'b1;
+        slot0_exp    = 1'b1;
     end
 
     // F11 make (eseps2 Fkeys(1)), ignored with SHIFT held; key repeat ignored
@@ -189,15 +194,18 @@ module dev_ocm
                 swioKmap     <= DEF_KMAP;
                 extclk3m     <= 1'b0;
                 LastRst_sta  <= portF4_mode;
+                Slot0_req    <= 1'b1;               // expanded
+                slot0_exp    <= 1'b1;
             end else begin                          // warm reset: requested states take effect
                 io42_id212[6] <= Mapper_req;
                 Mapper_ack    <= Mapper_req;
                 io42_id212[7] <= MegaSD_req;
                 MegaSD_ack    <= MegaSD_req;
                 LastRst_sta   <= ~WarmMSXlogo;
+                slot0_exp     <= Slot0_req;
             end
         end else begin
-            RstReq_sta <= Mapper_req != io42_id212[6] || MegaSD_req != io42_id212[7];
+            RstReq_sta <= Mapper_req != io42_id212[6] || MegaSD_req != io42_id212[7] || Slot0_req != slot0_exp;
             if (reset_q && warm)                    // end of a warm reset
                 WarmMSXlogo <= portF4_mode;         // no logo after the next warm reset
 
@@ -322,6 +330,7 @@ module dev_ocm
                         io41_id008_n  <= 1'b1;
                         extclk3m      <= 1'b0;
                     end
+                    8'd249: Slot0_req <= 1'b0;                              // slot 0 primary after warm reset
                     8'd250: WarmMSXlogo <= ~portF4_mode;                    // logo after warm reset
                     8'd176, 8'd177, 8'd178, 8'd179, 8'd180, 8'd181, 8'd182, 8'd183: MstrVol <= ~dbo[2:0];
                     8'd184, 8'd185, 8'd186, 8'd187, 8'd188, 8'd189, 8'd190, 8'd191: PsgVol  <= dbo[2:0];
@@ -345,6 +354,7 @@ module dev_ocm
                         io41_id008_n    <= 1'b1;
                         swioKmap        <= DEF_KMAP;
                         extclk3m        <= 1'b0;
+                        Slot0_req       <= 1'b1;
                     end
                     default: io41_id212_n <= '1;                            // not implemented
                 endcase

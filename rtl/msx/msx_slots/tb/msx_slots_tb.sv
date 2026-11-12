@@ -47,6 +47,7 @@ assign cpu_bus.int_rq = 1'b0;
 localparam logic [26:0] BASE_RAM = 27'h0100000, BASE_CB = 27'h0200000, BASE_MFRSD1 = 27'h0400000;
 
 MSX::slot_expander_t expander[4];
+logic                slot0_mode = 1'b1;     // OCM Slot0Mode
 MSX::lookup_RAM_t    lookup_RAM[4];
 MSX::lookup_SRAM_t   lookup_SRAM[4];
 MSX::block_t         active_block;
@@ -101,7 +102,7 @@ msx_slots dut (
     .main_RAM(lookup_RAM[0]), .lookup_SRAM(lookup_SRAM), .main_ram(main_ram), .dram(1'b0),
     .active_slot(slot), .data(data), .data_oe_rq(data_oe_rq), .device_bus(device_bus),
     .data_to_mapper(8'h00), .ocm_megaSD_enable(1'b0), .ocm_slot1_mode(1'b0),
-    .ocm_slot2_mode(2'b00), .ocm_ipl_en(1'b0), .ocm_mmc_on(mmc_on), .sd_wait(mmc_wait)
+    .ocm_slot2_mode(2'b00), .ocm_ipl_en(1'b0), .ocm_slot0_mode(slot0_mode), .ocm_mmc_on(mmc_on), .sd_wait(mmc_wait)
 );
 
 // One access; the outputs are sampled while the request is on the bus.
@@ -176,6 +177,16 @@ initial begin
     if (!(s_cs && s_addr == BASE_MFRSD1 + 27'h4000)) fail("MFRSD expander off: 8000 not in subslot 1 memory");
     access(1, 16'hFFFF, 0);
     if (s_oe) fail("MFRSD expander off: FFFF still the register");
+
+    // OCM Slot0Mode 0 (cmd 249): slot 0 primary even with an expander, FFFF is the RAM below
+    expander[0].en = 1'b1;
+    access(0, 16'hFFFF, 0);
+    if (s_cs || !s_oe) fail("slot 0 expanded: FFFF is not the register");
+    slot0_mode = 1'b0;
+    access(0, 16'hFFFF, 0);
+    if (!s_cs || s_oe) fail("Slot0Mode 0: FFFF is not the RAM");
+    slot0_mode = 1'b1;
+    expander[0].en = 1'b0;
 
     if (errors == 0) $display("PASS msx_slots_tb");
     else             $display("FAILED msx_slots_tb: %0d errors", errors);

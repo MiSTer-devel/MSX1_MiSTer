@@ -22,6 +22,7 @@ module dev_opll (
     clock_bus_if.base_mp   clock_bus,
     input MSX::io_device_t io_device[3],
     input                  enawait,         // CPU faster than 3.58 MHz (OCM turbo): wait while the OPLL is busy
+    input                  machine_io_en,   // ports of the machine OPLL (device_ref 0); OCM: 0 with slot 0 primary
     output                 wait_rq,         // CPU wait request
     output MSX::sound_t    sound
 );
@@ -58,7 +59,8 @@ module dev_opll (
         for (i = 0; i < 3; i++) begin : OPLL_INSTANCES
             if (i < MSX::N_OPLL) begin : inst
                 wire cs_io_active = (cpu_bus.addr[7:0] & io_device[i].mask) == io_device[i].port;
-                wire cs_io_wr     = (io_device[i].enable && cs_io_active && io_en && opll_enabled[i] && cpu_bus.wr);
+                wire cs_io_wr     = (io_device[i].enable && cs_io_active && io_en && opll_enabled[i] && cpu_bus.wr &&
+                                     (io_device[i].device_ref != 3'd0 || machine_io_en));
                 wire cs_dev_bus   = (io_device[i].enable && io_device[i].device_ref == device_bus.device_ref && device_bus.we);
 
                 // I/O write taken once per access when the OPLL is not busy (else the CPU waits),

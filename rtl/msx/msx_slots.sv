@@ -40,6 +40,7 @@ module msx_slots (
     input                       ocm_slot1_mode,
     input                 [1:0] ocm_slot2_mode,
     input                       ocm_ipl_en,
+    input                       ocm_slot0_mode,    // OCM: 0 = slot 0 primary (cmd 249), 1 otherwise
     output                      ocm_mmc_on,
     output                      sd_wait            // CPU wait: SD SPI busy (MegaSD, MFRSD)
 );
@@ -51,12 +52,21 @@ module msx_slots (
     wire       subslot_cs;
     wire [7:0] subslot_data;
 
+    // OCM Slot0Mode 0: slot 0 is primary, only subslot 0-0 (emsx_top keeps ExpSlot0 at 0)
+    MSX::slot_expander_t slot_expander_act[4];
+    always_comb
+        for (int i = 0; i < 4; i++) begin
+            slot_expander_act[i].en   = slot_expander[i].en && (i != 0 || ocm_slot0_mode);
+            slot_expander_act[i].wo   = slot_expander[i].wo;
+            slot_expander_act[i].init = slot_expander[i].init;
+        end
+
     // FFFF of an expanded slot is the subslot register only: neither the memory nor the mapper
     // below sees the access (openMSX MSXCPUInterface, confirmed on turbo R GT).
     subslot subslot
     (
         .cpu_bus(cpu_bus),
-        .slot_expander_conf(slot_expander),
+        .slot_expander_conf(slot_expander_act),
         .data(subslot_data),
         .active_subslot(active_subslot),
         .expander_force_en(slot_expander_force_en),

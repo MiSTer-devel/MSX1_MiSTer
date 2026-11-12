@@ -17,7 +17,7 @@ clock_bus_if clock_bus(clk, clk);
 MSX::io_device_t io_device[3];
 logic [7:0] dip;
 wire  [7:0] data;
-wire        ipl_en, jis2_en, mapper_limit, megaSD_enable, Slot1Mode, rst_key_lock;
+wire        ipl_en, jis2_en, mapper_limit, megaSD_enable, Slot1Mode, rst_key_lock, Slot0Mode;
 wire  [1:0] Slot2Mode;
 logic [10:0] ps2_key = '0;
 logic        mmc_on = 0;
@@ -27,7 +27,7 @@ dev_ocm dut (.cpu_bus(cpu_bus), .clock_bus(clock_bus), .io_device(io_device), .f
              .ps2_key(ps2_key), .mmc_on(mmc_on), .cpu_speed(cpu_speed),
              .data(data), .ipl_en(ipl_en), .jis2_en(jis2_en), .mapper_limit(mapper_limit), .megaSD_enable(megaSD_enable),
              .Slot1Mode(Slot1Mode), .Slot2Mode(Slot2Mode), .rst_key_lock(rst_key_lock),
-             .swio_reset(swio_reset));
+             .swio_reset(swio_reset), .Slot0Mode(Slot0Mode));
 
 logic [15:0] addr = '0;
 logic  [7:0] dbo = '0;
@@ -259,6 +259,29 @@ initial begin
     io_write(8'hA8, 8'hF0);
     expect_speed("warm + cmd 250: logo", 1, 2, 3);
 
+    // ---- Slot0Mode (emsx_top / swioports): 1 = slot 0 expanded. Cmd 249 asks for the primary
+    //      mode, a warm reset applies it; cmd 255 asks for the expanded mode; a cold reset sets it
+    check_bit("Slot0Mode expanded", Slot0Mode, 1'b1);
+    io_write(8'h40, 8'hD4);
+    io_write(8'h41, 8'd249);
+    check_bit("cmd 249: Slot0Mode until warm reset", Slot0Mode, 1'b1);
+    check_bit("cmd 249: RstReq_sta", dut.RstReq_sta, 1'b1);
+    io_write(8'h41, 8'd253);
+    wait_reset_done();
+    check_bit("warm: Slot0Mode primary", Slot0Mode, 1'b0);
+    check_bit("warm: no reset request left", dut.RstReq_sta, 1'b0);
+    io_write(8'h40, 8'hD4);
+    io_write(8'h41, 8'd255);
+    check_bit("cmd 255: RstReq_sta", dut.RstReq_sta, 1'b1);
+    io_write(8'h41, 8'd253);
+    wait_reset_done();
+    check_bit("cmd 255 + warm: Slot0Mode expanded", Slot0Mode, 1'b1);
+    io_write(8'h40, 8'hD4);
+    io_write(8'h41, 8'd249);
+    io_write(8'h41, 8'd251);                      // cold reset
+    wait_reset_done();
+    check_bit("cold: Slot0Mode expanded", Slot0Mode, 1'b1);
+
     // ---- not present: ports silent, no IPL
     io_device[0].enable = 1'b0;
     hard = 1; repeat (2) @(negedge clk); hard = 0;
@@ -267,6 +290,7 @@ initial begin
     expect_read("absent device", 8'h40, 8'hFF);
     check_bit("absent: no IPL", ipl_en, 1'b0);
     check_bit("absent: JIS2 allowed", jis2_en, 1'b1);
+    check_bit("absent: slot 0 expanded", Slot0Mode, 1'b1);
     check_bit("absent: no speed override", cpu_speed.en, 1'b0);
     if (cpu_speed !== '0) begin errors++; $display("FAIL absent: cpu_speed %h", cpu_speed); end
 

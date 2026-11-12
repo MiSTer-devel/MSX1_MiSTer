@@ -18,13 +18,15 @@ MSX::device_bus_t  device_bus;
 MSX::sound_t       sound;
 
 logic enawait = 0, wait_rq;
+logic machine_io_en = 1;                    // OCM Slot0Mode: 0 = slot 0 primary, machine OPLL ports off
 `ifdef NO_WAIT
 dev_opll dut (.cpu_bus(cpu_bus), .device_bus(device_bus), .clock_bus(clock_bus.base_mp),
               .io_device(io_device), .sound(sound));
 assign wait_rq = 1'b0;
 `else
 dev_opll dut (.cpu_bus(cpu_bus), .device_bus(device_bus), .clock_bus(clock_bus.base_mp),
-              .io_device(io_device), .enawait(enawait), .wait_rq(wait_rq), .sound(sound));
+              .io_device(io_device), .enawait(enawait), .machine_io_en(machine_io_en), .wait_rq(wait_rq),
+              .sound(sound));
 `endif
 
 logic [15:0] addr = '0;
@@ -111,6 +113,16 @@ initial begin
     peak(200000, p);
     $display("FM-PAC OPLL: I/O enabled %0d", p);
     if (p < idle + 200) begin errors++; $display("FAIL FM-PAC OPLL: no tone with I/O enabled"); end
+
+    // ---- OCM slot 0 primary (Slot0Mode 0, emsx_top OpllReq): ports of the machine OPLL are off
+    restart(3'd0);
+    peak(200000, idle);
+    machine_io_en = 0;
+    play();
+    peak(200000, p);
+    $display("machine OPLL, slot 0 primary: idle %0d, after key on %0d", idle, p);
+    if (p >= idle + 200) begin errors++; $display("FAIL machine OPLL: tone with slot 0 primary"); end
+    machine_io_en = 1;
 
     // ---- turbo: back-to-back writes (gap 4 clk) with enawait; the CPU must wait for the OPLL
     restart(3'd0);

@@ -18,7 +18,7 @@
 // Device limits (MSX::dev_slots, MSX::N_FDC) are applied to the reference result, which has
 // the old rules (3 copies, SCC 2; FDC at 0 cartridge A, 1 cartridge B, 2 internal):
 // - a load whose reference result needs more copies than built, an FDC cartridge in slot B,
-//   or more FDC records than positions must stop with ERR_MISSING_SOURCE / ERR_FDC_PRESENT;
+//   or more FDC records than positions must stop with the error of the limit (over_limit);
 //   only the error is compared and the streams are taken over from the reference. The next
 //   load is not compared either: the reference finished the load the new module stopped and
 //   carries registers of it (device, last_device_num) into the next one;
@@ -200,24 +200,30 @@ function automatic bit cart_fdc_dropped();
            (dev_r[DEV_WD2793][2].enable || dev_r[DEV_TC8566AF][2].enable);
 endfunction
 
-// The reference result breaks a limit of this build
+// The reference result breaks a limit of this build. limit_err: errors the stop may report,
+// by the limit broken (the first broken record decides, the order is not known here):
+// - more copies of a device than built: ERR_DEVICE_MISSING, none built: ERR_MISSING_SOURCE;
+// - an FDC where this build has none: ERR_MISSING_SOURCE, two at one position: ERR_FDC_PRESENT.
+logic [15:0] limit_err;
 function automatic bit over_limit();
     logic [2:0] fdc_at;
     int         npos;
+    limit_err = '0;
     for (int t = 0; t < 32; t++)
         if (t != DEV_WD2793 && t != DEV_TC8566AF &&
             int'(dev_r[t][0].enable) + int'(dev_r[t][1].enable) + int'(dev_r[t][2].enable) > ones3(MSX::dev_slots(device_t'(t)))) begin
             if ($test$plusargs("v")) $display("| limit: device type %0d, %0d copies", t, int'(dev_r[t][0].enable) + int'(dev_r[t][1].enable) + int'(dev_r[t][2].enable));
-            return 1;
+            limit_err[MSX::dev_slots(device_t'(t)) == 3'd0 ? ERR_MISSING_SOURCE : ERR_DEVICE_MISSING] = 1'b1;
         end
     for (int p = 0; p < 3; p++) fdc_at[p] = dev_r[DEV_WD2793][p].enable || dev_r[DEV_TC8566AF][p].enable;
-    if (fdc_at[1]) return 1;                                            // cartridge B
+    if (fdc_at[1]) limit_err[ERR_MISSING_SOURCE] = 1'b1;               // cartridge B
     npos = int'(fdc_at[0]) + int'(fdc_at[2]);
-    if (cart_fdc_dropped()) return 0;
-    if (MSX::N_FDC == 1 ? fdc_rec > 1 : fdc_rec > npos) return 1;       // two FDCs at one position
-    if (dev_r[DEV_TC8566AF][2].enable && !MSX::dev_slots(DEV_TC8566AF)[0]) return 1;
-    if (dev_r[DEV_TC8566AF][0].enable && !MSX::dev_slots(DEV_TC8566AF)[MSX::N_FDC > 1 ? 1 : 0]) return 1;
-    return 0;
+    if (!cart_fdc_dropped()) begin
+        if (MSX::N_FDC == 1 ? fdc_rec > 1 : fdc_rec > npos) limit_err[ERR_FDC_PRESENT] = 1'b1;   // two FDCs at one position
+        if (dev_r[DEV_TC8566AF][2].enable && !MSX::dev_slots(DEV_TC8566AF)[0]) limit_err[ERR_MISSING_SOURCE] = 1'b1;
+        if (dev_r[DEV_TC8566AF][0].enable && !MSX::dev_slots(DEV_TC8566AF)[MSX::N_FDC > 1 ? 1 : 0]) limit_err[ERR_MISSING_SOURCE] = 1'b1;
+    end
+    return limit_err != '0;
 endfunction
 
 task automatic compare();
@@ -227,7 +233,7 @@ task automatic compare();
     if (over_limit()) begin
         limit_stops++;
         stopped = 1;
-        `CMP("error (limit)", err_n == ERR_MISSING_SOURCE || err_n == ERR_FDC_PRESENT, 1'b1)
+        `CMP("error (limit)", limit_err[err_n], 1'b1)
         mh_n = mh_r; mc_n = mc_r; kh_n = kh_r; kc_n = kc_r; lsc_n = lsc_r; rsc_n = rsc_r;
         return;
     end

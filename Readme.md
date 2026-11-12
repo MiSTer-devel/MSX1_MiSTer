@@ -108,7 +108,8 @@ When a load fails, the OSD info line shows one of these. After **No CRC32 DB**, 
 | NOT SUPPORTED BLOCK | The pack contains an unknown block type – the pack and the core versions do not match. |
 | BAD MSX FW CONF | The file loaded as FW PACK is not a FW pack. |
 | NOT FW CONF | The FW pack is not loaded but the selected cartridge needs it (every cartridge type, plain ROM included), or a ROM the cartridge needs is missing in the FW pack (e.g. `yrw801.rom` for MoonSound). |
-| Device not in this core build | The configuration needs more copies of a device than the core contains, e.g. FM-PAC in both slots on a machine with MSX-MUSIC, MoonSound in both slots. |
+| DEVICE MISSING | The configuration needs more copies of a device than the core contains, e.g. FM-PAC in both slots on a machine with MSX-MUSIC, MoonSound in both slots. |
+| Device not in this core build | The configuration needs a device this core build does not contain at all. |
 | No CRC32 DB | A ROM larger than 64 KB needs a mapper but no mapper database is loaded. |
 | Not find CRC32 in DB | A ROM larger than 64 KB is not in the mapper database. |
 | FDC already in machine | Two FDCs in the same position – an error of the machine definition. |

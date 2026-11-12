@@ -162,7 +162,8 @@ module memory_upload
     // copies of the device type of the current record:
     wire  [4:0] dev_rd_t = (state == STATE_PROCESS_BLOCK) ? conf[3][4:0] : conf[1][4:0];
     wire  [2:0] dev_en   = {io_device[dev_rd_t][2].enable, io_device[dev_rd_t][1].enable, io_device[dev_rd_t][0].enable};
-    // free copies of that type among the synthesized ones (MSX::dev_slots)
+    // free copies of that type among the synthesized ones (MSX::dev_slots). None free:
+    // DEVICE MISSING when the build has copies (all in use), else MISSING SOURCE (not built).
     wire  [2:0] dev_ok   = MSX::dev_slots(device_t'(dev_rd_t));
     wire  [2:0] dev_free = ~dev_en & dev_ok;
     wire        dev_slot_free = |dev_free;
@@ -504,7 +505,7 @@ module memory_upload
                             end else begin
                                 $display("LOAD IO_DEVICE FAILED ID:%x port:%x mask %x param %x size %x addr: %x (DDR addr %x)",
                                         conf[1], conf[2], conf[3], conf[4], {3'b0, conf[5], 14'd0}, ram_addr, ddr3_addr);
-                                error <= ERR_MISSING_SOURCE;
+                                error <= dev_ok == '0 ? ERR_MISSING_SOURCE : ERR_DEVICE_MISSING;
                                 state <= STATE_IDLE;
                             end
 
@@ -769,7 +770,7 @@ module memory_upload
                                     $display("  DEVICE MEMORY io_ref_mem:%x addr:%x size:%x", io_ref_mem, ram_q.addr, ram_q.size);
                                 end
                             end else begin
-                                error                 <= ERR_MISSING_SOURCE;                  // no synthesized copy left
+                                error                 <= dev_ok == '0 ? ERR_MISSING_SOURCE : ERR_DEVICE_MISSING;
                                 state                 <= STATE_IDLE;
                                 $display("DEVICE %x: NO COPY LEFT IN THIS BUILD", device_t'(conf[3]));
                                 device                <= DEV_NONE;

@@ -108,7 +108,8 @@ Když načtení selže, informační řádek OSD zobrazí jedno z těchto hláš
 | NOT SUPPORTED BLOCK | Balíček obsahuje neznámý typ bloku – verze balíčku a jádra si neodpovídají. |
 | BAD MSX FW CONF | Soubor načtený jako FW PACK není FW balíčkem. |
 | NOT FW CONF | FW balíček není načten, ale vybraná cartridge jej potřebuje (každý typ cartridge včetně obyčejné ROM), nebo v FW balíčku chybí ROM, kterou cartridge potřebuje (např. `yrw801.rom` pro MoonSound). |
-| Device not in this core build | Konfigurace potřebuje víc kopií zařízení, než jádro obsahuje, např. FM-PAC v obou slotech na stroji s MSX-MUSIC, MoonSound v obou slotech. |
+| DEVICE MISSING | Konfigurace potřebuje víc kopií zařízení, než jádro obsahuje, např. FM-PAC v obou slotech na stroji s MSX-MUSIC, MoonSound v obou slotech. |
+| Device not in this core build | Konfigurace potřebuje zařízení, které tento build jádra vůbec neobsahuje. |
 | No CRC32 DB | ROM větší než 64 KB potřebuje mapper, ale databáze mapperů není načtena. |
 | Not find CRC32 in DB | ROM větší než 64 KB není v databázi mapperů. |
 | FDC already in machine | Dva FDC na stejné pozici – chyba definice stroje. |

@@ -51,12 +51,14 @@ module scc_wave
 
 //scc registers
 logic [11:0] reg_freq[5];
+logic [11:0] reg_per[5];        // period played: reg_freq cut by deform bits 0/1 when written
 logic  [3:0] reg_vol[5];
 logic  [4:0] reg_ch_sel;
 logic  [7:0] reg_mode_sel;
 
 //internal register
-logic  [4:0] ff_rst;
+logic  [4:0] ff_wr;             // frequency written: restart the current byte at the next clkena
+logic  [4:0] ff_rst;            // ... and deform bit 5: restart the wave
 logic  [4:0] ff_ptr[5];
 logic  [2:0] ff_ch_num;
 logic        ff_req_dl;
@@ -68,111 +70,110 @@ logic [14:0] ff_wave;
 assign ack = ff_req_dl;
 wire mode = sccPlusMode & sccPlusChip;
 
+// Frequency write: new 12 bit value of the channel and the period it plays. Deform bit 1 keeps
+// bits 7-0, bit 0 (without bit 1) bits 11-8 (openMSX SCC::setFreqVol).
+wire  [2:0] freq_ch  = adr[3:1] > 3'd4 ? 3'd4 : adr[3:1];
+wire [11:0] freq_new = adr[0] ? {dbo[3:0], reg_freq[freq_ch][7:0]} : {reg_freq[freq_ch][11:8], dbo};
+wire [11:0] per_new  = reg_mode_sel[1] ? {4'd0, freq_new[7:0]} :
+                       reg_mode_sel[0] ? {8'd0, freq_new[11:8]} : freq_new;
+
+wire       access     = req & ~ff_req_dl;
+wire       freq_wr    = access & wrt & adr[7:5] == {2'b10, mode} & adr[3:0] < 4'd10;
+// Deformation register: SCC E0-FF, SCC+ C0-DF; a read writes FFh (openMSX SCC::readMem)
+wire       deform_acc = access & adr[7:5] == {2'b11, ~sccPlusChip};
+wire [7:0] deform_new = wrt ? dbo : 8'hFF;
+// The rotation restarts when the deformation value changes or bit 5 restarts a wave
+// (openMSX deformTimer.advance)
+wire       rot_restart = (deform_acc & deform_new != reg_mode_sel) | (freq_wr & reg_mode_sel[5]);
+
 // scc register access
 always @(posedge clk) begin
    if (reset) begin
       reg_freq     <= '{12'd0, 12'd0, 12'd0, 12'd0, 12'd0};
+      reg_per      <= '{12'd0, 12'd0, 12'd0, 12'd0, 12'd0};
       reg_vol      <= '{ 4'd0,  4'd0,  4'd0,  4'd0,  4'd0};
       reg_ch_sel   <= 5'd0;
       reg_mode_sel <= 8'd0;
+      ff_wr        <= 5'd0;
       ff_rst       <= 5'd0;
       ff_req_dl    <= 1'd0;
    end else begin
-      if (req & ~ff_req_dl & adr[7:5] == {2'b10, mode} & wrt) begin
+      if (clkena) begin
+         ff_wr  <= 5'd0;
+         ff_rst <= 5'd0;
+      end
+      if (freq_wr) begin
+         reg_freq[freq_ch] <= freq_new;
+         reg_per[freq_ch]  <= per_new;
+         ff_wr[freq_ch]    <= 1'b1;
+         ff_rst[freq_ch]   <= reg_mode_sel[5];
+      end
+      if (access & wrt & adr[7:5] == {2'b10, mode}) begin
          case(adr[3:0])
-            4'b0000: begin reg_freq[0][7:0]  <= dbo[7:0]; ff_rst[0] <= reg_mode_sel[5]; end
-            4'b0001: begin reg_freq[0][11:8] <= dbo[3:0]; ff_rst[0] <= reg_mode_sel[5]; end
-            4'b0010: begin reg_freq[1][7:0]  <= dbo[7:0]; ff_rst[1] <= reg_mode_sel[5]; end
-            4'b0011: begin reg_freq[1][11:8] <= dbo[3:0]; ff_rst[1] <= reg_mode_sel[5]; end
-            4'b0100: begin reg_freq[2][7:0]  <= dbo[7:0]; ff_rst[2] <= reg_mode_sel[5]; end
-            4'b0101: begin reg_freq[2][11:8] <= dbo[3:0]; ff_rst[2] <= reg_mode_sel[5]; end
-            4'b0110: begin reg_freq[3][7:0]  <= dbo[7:0]; ff_rst[3] <= reg_mode_sel[5]; end
-            4'b0111: begin reg_freq[3][11:8] <= dbo[3:0]; ff_rst[3] <= reg_mode_sel[5]; end
-            4'b1000: begin reg_freq[4][7:0]  <= dbo[7:0]; ff_rst[4] <= reg_mode_sel[5]; end
-            4'b1001: begin reg_freq[4][11:8] <= dbo[3:0]; ff_rst[4] <= reg_mode_sel[5]; end
             4'b1010: begin reg_vol[0] [3:0]  <= dbo[3:0]; end
             4'b1011: begin reg_vol[1] [3:0]  <= dbo[3:0]; end
             4'b1100: begin reg_vol[2] [3:0]  <= dbo[3:0]; end
             4'b1101: begin reg_vol[3] [3:0]  <= dbo[3:0]; end
             4'b1110: begin reg_vol[4] [3:0]  <= dbo[3:0]; end
             4'b1111: begin reg_ch_sel [4:0]  <= dbo[4:0]; end
+            default: ;
          endcase
-      end else begin
-         if (clkena) begin
-            ff_rst <= 5'd0;
-         end
       end
-      if (req & adr[7:5] == {2'b11, ~sccPlusChip} & wrt) begin
-         reg_mode_sel <= dbo;
+      if (deform_acc) begin
+         reg_mode_sel <= deform_new;
       end
       ff_req_dl <= req;
    end
 end
 
-// tone generator
+// tone generator (openMSX SCC::generateChannels): a step every period + 1 ticks. A period of
+// 8 or less holds the channel at its position. A frequency write restarts the current byte.
 always @(posedge clk) begin
    logic [11:0] ff_cnt[5];
    if (reset) begin
       ff_ptr <= '{ 5'd0,  5'd0,  5'd0,  5'd0,  5'd0};
       ff_cnt <= '{12'd0, 12'd0, 12'd0, 12'd0, 12'd0};
-   end else begin
-      if (clkena) begin
-         if (reg_freq[0][11:3] == 9'd0 | ff_rst[0]) begin
-            ff_ptr[0] <= 5'd0;
-            ff_cnt[0] <= reg_freq[0];
-         end else if (ff_cnt[0] == 12'd0) begin
-               ff_ptr[0] <= ff_ptr[0] + 5'd1;
-               ff_cnt[0] <= reg_freq[0];
+   end else if (clkena) begin
+      for (int i = 0; i < 5; i++) begin
+         if (ff_wr[i]) begin
+            ff_cnt[i] <= reg_per[i];
+            if (ff_rst[i]) ff_ptr[i] <= 5'd0;
+         end else if (reg_per[i] > 12'd8) begin
+            if (ff_cnt[i] == 12'd0) begin
+               ff_ptr[i] <= ff_ptr[i] + 5'd1;
+               ff_cnt[i] <= reg_per[i];
             end else begin
-               ff_cnt[0] <= ff_cnt[0] - 12'd1;
-            end
-
-         if (reg_freq[1][11:3] == 9'd0 | ff_rst[1]) begin
-            ff_ptr[1] <= 5'd0;
-            ff_cnt[1] <= reg_freq[1];
-         end else begin
-            if (ff_cnt[1] == 12'd0) begin
-               ff_ptr[1] <= ff_ptr[1] + 5'd1;
-               ff_cnt[1] <= reg_freq[1];
-            end else begin
-               ff_cnt[1] <= ff_cnt[1] - 12'd1;
+               ff_cnt[i] <= ff_cnt[i] - 12'd1;
             end
          end
+      end
+   end
+end
 
-         if (reg_freq[2][11:3] == 9'd0 | ff_rst[2]) begin
-            ff_ptr[2] <= 5'd0;
-            ff_cnt[2] <= reg_freq[2];
-         end else begin
-            if (ff_cnt[2] == 12'd0) begin
-               ff_ptr[2] <= ff_ptr[2] + 5'd1;
-               ff_cnt[2] <= reg_freq[2];
-            end else begin
-               ff_cnt[2] <= ff_cnt[2] - 12'd1;
-            end
-         end
+// Deform bits 7-6 (bit 7 only in the SCC, not the SCC+), openMSX SCC::setDeformRegHelper:
+//   00 none, 01 all waves rotate, 10 waves 4-5 rotate, 11 waves 1-3 rotate.
+// A rotating wave is write protected, with 11 all are. The rotation shows only to CPU reads
+// (openMSX SCC::readWave), the sound is not affected. A wave moves by one every period + 1
+// ticks; with 01 wave 4 of the SCC (and the SCC+ in SCC mode) moves at the channel 5 speed.
+wire [1:0] rot_mode = {reg_mode_sel[7] & ~sccPlusChip, reg_mode_sel[6]};
+wire [4:0] rotate   = rot_mode == 2'b01 ? 5'b11111 : rot_mode == 2'b10 ? 5'b11000 :
+                      rot_mode == 2'b11 ? 5'b00111 : 5'b00000;
+wire [4:0] wprot    = rot_mode == 2'b11 ? 5'b11111 : rotate;
+wire       rot_4at5 = ~mode & reg_mode_sel[7:6] == 2'b01;
 
-         if (reg_freq[3][11:3] == 9'd0 | ff_rst[3]) begin
-            ff_ptr[3] <= 5'd0;
-            ff_cnt[3] <= reg_freq[3];
+logic [11:0] rot_cnt[5];
+logic  [4:0] rot_shift[5];
+always @(posedge clk) begin
+   if (reset | rot_restart) begin
+      rot_cnt   <= '{12'd0, 12'd0, 12'd0, 12'd0, 12'd0};
+      rot_shift <= '{ 5'd0,  5'd0,  5'd0,  5'd0,  5'd0};
+   end else if (clkena) begin
+      for (int i = 0; i < 5; i++) begin
+         if (rot_cnt[i] >= ((i == 3 && rot_4at5) ? reg_per[4] : reg_per[i])) begin
+            rot_cnt[i]   <= 12'd0;
+            rot_shift[i] <= rot_shift[i] + 5'd1;
          end else begin
-            if (ff_cnt[3] == 12'd0) begin
-               ff_ptr[3] <= ff_ptr[3] + 5'd1;
-               ff_cnt[3] <= reg_freq[3];
-            end else begin
-               ff_cnt[3] <= ff_cnt[3] - 12'd1;
-            end
-         end
-
-         if (reg_freq[4][11:3] == 9'd0 | ff_rst[4]) begin
-            ff_ptr[4] <= 5'd0;
-            ff_cnt[4] <= reg_freq[4];
-         end else begin
-            if (ff_cnt[4] == 12'd0) begin
-               ff_ptr[4] <= ff_ptr[4] + 5'd1;
-               ff_cnt[4] <= reg_freq[4];
-            end else begin
-               ff_cnt[4] <= ff_cnt[4] - 12'd1;
-            end
+            rot_cnt[i]   <= rot_cnt[i] + 12'd1;
          end
       end
    end
@@ -181,11 +182,15 @@ end
 // wave memory control
 assign     dbi             = ram_ce ? ram_dbi : 8'hFF;
 wire       ram_ce          = req & ram_adr < (mode ? 8'hA0 : 8'h80);
-wire       ram_we          = ram_ce & ~ff_req_dl & wrt;
+wire       ram_we          = ram_ce & ~ff_req_dl & wrt & ~wprot[ram_wave];
 wire [2:0] ff_wawe_num_max = mode ? 3'd4 : 3'd3;
 wire [2:0] ff_ch_num_max   = ff_ch_num > ff_wawe_num_max ? ff_wawe_num_max : ff_ch_num;
 wire [7:0] w_wave_adr = {ff_ch_num_max, ff_ptr[ff_ch_num]};
-wire [7:0] ram_adr         = ~wrt & sccPlusChip & ~sccPlusMode & adr[7:5] == 3'b101 ? {3'b011,adr[4:0]} : adr;
+wire       wave5_rd        = ~wrt & sccPlusChip & ~sccPlusMode & adr[7:5] == 3'b101;  // SCC mode: wave 5 reads wave 4
+wire [7:0] ram_adr         = wave5_rd ? {3'b011,adr[4:0]} : adr;
+wire [2:0] ram_wave        = wave5_rd ? 3'd4 : adr[7:5] > 3'd4 ? 3'd4 : adr[7:5];       // wave of the access
+wire [4:0] ram_shift       = ~wrt & rotate[ram_wave] ? rot_shift[ram_wave] : 5'd0;
+wire [7:0] ram_adr_rot     = {ram_adr[7:5], ram_adr[4:0] + ram_shift};
 
 // delay signal
 always @(posedge clk) begin
@@ -260,7 +265,7 @@ end
 wire [7:0] wave_dbi, ram_dbi;
 wave_ram wavemem
 (
-   .adr_a(clear_wave ? clear_cnt : ram_adr),
+   .adr_a(clear_wave ? clear_cnt : ram_adr_rot),
    .adr_b(w_wave_adr), 
    .clk(clk),
    .we_a(clear_wave ? clear_wr : ram_we),

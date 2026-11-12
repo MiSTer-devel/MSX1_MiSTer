@@ -37,7 +37,8 @@ module mapper_ascii8 (
 
     logic [7:0] bank[2][4];
     logic [7:0] sramBank[2][4];
-    logic [7:0] sramEnable[2];
+    logic [7:0] sramEnable[2];      // regions with the SRAM writable (sramPages)
+    logic [7:0] sramShown[2];       // regions showing the SRAM (openMSX setBank: also read-only)
 
     wire        sram_exists   = (block_info.sram_size > 0);
     wire  [7:0] sram_mask     = (block_info.sram_size[10:3] > 0) ?
@@ -54,32 +55,43 @@ module mapper_ascii8 (
             bank       <= '{'{default: '0},'{default: '0}};
             sramBank   <= '{'{default: '0},'{default: '0}};
             sramEnable <= '{default: '0};
+            sramShown  <= '{default: '0};
         end else if (cs & cpu_bus.wr & (cpu_bus.addr[15:13] == 3'b011) && cpu_bus.req) begin
             if (((cpu_bus.data & sramEnableBit) != 0) && sram_exists) begin
                 sramEnable[block_info.id] <= sramEnable[block_info.id] |
                                         ((8'b00000100 << region) & sramPages);
+                sramShown[block_info.id]  <= sramShown[block_info.id] | (8'b00000100 << region);
                 sramBank[block_info.id][region] <= cpu_bus.data & sram_mask;
             end else begin
                 sramEnable[block_info.id] <= sramEnable[block_info.id] &
                                         ~(8'b00000100 << region);
+                sramShown[block_info.id]  <= sramShown[block_info.id] & ~(8'b00000100 << region);
                 bank[block_info.id][region] <= cpu_bus.data;
             end
         end
     end
 
     wire        sram_en   = |((8'b00000001 << cpu_bus.addr[15:13]) & sramEnable[block_info.id]);
-    wire [26:0] sram_addr = {6'b0, sram_bank_base, cpu_bus.addr[12:0]};
-    wire [26:0] ram_addr  = {6'b0, bank_base, cpu_bus.addr[12:0]};
-    wire        ram_valid = (out.addr < {2'b00, block_info.rom_size});
+    wire        sram_show = |((8'b00000001 << cpu_bus.addr[15:13]) & sramShown[block_info.id]);
+    // SRAM smaller than 8 KB is mirrored in the region (sram_size in KB)
+    wire [12:0] sram_off  = block_info.sram_size >= 16'd8 ? cpu_bus.addr[12:0]
+                                                          : cpu_bus.addr[12:0] & ({block_info.sram_size[2:0], 10'd0} - 13'd1);
+    wire [26:0] sram_addr = {6'b0, sram_bank_base, sram_off};
+    // a bank past the ROM end wraps (openMSX RomBlocks::setRom)
+    wire [12:0] blocks    = {1'b0, block_info.rom_size[24:13]};
+    wire [12:0] blk_mask  = blocks - 13'd1;
+    wire  [7:0] rom_bank  = {5'd0, bank_base} < blocks ? bank_base : bank_base & blk_mask[7:0];
+    wire [26:0] ram_addr  = {6'b0, rom_bank, cpu_bus.addr[12:0]};
+    wire        ram_valid = (ram_addr < {2'b00, block_info.rom_size});
 
-    wire sram_cs   = cs & sram_en & (cpu_bus.rd || cpu_bus.wr);
-    wire ram_cs    = cs & ram_valid & ~sram_en & cpu_bus.rd;
+    wire sram_cs   = cs & ((sram_show & cpu_bus.rd) | (sram_en & cpu_bus.wr));
+    wire ram_cs    = cs & ram_valid & ~sram_show & cpu_bus.rd;
 
     assign out.sram_cs = sram_cs;
     assign out.main_cs = 1'b0;
     assign out.ram_cs  = ram_cs;
     assign out.rnw     = ~(sram_cs & cpu_bus.wr);
-    assign out.addr    = cs ? (sram_en ? sram_addr : ram_addr) : {27{1'b1}};
+    assign out.addr    = cs ? (sram_show ? sram_addr : ram_addr) : {27{1'b1}};
 
     // outputs not used by this mapper: neutral for the merge in mappers.sv
     assign out.data    = 8'hFF;

@@ -122,6 +122,13 @@ initial begin
             // KONAMI_SCC: a bank past the ROM end wraps (konami_scc_tb); from 2 MB none does
             if (block_info.typ == MAPPER_KONAMI_SCC) block_info.rom_size[24] = 1'b1;
             if (block_info.typ == MAPPER_KONAMI)     block_info.rom_size[24] = 1'b1;   // konami_tb
+            // ASCII8 / KOEI / WIZARDRY (ascii8_tb): no wrap, no SRAM enable bit from the ROM size,
+            // SRAM of 8 KB or more (no mirror)
+            if (block_info.typ == MAPPER_ASCII8 || block_info.typ == MAPPER_KOEI || block_info.typ == MAPPER_WIZARDY) begin
+                block_info.rom_size[24]    = 1'b1;
+                block_info.rom_size[20:13] = '0;
+                block_info.sram_size[3]    = 1'b1;
+            end
             block_info.main_ram_size = 17'($urandom);
             block_info.dram          = 1'($urandom);
             megaSD_en             = 1'($urandom);
@@ -137,6 +144,8 @@ initial begin
         if (block_info.typ == MAPPER_KONAMI_SCC) addr[15] = ~addr[14];
         if (block_info.typ == MAPPER_KONAMI)     addr[15] = ~addr[14];      // mirrors: konami_tb
         cpu_data       = 8'($urandom);
+        // WIZARDRY: SRAM bit only for the writable regions (shown read-only elsewhere: ascii8_tb)
+        if (block_info.typ == MAPPER_WIZARDY && addr[15:12] == 4'h6) cpu_data[7] = 1'b0;
         data_to_mapper = 8'($urandom);
         flash_q        = 8'($urandom);
         sd_q           = 8'($urandom);

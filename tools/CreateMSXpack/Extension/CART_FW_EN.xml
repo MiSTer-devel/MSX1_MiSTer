@@ -42,6 +42,7 @@
   <fw name="WIZARDRY">
     <block>
       <mapper>WIZARDRY</mapper>   
+      <sram>8192</sram>             <!-- openMSX RomAscii8_8: always 8 KB -->
     </block>
   </fw>
   <fw name="KOEI">

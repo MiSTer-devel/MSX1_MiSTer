@@ -41,22 +41,6 @@ typedef enum logic [3:0] {BLOCK_RAM, BLOCK_ROM, BLOCK_SRAM, BLOCK_DEVICE, BLOCK_
 typedef enum logic [2:0] {CONF_BLOCK, CONF_DEVICE, CONF_LAYOUT, CONF_CARTRIGE, CONF_BLOCK_FW, CONF_UNUSED5, CONF_UNUSED6, CONF_END} conf_t;
 typedef enum logic [3:0] {ERR_NONE, ERR_BAD_MSX_CONF, ERR_NOT_SUPPORTED_CONF, ERR_NOT_SUPPORTED_BLOCK, ERR_BAD_MSX_FW_CONF, ERR_NOT_FW_CONF, ERR_DEVICE_MISSING, ERR_MISSING_SOURCE, ERR_NO_CRC_DB, ERR_NO_CRC_FOUND, ERR_NO_MEMORY, ERR_FDC_PRESENT, ERR_ROM_TOO_BIG} error_t;
 
-interface cpu_regs_if();
-    wire [15:0] AF;
-    wire [15:0] BC;
-    wire [15:0] DE;
-    wire [15:0] HL;
-    wire [15:0] AF2;
-    wire [15:0] BC2;
-    wire [15:0] DE2;
-    wire [15:0] HL2;
-    wire [15:0] IX;
-    wire [15:0] IY;
-    wire [15:0] PC;
-    wire [15:0] SP;
-    wire change;
-endinterface
-
 interface clock_bus_if(
     input     clk,
     input     clk_mem
@@ -377,20 +361,6 @@ interface wave_bus_if;
         input  req, we, addr, wdata,
         output ack, rdata
     );
-endinterface
-
-interface sd_bus;
-   logic          ack;
-   logic   [13:0] buff_addr;
-   logic    [7:0] buff_data;
-   logic          buff_wr;
-endinterface
-
-interface sd_bus_control;
-   logic         rd;
-   logic         wr;
-   logic  [31:0] sd_lba;
-   logic   [7:0] buff_data;
 endinterface
 
 package MSX;

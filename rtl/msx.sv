@@ -50,6 +50,7 @@ module msx #(parameter sysCLK)
    input                    sram_load,
    output                   led_turbo,            // turbo R: R800 LED (pause device bit 7)
    output                   led_pause,            // machine paused, or turbo R pause LED (A7h)
+   output                   pause,                // CPU held by a pause (machine or turbo R hardware)
    //IOCTL
    input                    ioctl_download,
    input             [15:0] ioctl_index,
@@ -106,7 +107,7 @@ wire                 reset_lock, reset_request;
 wire                 ocm_megaSD_enable, ocm_slot1_mode;
 wire           [1:0] ocm_slot2_mode;
 wire                 ocm_ipl_en, ocm_mmc_on, ocm_mmc_wait, opll_wait, opl4_wait;
-wire                 turbor_r800, turbor_dram, pause;
+wire                 turbor_r800, turbor_dram;
 MSX::cpu_speed_t     cpu_speed;
 wire signed   [15:0] device_sound_L, device_sound_R;
 

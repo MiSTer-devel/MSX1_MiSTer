@@ -50,6 +50,7 @@ module msx_system (
     output             [15:0]   audio_R,
     output                      led_turbo,              // turbo R: R800 running (pause device bit 7)
     output                      led_pause,              // machine paused, or turbo R pause LED (A7h)
+    output                      pause,                  // CPU held by a pause: freeze the HDMI picture
     input                       uart_rxd,
     input                       tape_adc,               // tape input from ADC
     ext_sd_card_if.device_mp    ext_SD_card_bus,
@@ -170,6 +171,7 @@ msx #(.sysCLK(sysCLK)) MSX
    .sram_load(status[39]),
    .led_turbo(led_turbo),
    .led_pause(led_pause),
+   .pause(pause),
    .ioctl_download(ioctl_download),
    .ioctl_index(ioctl_index),
    .ioctl_addr(ioctl_addr),

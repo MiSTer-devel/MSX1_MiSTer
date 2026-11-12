@@ -25,6 +25,7 @@
 // pause LED), the second press 500 ms later resumes it.
 // +osd_ms=<ms>: the OSD opens at that time with "Pause when OSD open" off (the machine runs),
 // 200 ms later the option goes on (paused), 400 ms later the OSD closes (runs again).
+// Paused (CPU held, also the turbo R hardware pause) = msx_system `pause` (HDMI freeze) on.
 // Run: wsl.exe -- bash rtl/tb/run_machine_boot.sh <machine.msx> <image.dsk> [expected text]
 module machine_boot_tb;
 
@@ -55,7 +56,7 @@ wire    [7:0] info;
 MSX::msx_config_t msx_config;
 MSX::video_t  video_bus;
 wire   [15:0] audio_L, audio_R;
-wire          led_pause;
+wire          led_pause, pause;
 logic         osd_status = 0;
 wire   [27:0] ddr3_addr;
 wire          ddr3_rd, ddr3_ready;
@@ -77,7 +78,7 @@ msx_system sys (
     .img_readonly(1'b0), .img_size(64'd0), .sd_img_mounted(1'b0),
     .block_device_FDD(block_device_FDD), .msx_config(msx_config),
     .video_bus(video_bus), .audio_L(audio_L), .audio_R(audio_R), .uart_rxd(1'b1), .tape_adc(1'b0),
-    .led_pause(led_pause), .osd_status(osd_status),
+    .led_pause(led_pause), .pause(pause), .osd_status(osd_status),
     .ext_SD_card_bus(ext_SD_card_bus),
     .memory_bus_sdram_ch1(sd_ch1), .memory_bus_sdram_ch2(sd_ch2), .memory_bus_sdram_ch3(sd_ch3),
     .wave_bus_sdram_ch4(sd_ch4), .cpu_phase(cpu_phase),
@@ -480,12 +481,14 @@ task automatic check_paused(input string what, input int m1_from, inout int erro
     if (!led_pause)                  begin errors++; $display("FAIL %s: pause LED off", what); end
     if (!sys.MSX.devices.sound_mix.mute) begin errors++; $display("FAIL %s: sound not muted", what); end
     if (pause_sound != 0)            begin errors++; $display("FAIL %s: sound output in the pause (%0d clk)", what, pause_sound); end
+    if (!pause)                      begin errors++; $display("FAIL %s: picture not frozen", what); end
     $display("%0t %s: paused, %0d M1, %0d clk with sound", $time, what, m1_all - m1_from, pause_sound);
 endtask
 task automatic check_running(input string what, input int m1_from, inout int errors);
     if (m1_all == m1_from)           begin errors++; $display("FAIL %s: CPU does not run", what); end
     if (led_pause)                   begin errors++; $display("FAIL %s: pause LED on", what); end
     if (sys.MSX.devices.sound_mix.mute) begin errors++; $display("FAIL %s: sound muted", what); end
+    if (pause)                       begin errors++; $display("FAIL %s: picture frozen", what); end
     $display("%0t %s: runs, %0d M1", $time, what, m1_all - m1_from);
 endtask
 
@@ -621,9 +624,12 @@ initial begin
                 if (!sys.MSX.devices.dev_turbor_pause.hw_pause) begin errors++; $display("FAIL no hardware pause with A7 bit 1"); end
                 if (m1_all != m1_paused) begin errors++; $display("FAIL CPU runs in the hardware pause (%0d M1)", m1_all - m1_paused); end
                 else $display("%0t %0d ms: hardware pause, CPU stopped", $time, ms);
-            end else
+                if (!pause) begin errors++; $display("FAIL picture not frozen in the hardware pause"); end
+            end else begin
                 $display("%0t %0d ms: software pause by the BIOS (A7 = %02h), %0d M1 in 300 ms", $time, ms,
                          sys.MSX.devices.dev_turbor_pause.status, m1_all - m1_paused);
+                if (pause) begin errors++; $display("FAIL picture frozen in the software pause"); end
+            end
             m1_paused = m1_all;
         end
         if (pause_ms >= 0 && turbor_pause && ms == pause_ms + 800) begin

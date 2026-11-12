@@ -27,7 +27,6 @@ assign {UART_RTS, UART_TXD, UART_DTR} = 0;
 assign VGA_F1 = 0;
 assign VGA_SCALER  = 0;
 assign VGA_DISABLE = 0;
-assign HDMI_FREEZE = 0;
 assign HDMI_BLACKOUT = 0;
 assign HDMI_BOB_DEINT = 0;
 
@@ -254,7 +253,11 @@ memory_bus_if    memory_bus_sdram_ch2();
 memory_bus_if    memory_bus_sdram_ch3();
 wave_bus_if      wave_bus_sdram_ch4();
 wire             cpu_phase;
+wire             pause;
 wire       [5:0] joy[2];
+
+// paused machine: the scaler keeps the last frame (HDMI only, the OSD is drawn after it)
+assign HDMI_FREEZE = pause;
 wire             tape_in;
 wire      [27:0] ddr3_addr;
 wire       [7:0] ddr3_dout;
@@ -292,6 +295,7 @@ msx_system msx_system
    .audio_R(AUDIO_R),
    .led_turbo(led_turbo),
    .led_pause(led_pause),
+   .pause(pause),
    .uart_rxd(UART_RXD),
    .tape_adc(tape_in),
    .ext_SD_card_bus(ext_SD_card_bus),

@@ -185,16 +185,25 @@ end
 
 // wave memory control
 assign     dbi             = ram_ce ? ram_dbi : 8'hFF;
-wire       ram_ce          = req & ram_adr < (mode ? 8'hA0 : 8'h80);
+wire       ram_ce          = req & (wave5_rd | ram_adr < (mode ? 8'hA0 : 8'h80));
 wire       ram_we          = ram_ce & ~ff_req_dl & wrt & ~wprot[ram_wave];
-wire [2:0] ff_wawe_num_max = mode ? 3'd4 : 3'd3;
-wire [2:0] ff_ch_num_max   = ff_ch_num > ff_wawe_num_max ? ff_wawe_num_max : ff_ch_num;
-wire [7:0] w_wave_adr = {ff_ch_num_max, ff_ptr[ff_ch_num]};
-wire       wave5_rd        = ~wrt & sccPlusChip & ~sccPlusMode & adr[7:5] == 3'b101;  // SCC mode: wave 5 reads wave 4
-wire [7:0] ram_adr         = wave5_rd ? {3'b011,adr[4:0]} : adr;
+wire [2:0] ff_ch_num_max   = ff_ch_num > 3'd4 ? 3'd4 : ff_ch_num;
+wire [7:0] w_wave_adr = {ff_ch_num_max, ff_ptr[ff_ch_num_max]};
+// Wave 5 is always its own data, channel 5 plays it. Outside the SCC+ mode a wave 4 write is
+// copied to it on the next clock (openMSX SCC::writeWave), the SCC+ in SCC mode reads it at A0-BF.
+wire       wave5_rd        = ~wrt & sccPlusChip & ~sccPlusMode & adr[7:5] == 3'b101;
+wire [7:0] ram_adr         = wave5_rd ? {3'b100,adr[4:0]} : adr;
 wire [2:0] ram_wave        = wave5_rd ? 3'd4 : adr[7:5] > 3'd4 ? 3'd4 : adr[7:5];       // wave of the access
 wire [4:0] ram_shift       = ~wrt & rotate[ram_wave] ? rot_shift[ram_wave] : 5'd0;
 wire [7:0] ram_adr_rot     = {ram_adr[7:5], ram_adr[4:0] + ram_shift};
+
+logic       copy_wr;
+logic [7:0] copy_adr, copy_dat;
+always @(posedge clk) begin
+   copy_wr  <= ~reset & ram_we & ~mode & ram_adr[7:5] == 3'd3;
+   copy_adr <= {3'b100, ram_adr[4:0]};
+   copy_dat <= dbo;
+end
 
 // Channel output latch (openMSX out[]): wave x volume is taken when the channel takes a new
 // sample (ff_new). A volume change or a write to the sample being played waits for it; a
@@ -301,11 +310,11 @@ end
 wire [7:0] wave_dbi, ram_dbi;
 wave_ram wavemem
 (
-   .adr_a(clear_wave ? clear_cnt : ram_adr_rot),
+   .adr_a(clear_wave ? clear_cnt : copy_wr ? copy_adr : ram_adr_rot),
    .adr_b(w_wave_adr), 
    .clk(clk),
-   .we_a(clear_wave ? clear_wr : ram_we),
-   .data_a(clear_wave ? 8'hFF : dbo),
+   .we_a(clear_wave ? clear_wr : ram_we | copy_wr),
+   .data_a(clear_wave ? 8'hFF : copy_wr ? copy_dat : dbo),
    .q_a(ram_dbi),
    .q_b(wave_dbi)
 );

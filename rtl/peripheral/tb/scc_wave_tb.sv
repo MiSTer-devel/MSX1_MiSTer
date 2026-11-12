@@ -108,8 +108,10 @@ module scc_wave_tb;
     endtask
 
     task automatic expect_out(input string name, input int exp);
-        if (int'(wave) != exp) fail($sformatf("%s: output %0d, expected %0d", name, wave, exp));
-        else                   ok($sformatf("%s: output %0d", name, wave));
+        int o;
+        o = sel ? int'(wave_plus) : int'(wave);
+        if (o != exp) fail($sformatf("%s: output %0d, expected %0d", name, o, exp));
+        else          ok($sformatf("%s: output %0d", name, o));
     endtask
 
     task automatic fill_waves(input int n);
@@ -262,6 +264,14 @@ module scc_wave_tb;
             else          ok("playing channel outputs the sample at its position");
         end
 
+        // --- SCC: channel 5 plays wave 5, which takes a copy of every wave 4 write
+        wr(8'h8F, 8'h10);
+        wr(8'h8E, 8'h0F);
+        freq(4, 12'h005);
+        repeat (30) @(posedge clk);
+        expect_out("SCC: channel 5 plays the copy of wave 4", int'(8'h60 + 8'(dut.ff_ptr[4])) * 15);
+        wr(8'h8F, 8'h01);
+
         // --- SCC+ in SCC+ mode: registers at A0 / C0, bit 7 ignored, wave 5 writable and rotating
         sel = 1; plus_mode = 1; fbase = 8'hA0; dbase = 8'hC0;
         fill_waves(160);
@@ -279,7 +289,18 @@ module scc_wave_tb;
 
         // --- SCC+ in SCC mode: wave 5 (A0-BF) reads wave 4 data with the rotation of channel 5
         plus_mode = 0; fbase = 8'h80;
-        for (int i = 96; i < 128; i++) wr(8'(i), 8'(i)); // openMSX copies wave 4 writes to wave 5 here
+        // wave 5 keeps its SCC+ mode data until wave 4 is written (openMSX wave[4])
+        expect_rd("SCC+ compatible: wave 5 keeps its data", 8'hA3, 8'h83);
+        wr(8'h8F, 8'h10);
+        wr(8'h8E, 8'h01);
+        freq(4, 12'h005);
+        repeat (30) @(posedge clk);
+        expect_out("SCC+ compatible: channel 5 plays wave 5", int'(signed'(8'h80 + 8'(plus.ff_ptr[4]))));
+        for (int i = 96; i < 128; i++) wr(8'(i), 8'(i)); // copied to wave 5
+        expect_rd("SCC+ compatible: wave 4 write copied to wave 5", 8'hA3, 8'h63);
+        freq(4, 12'h005);
+        repeat (30) @(posedge clk);
+        expect_out("SCC+ compatible: channel 5 plays the copy", int'(8'h60 + 8'(plus.ff_ptr[4])));
         freq(3, 12'h100);
         freq(4, 12'h020);
         wr(dbase, 8'h40);

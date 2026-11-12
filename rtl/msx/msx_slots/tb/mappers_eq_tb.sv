@@ -167,10 +167,17 @@ initial begin
         if (block_info.typ == MAPPER_KONAMI_SCC) addr[15] = ~addr[14];
         if (block_info.typ == MAPPER_KONAMI)     addr[15] = ~addr[14];      // mirrors: konami_tb
         if (block_info.typ == MAPPER_GM2)        addr[15] = ~addr[14];
+        // FM-PAC (fm_pac_tb): window 4000-7FFF only, register reads alone, FF beside the SRAM:
+        // compare in the window, without 7FF6 / 7FF7
+        if (block_info.typ == MAPPER_FMPAC) begin
+            addr[15:14] = 2'b01;
+            if (addr[13:1] == 13'h1FFB) addr[13] = 1'b0;
+        end
         cpu_data       = 8'($urandom);
         // WIZARDRY: SRAM bit only for the writable regions (shown read-only elsewhere: ascii8_tb)
         if (block_info.typ == MAPPER_WIZARDY && addr[15:12] == 4'h6) cpu_data[7] = 1'b0;
         if (block_info.typ == MAPPER_GM2 && (addr[15:12] == 4'h6 || addr[15:12] == 4'h8)) cpu_data[4] = 1'b0;
+        if (block_info.typ == MAPPER_FMPAC && addr[13:0] == 14'h1FFE && cpu_data == 8'h4D) cpu_data = 8'h4C;   // no SRAM
         data_to_mapper = 8'($urandom);
         // Zemina 90 mode 80h is fixed (zemina90_tb), the reference had it wrong
         if (block_info.typ == MAPPER_ZEMINA_90 && data_to_mapper[7:6] == 2'b10) data_to_mapper[6] = 1'b1;

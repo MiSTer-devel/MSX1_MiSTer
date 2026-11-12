@@ -29,6 +29,7 @@ module mapper_fm_pac (
     logic [7:0] magicLo[2];            // Lower half of magic value for SRAM
     logic [7:0] magicHi[2];            // Upper half of magic value for SRAM
     logic       opll_wr;               // OPLL write signal
+    wire        mapped = cpu_bus.addr[15:14] == 2'b01;   // window 4000-7FFF
 
     // Initial setup
     initial begin
@@ -49,7 +50,7 @@ module mapper_fm_pac (
             magicHi <= '{default: 8'b0};
         end else begin
             opll_wr <= 1'b0;
-            if (block_info.typ == MAPPER_FMPAC && cpu_bus.wr && cpu_bus.mreq && cpu_bus.req) begin
+            if (block_info.typ == MAPPER_FMPAC && cpu_bus.wr && cpu_bus.mreq && cpu_bus.req && mapped) begin
                 case (cpu_bus.addr[13:0])
                     14'h1FFE:
                         if (~enable[block_info.id][4])
@@ -74,26 +75,30 @@ module mapper_fm_pac (
         end
     end
 
-    // Memory addressing and control
-    wire cs            = (block_info.typ == MAPPER_FMPAC) && cpu_bus.mreq;
-    wire mapped        = cpu_bus.addr[15:14] == 2'b01;
+    // Memory addressing and control. Everything is in the window 4000-7FFF (openMSX fmpac.xml).
+    // With the SRAM on: SRAM below 5FFE, 5FFE / 5FFF the magic, the rest FF (MSXFmPac::readMem).
+    // Register reads give the register alone, no ROM byte (the CPU data is an AND of all sources).
+    wire cs            = (block_info.typ == MAPPER_FMPAC) && cpu_bus.mreq && mapped;
     wire sramEnable    = {magicHi[block_info.id], magicLo[block_info.id]} == 16'h694D;
     wire sram_en       = sramEnable && cpu_bus.addr[13:0] < 14'h1FFE && cpu_bus.mreq && (cpu_bus.wr || cpu_bus.rd);
+    wire reg_rd        = cpu_bus.addr[13:0] == 14'h3FF6 || cpu_bus.addr[13:0] == 14'h3FF7;
     wire [26:0] sram_addr = {14'b0, cpu_bus.addr[12:0]};
     wire [26:0] ram_addr  = {11'b0, bank[block_info.id], cpu_bus.addr[13:0]};
 
     // Mapper output signals
     assign out.sram_cs  = cs && sram_en;
     assign out.main_cs  = 1'b0;
-    assign out.ram_cs   = cs && ~sram_en && cpu_bus.rd && mapped;
+    assign out.ram_cs   = cs && ~sramEnable && ~reg_rd && cpu_bus.rd;
     assign out.rnw      = ~(out.sram_cs && cpu_bus.wr);
     assign out.addr     = cs ? (out.sram_cs ? sram_addr : ram_addr) : {27{1'b1}};
 
-    assign device_out.we  = cs && opll_wr;
-    assign device_out.en  = cs && enable[block_info.id][0];
+    // any access to the block (all pages) keeps the OPLL port enable up to date (dev_opll)
+    wire cs_block = (block_info.typ == MAPPER_FMPAC) && cpu_bus.mreq;
+    assign device_out.we  = cs_block && opll_wr;
+    assign device_out.en  = cs_block && enable[block_info.id][0];
 
     // Multiplexing output data
-    assign out.data = (block_info.typ == MAPPER_FMPAC) ?
+    assign out.data = cs ?
                       (cpu_bus.addr[13:0] == 14'h3FF6) ? enable[block_info.id] :
                       (cpu_bus.addr[13:0] == 14'h3FF7) ? {6'b000000, bank[block_info.id]} :
                       (cpu_bus.addr[13:0] == 14'h1FFE && sramEnable) ? magicLo[block_info.id] :

@@ -44,8 +44,9 @@ module blockDevMux #(parameter VDNUM) (
 );
 
     // FDD images: size and read-only latched per drive (img_size / img_readonly of hps_io are
-    // valid only with the img_mounted pulse); img_mounted itself goes on as the 1 clk event
-    // "image (re)mounted", as for the SD card. A mounted image survives a core reset.
+    // valid only with img_mounted); img_mounted itself goes on as the event "image (re)mounted",
+    // as for the SD card. It is a level of several clk (rest of the HPS transaction), every user
+    // only sets state. A mounted image survives a core reset.
     logic [23:0] FDD_image_size[VDNUM-1];
     logic [VDNUM-2:0] FDD_image_ro;
 

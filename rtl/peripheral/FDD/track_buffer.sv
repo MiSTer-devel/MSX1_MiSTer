@@ -34,7 +34,7 @@ module track_buffer #(parameter ID = 0)
     input  logic        head,
     input  logic        disk_ds,        // image geometry of the selected drive
     input  logic  [4:0] spt,
-    input  logic  [1:0] changed,        // image of drive i (re)mounted (1 clk)
+    input  logic  [1:0] changed,        // image of drive i (re)mounted (level, several clk)
     input  logic [12:0] buffer_addr,
     output logic  [7:0] buffer_q,
     output logic        ready,

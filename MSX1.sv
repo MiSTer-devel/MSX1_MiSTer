@@ -322,7 +322,9 @@ wire vsdmiso;
 wire sdmiso = vsd_sel ? vsdmiso : SD_MISO;
 
 logic vsd_sel = 0;
-always_ff @(posedge clock_bus.clk) if(block_device_SD.img_mounted) vsd_sel <= |img_size; //TODO je potřeba hlídat náběžnou hranu img mounted
+// img_mounted is a level for the rest of the HPS transaction, img_size comes in an earlier
+// one and stays stable: no edge detection needed (doc/top-level.md)
+always_ff @(posedge clock_bus.clk) if(block_device_SD.img_mounted) vsd_sel <= |img_size;
 
 assign SD_CS   = vsd_sel;
 assign SD_SCK  = sdclk  & ~vsd_sel;

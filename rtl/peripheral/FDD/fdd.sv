@@ -72,7 +72,7 @@ module fdd #(
     assign geo[1] = geometry(block_device[1].img_size);
 
     wire [1:0] ro      = {block_device[1].img_readonly, block_device[0].img_readonly};
-    wire [1:0] changed = {block_device[1].img_mounted, block_device[0].img_mounted};   // 1 clk event
+    wire [1:0] changed = {block_device[1].img_mounted, block_device[0].img_mounted};   // level, several clk
 
     wire       sel  = FDD_bus.USEL;
     wire       side = ~FDD_bus.SIDEn;

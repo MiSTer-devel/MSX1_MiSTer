@@ -34,7 +34,7 @@ module mappers (
     input                 [1:0] ocm_slot2_mode,
     input                       ocm_ipl_en,         // OCM IPL ROM visible (before BIOS load)
     output                      ocm_mmc_on,         // MegaSD window of the ESE-RAM mapped
-    output                      ocm_mmc_wait        // CPU wait: MegaSD SPI busy
+    output                      sd_wait             // CPU wait: SD SPI busy (MegaSD, MFRSD)
 );
 
     // One entry per mapper instance. New mapper: add its name before M_COUNT
@@ -212,6 +212,7 @@ module mappers (
         .out(mapper_out[M_ASCII16X])
     );
 
+    wire           ese_sd_wait, mfrsd_sd_wait;
     ext_sd_card_if ext_SD_card_mfrsd();
     mapper_mfrsd  mapper_mfrsd (
         .cpu_bus(cpu_bus),
@@ -222,7 +223,8 @@ module mappers (
         .data_to_mapper(data_to_mapper),
         .device_out(device_out[D_MFRSD]),
         .slot_expander_force_en(slot_expander_force_en),
-        .expander_off(mfrsd_expander_off)
+        .expander_off(mfrsd_expander_off),
+        .sd_wait(mfrsd_sd_wait)
     );
 
     ext_sd_card_if ext_SD_card_ese();
@@ -233,8 +235,9 @@ module mappers (
         .ext_SD_card_bus(ext_SD_card_ese),
         .megaSD_enable(ocm_megaSD_enable),
         .mmc_on(ocm_mmc_on),
-        .mmc_wait(ocm_mmc_wait)
+        .mmc_wait(ese_sd_wait)
     );
+    assign sd_wait = ese_sd_wait | mfrsd_sd_wait;
 
     mapper_megaram mega_ram (
         .cpu_bus(cpu_bus),

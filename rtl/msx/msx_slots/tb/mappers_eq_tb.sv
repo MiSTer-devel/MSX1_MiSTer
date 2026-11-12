@@ -69,12 +69,22 @@ wire [191:0] obs_old = {main_old, mem_old.addr, mem_old.rnw, mem_old.ram_cs, mem
                         sd_old.rx, sd_old.tx, sd_old.data_to_SD};
 
 int errors = 0, compared = 0, hold = 0;
+logic [191:0] obs_mask;
+mapper_typ_t  typ_q = MAPPER_NONE;     // block type of the previous clock (registered SD outputs)
+always @(posedge clk) typ_q <= block_info.typ;
 int active[64];          // cycles with ram_cs/sram_cs/device en, per mapper type
 
 int err_typ[int];                   // mismatches per mapper type (summary at the end)
 task automatic check(string phase);
     compared++;
-    if (obs_new !== obs_old) begin
+    // MFRSD SD requests wait for the SPI and set rx on writes too (mfrsd_sd_tb, C10): the
+    // SD signals are not compared while an MFRSD block is or was just active
+    if (block_info.typ == MAPPER_MFRSD3 || typ_q == MAPPER_MFRSD3) begin
+        obs_mask = {192{1'b1}};
+        obs_mask[9:0] = '0;                         // sd rx, tx, data_to_SD
+    end else
+        obs_mask = {192{1'b1}};
+    if ((obs_new & obs_mask) !== (obs_old & obs_mask)) begin
         errors++;
         err_typ[int'(block_info.typ)]++;
         if (errors <= 10 || err_typ[int'(block_info.typ)] == 1)

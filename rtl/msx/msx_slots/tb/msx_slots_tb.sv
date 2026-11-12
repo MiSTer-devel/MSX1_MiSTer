@@ -101,7 +101,7 @@ msx_slots dut (
     .main_RAM(lookup_RAM[0]), .lookup_SRAM(lookup_SRAM), .main_ram(main_ram), .dram(1'b0),
     .active_slot(slot), .data(data), .data_oe_rq(data_oe_rq), .device_bus(device_bus),
     .data_to_mapper(8'h00), .ocm_megaSD_enable(1'b0), .ocm_slot1_mode(1'b0),
-    .ocm_slot2_mode(2'b00), .ocm_ipl_en(1'b0), .ocm_mmc_on(mmc_on), .ocm_mmc_wait(mmc_wait)
+    .ocm_slot2_mode(2'b00), .ocm_ipl_en(1'b0), .ocm_mmc_on(mmc_on), .sd_wait(mmc_wait)
 );
 
 // One access; the outputs are sampled while the request is on the bus.

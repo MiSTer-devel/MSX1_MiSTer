@@ -41,7 +41,7 @@ module msx_slots (
     input                 [1:0] ocm_slot2_mode,
     input                       ocm_ipl_en,
     output                      ocm_mmc_on,
-    output                      ocm_mmc_wait
+    output                      sd_wait            // CPU wait: SD SPI busy (MegaSD, MFRSD)
 );
 
     memory_bus_if memory_bus_mappers();
@@ -156,7 +156,7 @@ module msx_slots (
         .ocm_slot2_mode(ocm_slot2_mode),
         .ocm_ipl_en(ocm_ipl_en),
         .ocm_mmc_on(ocm_mmc_on),
-        .ocm_mmc_wait(ocm_mmc_wait)
+        .sd_wait(sd_wait)
     );
 
 endmodule

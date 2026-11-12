@@ -261,7 +261,8 @@ module mapper_mfrsd3 (
     flash_bus_if.device_mp      flash_bus,        // Interface to emulate FLASH
     output MSX::mapper_out_t out,              // Mapper output, merged in mappers.sv
     input MSX::mfrsd_config_t   config_reg,
-    input  MSX::block_info_t block_info        // Active block (slot layout entry)
+    input  MSX::block_info_t block_info,       // Active block (slot layout entry)
+    output                      sd_wait        // CPU wait: SPI still busy with the previous byte
 );
 
     wire cs, mapped, mapper_en, sd_card_access;
@@ -292,6 +293,15 @@ module mapper_mfrsd3 (
     end
 
 
+    // One SPI transfer per CPU access of 4000-4FFFh (card 0). An access arriving while the
+    // previous byte is still shifted waits and starts afterwards, as the MegaSD of the ESE-RAM
+    // (spi_divmmc ignores a request while busy).
+    logic sd_pend;
+    wire  sd_xfer  = sd_card_access && mapper_en && ~selected_sd && ~cpu_bus.addr[12];
+    wire  sd_want  = (sd_xfer && cpu_bus.req) || sd_pend;
+    wire  sd_start = sd_want && ~ext_SD_card_bus.busy && ~ext_SD_card_bus.rx;   // rx: busy not visible yet
+    assign sd_wait = sd_want && ~sd_start;
+
     always_ff @(posedge cpu_bus.clk) begin
 
         ext_SD_card_bus.rx <= 1'b0;
@@ -300,20 +310,20 @@ module mapper_mfrsd3 (
 
         if (cpu_bus.reset) begin
             selected_sd <= 1'b0;
+            sd_pend     <= 1'b0;
         end else begin
-            if (sd_card_access && mapper_en && cpu_bus.req) begin           // RD/RW SD card access
+            if (sd_card_access && mapper_en && cpu_bus.req && cpu_bus.wr &&
+                cpu_bus.addr[15:11] == 5'b01011)                            // 5800-5FFF: card select
+                selected_sd <= cpu_bus.data[0];
+            if (sd_start) begin
+                sd_pend            <= 1'b0;
+                ext_SD_card_bus.rx <= 1'b1;
                 if (cpu_bus.wr) begin
-                    if (cpu_bus.addr[15:11] == 5'b01011) begin // addr >= 0x5800
-                        selected_sd <= cpu_bus.data[0];
-                    end else begin
-                        ext_SD_card_bus.tx         <= ~selected_sd & ~cpu_bus.addr[12];
-                        ext_SD_card_bus.data_to_SD <= cpu_bus.data;
-                    end
+                    ext_SD_card_bus.tx         <= 1'b1;
+                    ext_SD_card_bus.data_to_SD <= cpu_bus.data;
                 end
-                if (cpu_bus.rd) begin
-                    ext_SD_card_bus.rx <= ~selected_sd & ~cpu_bus.addr[12];
-                end
-            end
+            end else if (sd_want)
+                sd_pend <= 1'b1;
         end
     end
 
@@ -382,7 +392,8 @@ module mapper_mfrsd (
     output MSX::device_bus_t device_out,
     input                 [7:0] data_to_mapper, 
     output                      slot_expander_force_en,
-    output                      expander_off      // register: all of the slot is subslot 1
+    output                      expander_off,     // register: all of the slot is subslot 1
+    output                      sd_wait           // CPU wait: SD SPI busy
 );
 
     MSX::mfrsd_config_t config_reg;
@@ -443,7 +454,8 @@ module mapper_mfrsd (
         .flash_bus(flash_bus_mfrsd3),
         .block_info(block_info),
         .out(sub_out[3]),
-        .config_reg(config_reg)
+        .config_reg(config_reg),
+        .sd_wait(sd_wait)
     );
 
     // Instantiate the MFRSD2 RAM mapper

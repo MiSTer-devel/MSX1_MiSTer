@@ -14,7 +14,7 @@ The core is not tied to one computer: each machine below is a definition (an XML
 | MSX turbo R | 2 |
 | 1chipMSX / OCM (MSX2+ class) | 1 |
 
-158 of them were added in November 2026 by converting the openMSX machine descriptions
+159 of them were added in November 2026 by converting the openMSX machine descriptions
 (`share/machines`). Machines that need hardware the core does not have are listed at the end.
 
 **ROM dumps are not included.** You supply the ROM files and build the packs yourself with [CreateMSXpack](tools/CreateMSXpack/README.md) (see also [Tools](tools/README.md)). Only the two C-BIOS machines and the 1chipMSX can be built without your own ROMs. The **1chipMSX** also needs `OCM-BIOS.DAT` as the first file of a FAT16 SD card image (VHD).

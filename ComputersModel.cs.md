@@ -14,7 +14,7 @@ Jádro není svázáno s jedním počítačem: každý stroj níže je definice 
 | MSX turbo R | 2 |
 | 1chipMSX / OCM (třída MSX2+) | 1 |
 
-158 z nich přibylo v listopadu 2026 převodem popisů strojů z openMSX (`share/machines`).
+159 z nich přibylo v listopadu 2026 převodem popisů strojů z openMSX (`share/machines`).
 Stroje, které potřebují hardware, jaký jádro nemá, jsou na konci.
 
 **Obrazy ROM nejsou součástí.** ROM si dodáte sami a balíčky si sestavíte nástrojem [CreateMSXpack](tools/CreateMSXpack/README.cs.md) (viz též [Nástroje](tools/README.cs.md)). Bez vlastních ROM lze sestavit jen oba stroje C-BIOS a 1chipMSX. **1chipMSX** navíc potřebuje `OCM-BIOS.DAT` jako první soubor v obrazu SD karty (VHD) s FAT16.

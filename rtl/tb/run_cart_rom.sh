@@ -7,11 +7,13 @@
 #   ALT=<file>: another memory_upload.sv with the ports of the current one
 #   NOSZ=1: memory_upload without the sdram_sz port (with OLD or ALT before the memory check)
 #   EXTRA="+realrom=<file> +realdb=<vampier.db>": report how a real ROM is found and mapped
+#   DDRAM=<file>: alternative ddram.sv; EXTRA="+busy": DDR3 randomly busy
 #   TOP=<git rev>: OSD load addresses from MSX1.sv of that revision (default: working tree)
 set -e
 PACK=$(realpath "$1"); FW=$(realpath "$2")
 [ -f "$OLD" ] && OLD=$(realpath "$OLD")
 [ -n "$ALT" ] && ALT=$(realpath "$ALT")
+DDR=$(realpath "${DDRAM:-$(dirname "$0")/../peripheral/ddram.sv}")
 cd "$(dirname "$0")"
 OUT=$(mktemp -d)
 # DDR3 load addresses of the OSD files (CONF_STR), offset from 0x30000000
@@ -26,7 +28,7 @@ DEF=""; [ -n "$OLD" ] && DEF="+define+OLD_MU"     # OLD: a revision with the tab
 [ -n "$NOSZ" ] && DEF="$DEF +define+NO_SDRAM_SZ"
 verilator --binary --timing -O3 -Wno-fatal -Wno-lint -Wno-style $DEF \
     --top-module cart_rom_tb -Mdir "$OUT" \
-    ../package.sv "$MU" ../peripheral/ddram.sv ../lib/crc32.sv cart_rom_tb.sv \
+    ../package.sv "$MU" "$DDR" ../lib/crc32.sv cart_rom_tb.sv \
     > "$OUT/build.log" 2>&1 || { grep -E '%Error' "$OUT/build.log" | head -20; exit 1; }
 "$OUT/Vcart_rom_tb" +pack="$PACK" +fw="$FW" $ADDRS $EXTRA | grep -E "^(ok|FAIL|PASS|FAILED|NOT FIND|NO CRC|FIND|DDR3|REAL|real)"
 rm -rf "$OUT"

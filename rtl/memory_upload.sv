@@ -63,16 +63,21 @@ module memory_upload
     logic [26:0] ioctl_size[5] = '{default: 27'd0};
     logic        load = 1'b0;
 
+    // File size: the HPS sends it in ioctl_addr when a download straight into DDR3 starts;
+    // the end of the download adds 1 to ioctl_addr (hps_io), so take it while still active.
+    logic [26:0] dl_size = '0;
+    always_ff @(posedge clk) if (ioctl_download) dl_size <= ioctl_addr;
+
     always_ff @(posedge clk) begin
         logic ioctl_download_last;
         load <= 1'b0;
         if (~ioctl_download & ioctl_download_last) begin
             case (ioctl_index[5:0])
-                6'd1: begin ioctl_size[size_MSX_PACK] <= ioctl_addr; load <= 1'b1; end  // MSX PACK
-                6'd2: begin ioctl_size[size_FW_PACK] <= ioctl_addr; load <= 1'b1; end  // FW PACK
-                6'd3: begin ioctl_size[size_ROM_A] <= ioctl_addr; load <= 1'b1; end  // ROM A
-                6'd4: begin ioctl_size[size_ROM_B] <= ioctl_addr; load <= 1'b1; end  // ROM B
-                6'd6: begin ioctl_size[size_CRC] <= ioctl_addr; end                // Další případy
+                6'd1: begin ioctl_size[size_MSX_PACK] <= dl_size; load <= 1'b1; end  // MSX PACK
+                6'd2: begin ioctl_size[size_FW_PACK] <= dl_size; load <= 1'b1; end  // FW PACK
+                6'd3: begin ioctl_size[size_ROM_A] <= dl_size; load <= 1'b1; end  // ROM A
+                6'd4: begin ioctl_size[size_ROM_B] <= dl_size; load <= 1'b1; end  // ROM B
+                6'd6: begin ioctl_size[size_CRC] <= dl_size; end                // mapper DB
                 default: ;
             endcase
         end

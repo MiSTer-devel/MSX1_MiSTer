@@ -129,7 +129,7 @@ endfunction
 task automatic download(input int idx, input int unsigned size);
     ioctl_index = 16'(idx); ioctl_download = 1;
     @(posedge clk); ioctl_addr = 27'(size);
-    @(posedge clk); ioctl_download = 0;
+    @(posedge clk); ioctl_download = 0; ioctl_addr = ioctl_addr + 1'd1;   // hps_io: +1 at the end
 endtask
 
 task automatic do_reload();

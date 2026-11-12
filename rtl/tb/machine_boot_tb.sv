@@ -538,26 +538,26 @@ initial begin
     if (fwpk.size() > 0) begin
         ioctl_index = 16'd2; ioctl_download = 1;
         @(posedge clk_core); ioctl_addr = 27'(fwpk.size());
-        @(posedge clk_core); ioctl_download = 0;
+        @(posedge clk_core); ioctl_download = 0; ioctl_addr = ioctl_addr + 1'd1;   // hps_io: +1 at the end
         wait (sys.upload); wait (!sys.upload);
         repeat (10) @(posedge clk_core);
     end
     if (db.size() > 0) begin
         ioctl_index = 16'd6; ioctl_download = 1;
         @(posedge clk_core); ioctl_addr = 27'(db.size());
-        @(posedge clk_core); ioctl_download = 0;
+        @(posedge clk_core); ioctl_download = 0; ioctl_addr = ioctl_addr + 1'd1;   // hps_io: +1 at the end
         repeat (10) @(posedge clk_core);
     end
     ioctl_index = 16'd1; ioctl_download = 1;
     @(posedge clk_core); ioctl_addr = 27'(pack.size());
-    @(posedge clk_core); ioctl_download = 0;
+    @(posedge clk_core); ioctl_download = 0; ioctl_addr = ioctl_addr + 1'd1;   // hps_io: +1 at the end
     wait (sys.upload);
     wait (!sys.upload);
     if (rom.size() > 0) begin
         repeat (10) @(posedge clk_core);
         ioctl_index = 16'd3; ioctl_download = 1;
         @(posedge clk_core); ioctl_addr = 27'(rom.size());
-        @(posedge clk_core); ioctl_download = 0;
+        @(posedge clk_core); ioctl_download = 0; ioctl_addr = ioctl_addr + 1'd1;   // hps_io: +1 at the end
         wait (sys.upload); wait (!sys.upload);
     end
     $display("%0t pack loaded, error=%0d, msx_config.fdd=%b", $time, sys.error, msx_config.fdd);

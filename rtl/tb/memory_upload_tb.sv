@@ -177,7 +177,7 @@ initial begin
     if (fw.size() > 0) begin
         ioctl_index = 16'd2; ioctl_download = 1;
         @(posedge clk); ioctl_addr = 27'(fw.size());
-        @(posedge clk); ioctl_download = 0;
+        @(posedge clk); ioctl_download = 0; ioctl_addr = ioctl_addr + 1'd1;   // hps_io: +1 at the end
         wait (upload);
         wait (!upload);
         repeat (10) @(posedge clk);
@@ -186,7 +186,7 @@ initial begin
     // HPS download of the MSX pack (index 1)
     ioctl_index = 16'd1; ioctl_download = 1;
     @(posedge clk); ioctl_addr = 27'(pack.size());
-    @(posedge clk); ioctl_download = 0;
+    @(posedge clk); ioctl_download = 0; ioctl_addr = ioctl_addr + 1'd1;   // hps_io: +1 at the end
     wait (upload);
     wait (!upload);
     repeat (10) @(posedge clk);

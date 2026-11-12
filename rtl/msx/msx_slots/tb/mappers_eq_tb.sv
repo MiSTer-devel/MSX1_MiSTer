@@ -107,6 +107,8 @@ initial begin
             block_info.device_ref = 3'($urandom);
             block_info.id         = 1'($urandom);
             block_info.mapper_param  = 2'($urandom);    // turbo R fields: other mappers ignore them
+            // OFFSET: bit 0 = memory in the upper 8 kB of the page (offset_tb), not in the reference
+            if (block_info.typ == MAPPER_OFFSET) block_info.mapper_param[0] = 1'b0;
             block_info.main_ram_size = 17'($urandom);
             block_info.dram          = 1'($urandom);
             megaSD_en             = 1'($urandom);

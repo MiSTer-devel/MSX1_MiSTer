@@ -232,7 +232,13 @@ def create_msx_config_block(slot, subslot, blocks, outfile, files_with_sha1, con
             elif typ == 'RAM' :
                 if "size" in attributes :
                     value = convert_to_int(attributes["size"])
-                    if value :
+                    if value == 8192 :
+                        # 8 kB in the upper half of a one-page block (Casio PV-7: E000-FFFF)
+                        if block['block_count'] != 1 :
+                            print(f"RAM size 8192 needs a one-page block in slot {slot}/{subslot}")
+                        params[0] = 1
+                        params[2] = 1
+                    elif value :
                         params[0] = (value // 16384) & 0xFF
                     else :
                         print(f"RAM size not integer : {attributes['size']} in slot {slot}/{subslot}")

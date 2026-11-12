@@ -24,11 +24,14 @@ module mapper_offset (
     // Chip select is valid if the mapper type is OFFSET and memory request (mreq) is active
     wire cs = (block_info.typ == MAPPER_OFFSET) && cpu_bus.mreq && (cpu_bus.rd || cpu_bus.wr);
 
-    // Calculate address mapping
-    wire [26:0] ram_addr  = {11'b0, block_info.offset_ram, cpu_bus.addr[13:0]};
+    // mapper_param[0]: the memory is in the upper 8 kB of the page, the lower half is unmapped
+    // (Casio PV-7: 8 kB RAM at E000-FFFF)
+    wire        high      = block_info.mapper_param[0];
+    wire [26:0] ram_addr  = high ? {14'b0, cpu_bus.addr[12:0]}
+                                 : {11'b0, block_info.offset_ram, cpu_bus.addr[13:0]};
 
     // Check if the calculated RAM address is within the valid range of the ROM size
-    wire ram_valid = (ram_addr < {2'b00, block_info.rom_size}) && cs;
+    wire ram_valid = (!high || cpu_bus.addr[13]) && (ram_addr < {2'b00, block_info.rom_size}) && cs;
 
     // Output assignments
     assign out.ram_cs = ram_valid;  // RAM chip select signal

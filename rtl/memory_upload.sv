@@ -575,14 +575,15 @@ module memory_upload
                             $display("BLOCK RAM ref_RAM:%x addr:%x size %d ", ref_ram, ram_addr, {conf[3] == 8'd0, conf[3],14'd0});
                             ram_we                   = 1'b1;
                             ram_d.addr               = ram_addr;
-                            ram_d.size               = {8'd0, conf[3],1'b0};
+                            ram_d.size               = conf[5][0] ? 17'd1 : {8'd0, conf[3],1'b0};
                             ram_d.ro                 = 1'b0;
                             fill_base                <= ram_addr[8:0];
                             mapper                   <= MAPPER_OFFSET;
+                            mapper_param             <= {1'b0, conf[5][0]};      // 8 kB in the upper half of the page
                             offset                   <= '0;                        // Offset posunu RAM
                             set_offset               <= '1;                        // Nastav offset
                             ref_add                  <= '1;                        // Bude potřeba zvednout referenci
-                            data_size                <= {2'b0, conf[3] == 8'd0, conf[3],14'd0};     // Velikost nahrávaných dat
+                            data_size                <= conf[5][0] ? 25'h2000 : {2'b0, conf[3] == 8'd0, conf[3],14'd0};     // Velikost nahrávaných dat
                             pattern                  <= pattern_t'(conf[4]);
                             state                    <= STATE_FILL_RAM;
                         end

@@ -71,7 +71,7 @@ Poznámky k tabulkám:
 | [MX-10](https://www.msx.org/wiki/Casio_MX-10) | MSX1 | Levný japonský herní MSX1 s tlačítky joysticku. | 16 KB RAM |
 | [MX-15](https://www.msx.org/wiki/Casio_MX-15) | MSX1 | Evropská verze MX-10. | 16 KB RAM |
 | [PV-16](https://www.msx.org/wiki/Casio_PV-16) | MSX1 | Levný japonský herní MSX1. | 16 KB RAM |
-| [PV-7](https://www.msx.org/wiki/Casio_PV-7) | MSX1 | Velmi levný japonský MSX1 (skutečný stroj má 8 KB RAM, definice mu dává 16 KB). | 16 KB RAM |
+| [PV-7](https://www.msx.org/wiki/Casio_PV-7) | MSX1 | Velmi levný japonský MSX1. | 8 KB RAM |
 
 ## Daewoo
 | Model | Gen. | Popis | Klíčový vestavěný hardware |

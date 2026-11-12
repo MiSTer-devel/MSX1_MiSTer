@@ -71,7 +71,7 @@ Notes on the tables:
 | [MX-10](https://www.msx.org/wiki/Casio_MX-10) | MSX1 | Cheap Japanese gaming MSX1 with joystick buttons. | 16 KB RAM |
 | [MX-15](https://www.msx.org/wiki/Casio_MX-15) | MSX1 | European version of the MX-10. | 16 KB RAM |
 | [PV-16](https://www.msx.org/wiki/Casio_PV-16) | MSX1 | Cheap Japanese gaming MSX1. | 16 KB RAM |
-| [PV-7](https://www.msx.org/wiki/Casio_PV-7) | MSX1 | Very cheap Japanese MSX1 (the real machine has 8 KB RAM, the definition gives it 16 KB). | 16 KB RAM |
+| [PV-7](https://www.msx.org/wiki/Casio_PV-7) | MSX1 | Very cheap Japanese MSX1. | 8 KB RAM |
 
 ## Daewoo
 | Model | Gen | Description | Key built-in hardware |

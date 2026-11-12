@@ -360,6 +360,7 @@ module scc_wave_mul
    output signed [11:0] c
 );
 
+// The SCC drops the lower 4 bits of each channel before adding them (openMSX SCC.cc, measured)
 wire signed [12:0] w_mul = a * signed'({1'b0,b});
-assign c = w_mul[11:0];
+assign c = {w_mul[11:4], 4'b0000};
 endmodule

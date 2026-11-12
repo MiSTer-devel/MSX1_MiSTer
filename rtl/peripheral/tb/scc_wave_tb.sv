@@ -107,6 +107,12 @@ module scc_wave_tb;
         else          ok($sformatf("%s: read %02h = %02h", name, a, d));
     endtask
 
+    // One channel's output: wave x volume without its lower 4 bits (openMSX adjust, measured on
+    // a real SCC), at the scale of the full product
+    function automatic int prod(input int wav, input int vol);
+        return ((wav * vol) >>> 4) * 16;
+    endfunction
+
     task automatic expect_out(input string name, input int exp);
         int o;
         o = sel ? int'(wave_plus) : int'(wave);
@@ -249,6 +255,21 @@ module scc_wave_tb;
         wr(8'h80, 8'h05);
         repeat (30) @(posedge clk);
         expect_out("latch: plays after a frequency write", 16'h20 * 8);
+
+        // --- lower 4 bits of wave x volume dropped before the channels are added
+        for (int i = 0; i < 32; i++) wr(8'(i), 8'h01);
+        wr(8'h8A, 8'h0F);
+        wr(8'h80, 8'h05);
+        repeat (30) @(posedge clk);
+        expect_out("+1 x 15 = 15 -> 0", 0);
+        for (int i = 0; i < 32; i++) wr(8'(i), 8'hFF);
+        wr(8'h80, 8'h05);
+        repeat (30) @(posedge clk);
+        expect_out("-1 x 15 = -15 -> -16", -16);
+        for (int i = 0; i < 32; i++) wr(8'(i), 8'h23);
+        wr(8'h80, 8'h05);
+        repeat (30) @(posedge clk);
+        expect_out("35 x 15 = 525 -> 512", 512);
         wr(8'h8A, 8'h0F);
         for (int i = 0; i < 32; i++) wr(8'(i), 8'(3 * i));
         freq(0, 12'h020);
@@ -258,7 +279,7 @@ module scc_wave_tb;
                 p = dut.ff_ptr[0];
                 while (dut.ff_ptr[0] == p) @(posedge clk);
                 ticks(10);
-                if (int'(wave) != int'(8'(3 * dut.ff_ptr[0]) * 15)) bad++;
+                if (int'(wave) != prod(int'(8'(3 * dut.ff_ptr[0])), 15)) bad++;
             end
             if (bad != 0) fail($sformatf("playing channel: %0d of 8 steps with a wrong output", bad));
             else          ok("playing channel outputs the sample at its position");
@@ -269,7 +290,7 @@ module scc_wave_tb;
         wr(8'h8E, 8'h0F);
         freq(4, 12'h005);
         repeat (30) @(posedge clk);
-        expect_out("SCC: channel 5 plays the copy of wave 4", int'(8'h60 + 8'(dut.ff_ptr[4])) * 15);
+        expect_out("SCC: channel 5 plays the copy of wave 4", prod(int'(8'h60 + 8'(dut.ff_ptr[4])), 15));
         wr(8'h8F, 8'h01);
 
         // --- SCC+ in SCC+ mode: registers at A0 / C0, bit 7 ignored, wave 5 writable and rotating
@@ -295,12 +316,12 @@ module scc_wave_tb;
         wr(8'h8E, 8'h01);
         freq(4, 12'h005);
         repeat (30) @(posedge clk);
-        expect_out("SCC+ compatible: channel 5 plays wave 5", int'(signed'(8'h80 + 8'(plus.ff_ptr[4]))));
+        expect_out("SCC+ compatible: channel 5 plays wave 5", prod(int'(signed'(8'h80 + 8'(plus.ff_ptr[4]))), 1));
         for (int i = 96; i < 128; i++) wr(8'(i), 8'(i)); // copied to wave 5
         expect_rd("SCC+ compatible: wave 4 write copied to wave 5", 8'hA3, 8'h63);
         freq(4, 12'h005);
         repeat (30) @(posedge clk);
-        expect_out("SCC+ compatible: channel 5 plays the copy", int'(8'h60 + 8'(plus.ff_ptr[4])));
+        expect_out("SCC+ compatible: channel 5 plays the copy", prod(int'(8'h60 + 8'(plus.ff_ptr[4])), 1));
         freq(3, 12'h100);
         freq(4, 12'h020);
         wr(dbase, 8'h40);

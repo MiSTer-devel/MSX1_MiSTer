@@ -2,7 +2,8 @@
 // ddram, prints the resulting tables and checks the OCM configuration
 // (tools/CreateMSXpack/Computer/OCM/1chipMSX.xml).
 // Optional FW pack (createDev.py output, DDR MSX::DDR3_FW_PACK) and cartridge type of slot 2:
-// +fw=<CART_FW_EN.msx> +cartb=<cart_typ_t>.
+// +fw=<CART_FW_EN.msx> +cartb=<cart_typ_t>. +shared0: the pack has an extra 16 kB
+// <shared_memory offset="0"> of the ESE-RAM (3-2 block 1) in slot 0-1 page 2.
 // OCM has no cartridge slots: slots 1 and 2 hold the internal ESE-SCC / MegaRAM (machine
 // blocks, pages 1-2, 1 MB / 2 MB RAM, mapper MEGARAM, own SCC), independent of FW and cartb.
 // Run: wsl.exe -- bash rtl/tb/run_memory_upload.sh <pack.msx> <ocm_iplrom.rom> [fw.msx cartb]
@@ -226,6 +227,8 @@ initial begin
     for (int p = 0; p < 2; p++) expect_page("MAIN", 0, 0, p, MAPPER_OFFSET, ese + 32'h20000 + p * 16384, 1'b1);
     expect_page("OPLL ROM", 0, 2, 1, MAPPER_OFFSET, ese + 32'h2C000, 1'b1);
     expect_page("FREE ROM", 0, 3, 1, MAPPER_OFFSET, ese + 32'h3C000, 1'b1);
+    // +shared0: a pack with an extra <shared_memory offset="0"> of the ESE-RAM in 0-1 page 2
+    if ($test$plusargs("shared0")) expect_page("shared_memory offset 0", 0, 1, 2, MAPPER_OFFSET, ese, 1'b1);
     // ESE-RAM (512 kB) must not overlap the 4 MB mapper RAM
     if (!(ese + 32'h80000 <= page_addr(3, 0, 0) || page_addr(3, 0, 0) + 32'h400000 <= ese)) begin
         errors++; $display("FAIL ESE-RAM %07h overlaps RAM mapper %07h", ese, page_addr(3, 0, 0));

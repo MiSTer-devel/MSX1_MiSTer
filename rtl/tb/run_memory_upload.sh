@@ -5,10 +5,12 @@
 #   fw:   python createDev.py (MSX/CART_FW_EN.msx), cartb: cart_typ_t of slot 2; OCM has no
 #         cartridge slots, the layout must not depend on them
 #   OLD=<git rev>: memory_upload.sv of that revision
+#   SHARED0=1: the pack has <shared_memory offset="0"> of the ESE-RAM in 0-1 page 2 (checked)
 set -e
 PACK=$(realpath "$1"); IPL=$(realpath "$2")
 EXTRA=""
 [ -n "$3" ] && EXTRA="+fw=$(realpath "$3") +cartb=$4"
+[ -n "$SHARED0" ] && EXTRA="$EXTRA +shared0"    # pack with <shared_memory offset="0"> in 0-1 page 2
 cd "$(dirname "$0")"
 OUT=$(mktemp -d)
 MU=../memory_upload.sv

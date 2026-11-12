@@ -329,16 +329,15 @@ Hodnota položky OSD se převede na `cart_typ_t` v `rtl/msx_config.sv` a zavadě
 
 1. **Chybějící pojmenovaný parametr se kóduje jako 0**, ne jako jeho `default` (např. WD2793 bez `fdd_count` nedá žádné bity povolení mechaniky).
 2. **MEM_MAPPER `size` 4 MB: atribut vynechte.** `size="4194304"` dá 256 segmentů, což je nad maximem 255, takže se vypíše varování a použije se výchozí hodnota (1 segment, 16 kB). Chybějící znamená 256 segmentů.
-3. **`shared_memory offset="0"` jádro dekóduje jako 4 MB.** Offset 0 nepoužívejte.
-4. **V XML rozšíření dostane zařízení s `port` surový `param`**, ne zakódované pojmenované parametry (záznam IO_DEVICE se zapíše se surovým atributem a v jádře přepíše param zařízení DEVICE). Spoléhá na to MegaFlashROM SCC+ SD: MEM_MAPPER `param="32"` = 32 x 16 kB = 512 kB. createComp naproti tomu zapisuje do IO_DEVICE zakódovanou hodnotu.
-5. Hexadecimální čísla fungují v XML počítače, ale **ne v XML rozšíření**.
-6. Nemíchejte `<block>` a `<secondary>` v jednom `<primary>`.
-7. SHA1 v XML musí být malými hexadecimálními písmeny.
-9. Pack se zapíše i při chybějících ROM; smaže se jen při chybějící ROM `ROM_SHA1` zařízení nejvyšší úrovně. Kontrolujte konzoli.
-10. `<sram>` funguje jen ve FW konfiguracích; XML počítače nemůže deklarovat SRAM.
-11. `expander_wo` se uloží, ale RTL ho ignoruje.
-12. Nástroje spouštějte zevnitř `tools/CreateMSXpack` (tabulky JSON podle relativního názvu). Složka s ROM může být jinde: `--rom-dir` v obou nástrojích.
-13. Obě XML rozšíření se musí upravovat společně.
+3. **V XML rozšíření dostane zařízení s `port` surový `param`**, ne zakódované pojmenované parametry (záznam IO_DEVICE se zapíše se surovým atributem a v jádře přepíše param zařízení DEVICE). Spoléhá na to MegaFlashROM SCC+ SD: MEM_MAPPER `param="32"` = 32 x 16 kB = 512 kB. createComp naproti tomu zapisuje do IO_DEVICE zakódovanou hodnotu.
+4. Hexadecimální čísla fungují v XML počítače, ale **ne v XML rozšíření**.
+5. Nemíchejte `<block>` a `<secondary>` v jednom `<primary>`.
+6. SHA1 v XML musí být malými hexadecimálními písmeny.
+7. Pack se zapíše i při chybějících ROM; smaže se jen při chybějící ROM `ROM_SHA1` zařízení nejvyšší úrovně. Kontrolujte konzoli.
+8. `<sram>` funguje jen ve FW konfiguracích; XML počítače nemůže deklarovat SRAM.
+9. `expander_wo` se uloží, ale RTL ho ignoruje.
+10. Nástroje spouštějte zevnitř `tools/CreateMSXpack` (tabulky JSON podle relativního názvu). Složka s ROM může být jinde: `--rom-dir` v obou nástrojích.
+11. Obě XML rozšíření se musí upravovat společně.
 
 ## 7. Zprávy v konzoli
 

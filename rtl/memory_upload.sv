@@ -558,10 +558,10 @@ module memory_upload
 
                             $display("BLOCK SHARED MEMORY source(%d/%d/%d) source reference: %d base RAM %x - ref_RAM:%x addr:%x size %d "
                                      , conf[3][5:4], conf[3][3:2], conf[3][1:0], lay_q0.ref_ram, ram_q.addr, ref_ram
-                                     , ram_q.addr + {4'b0000, conf[4] == 8'd0, conf[4],14'd0}, {conf[5] == 8'd0, conf[5],14'd0});
+                                     , ram_q.addr + {5'b00000, conf[4],14'd0}, {conf[5] == 8'd0, conf[5],14'd0});
 
                             ram_we                   = 1'b1;                       // copy of the reference + offset
-                            ram_d.addr               = ram_q.addr + {4'b0000, conf[4] == 8'd0, conf[4],14'd0};
+                            ram_d.addr               = ram_q.addr + {5'b00000, conf[4],14'd0};   // offset in 16 kB, 0 = start
                             ram_d.size               = {8'd0, conf[5],1'b0};
                             ram_d.ro                 = conf[6][0];
 

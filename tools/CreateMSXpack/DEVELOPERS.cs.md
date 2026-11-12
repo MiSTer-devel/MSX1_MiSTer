@@ -29,7 +29,7 @@ CreateCRC: vampier.db (CRC32 -> FW ID)                                          
 | `block.json` | `block_t` | typy bloků 0-11 |
 | `device.json` | `device_t` (5 bitů) | názvy zařízení 0-22 (MEM_MAPPER = `DEV_MSX2_RAM`, TMS99xx = `DEV_VDP_TMS`, V99xx = `DEV_VDP_V99xx`) |
 | `mapper.json` | `mapper_typ_t` (6 bitů) | názvy mapperů 0-40 (psaní `GENRIC_16KB`/`GENRIC_8KB` je shodné s RTL) |
-| `cart_device.json` | `cart_typ_t` | FW ID: 0-13 cartridge z nabídky, 20-57 mappery ROM vybírané podle DB |
+| `cart_device.json` | `cart_typ_t` | FW ID: 0-13 cartridge z nabídky, 20-59 mappery ROM vybírané podle DB |
 | `deviceParams.json` | použití `io_device.param` v modulu každého zařízení | pojmenované parametry zařízení, viz oddíl 2.6 |
 
 Všechny nástroje spouštějte zevnitř `tools/CreateMSXpack`: tabulky JSON a `ROM` (není-li `--rom-dir`), `Extension`, `MSX` se otevírají relativním názvem (`createDev.py` navíc používá dočasný `ROM.bin` v aktuální složce).
@@ -233,7 +233,7 @@ Hodnota položky OSD se převede na `cart_typ_t` v `rtl/msx_config.sv` a zavadě
 
 | Nabídka slotu A | Nabídka slotu B | `cart_typ_t` = FW ID | Název v `cart_device.json` |
 |---|---|---|---|
-| ROM | ROM | 11 `CART_TYP_ROM` | žádný (přes DB, ID 20-57) |
+| ROM | ROM | 11 `CART_TYP_ROM` | žádný (přes DB, ID 20-59) |
 | FDC | není k dispozici | 5 | `VY0010` |
 | SCC | SCC | 0 | `SCC` |
 | SCC+ | SCC+ | 1 | `SCC+` |
@@ -246,11 +246,11 @@ Hodnota položky OSD se převede na `cart_typ_t` v `rtl/msx_config.sv` a zavadě
 | není k dispozici | MegaRAM ASCII-16K 2MB | 9 | `MEGAASCII16` |
 | Empty | Empty | 12 | žádný (prázdná konfigurace) |
 | MoonSound | MoonSound | 13 | `MOONSOUND` |
-| není v nabídce | není v nabídce | 10 | `MEGARAM` (žádná položka nabídky ho nepoužívá; 1chipMSX používá mapper MEGARAM přímo ve svém XML) |
+| není v nabídce | není v nabídce | 10 `CART_TYP_UNUSED10` | volné (1chipMSX používá mapper MEGARAM přímo ve svém XML) |
 
-- `CART_TYP_ROM` (11) je zvláštní: zavaděč spočítá CRC32 načtené ROM a zeptá se DB. Záznam DB dá FW ID (20-57). ROM o velikosti nejvýše 64 kB, která v DB není, běží jako prostá ROM s FW ID 20/21/22 zvoleným podle hlavičky `AB`.
+- `CART_TYP_ROM` (11) je zvláštní: zavaděč spočítá CRC32 načtené ROM a zeptá se DB. Záznam DB dá FW ID (20-59). ROM o velikosti nejvýše 64 kB, která v DB není, běží jako prostá ROM s FW ID 20/21/22 zvoleným podle hlavičky `AB`.
 - `CART_TYP_EMPTY` (12) nemá záznam `<fw>`; jeho položka v tabulce míří na prázdnou konfiguraci. Proto i prázdný slot potřebuje FW pack.
-- **Volná FW ID**: 14 a 15 pro nové cartridge z nabídky (`cart_typ_t` i pole stavu mají 4 bity). Pro mappery z DB: 24, 37-48 kromě 40-42 a 58 výše.
+- **Volná FW ID**: 10, 14 a 15 pro nové cartridge z nabídky (`cart_typ_t` i pole stavu mají 4 bity). Pro mappery z DB: 24, 37-48 kromě 40-42 a 60 výše.
 - Text nabídky: `CONF_STR_SLOT_A` / `CONF_STR_SLOT_B` v `rtl/msx_config.sv`.
 
 ## 4. Postupy

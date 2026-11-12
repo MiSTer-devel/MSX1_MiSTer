@@ -29,7 +29,7 @@ CreateCRC: vampier.db (CRC32 -> FW ID)                                          
 | `block.json` | `block_t` | block types 0-11 |
 | `device.json` | `device_t` (5 bit) | device names 0-22 (MEM_MAPPER = `DEV_MSX2_RAM`, TMS99xx = `DEV_VDP_TMS`, V99xx = `DEV_VDP_V99xx`) |
 | `mapper.json` | `mapper_typ_t` (6 bit) | mapper names 0-40 (the spellings `GENRIC_16KB`/`GENRIC_8KB` are as in the RTL) |
-| `cart_device.json` | `cart_typ_t` | FW IDs: 0-13 menu cartridges, 20-57 ROM mappers selected by the DB |
+| `cart_device.json` | `cart_typ_t` | FW IDs: 0-13 menu cartridges, 20-59 ROM mappers selected by the DB |
 | `deviceParams.json` | `io_device.param` use of each device module | named device parameters, see section 2.6 |
 
 Run all tools from inside `tools/CreateMSXpack`: the JSON tables and `ROM` (unless `--rom-dir`), `Extension`, `MSX` are opened by relative name (`createDev.py` also uses a temporary `ROM.bin` in the current directory).
@@ -233,7 +233,7 @@ The OSD item value is converted to `cart_typ_t` in `rtl/msx_config.sv`, and the 
 
 | Slot A menu | Slot B menu | `cart_typ_t` = FW ID | `cart_device.json` name |
 |---|---|---|---|
-| ROM | ROM | 11 `CART_TYP_ROM` | none (via the DB, IDs 20-57) |
+| ROM | ROM | 11 `CART_TYP_ROM` | none (via the DB, IDs 20-59) |
 | FDC | not available | 5 | `VY0010` |
 | SCC | SCC | 0 | `SCC` |
 | SCC+ | SCC+ | 1 | `SCC+` |
@@ -246,11 +246,11 @@ The OSD item value is converted to `cart_typ_t` in `rtl/msx_config.sv`, and the 
 | not available | MegaRAM ASCII-16K 2MB | 9 | `MEGAASCII16` |
 | Empty | Empty | 12 | none (the empty configuration) |
 | MoonSound | MoonSound | 13 | `MOONSOUND` |
-| not in a menu | not in a menu | 10 | `MEGARAM` (no menu item uses it; 1chipMSX uses the MEGARAM mapper directly in its XML) |
+| not in a menu | not in a menu | 10 `CART_TYP_UNUSED10` | free (1chipMSX uses the MEGARAM mapper directly in its XML) |
 
-- `CART_TYP_ROM` (11) is special: the loader computes the CRC32 of the loaded ROM and asks the DB. The DB record gives the FW ID (20-57). A ROM of at most 64 kB that is not in the DB runs as a plain ROM, with FW ID 20/21/22 chosen from the `AB` header.
+- `CART_TYP_ROM` (11) is special: the loader computes the CRC32 of the loaded ROM and asks the DB. The DB record gives the FW ID (20-59). A ROM of at most 64 kB that is not in the DB runs as a plain ROM, with FW ID 20/21/22 chosen from the `AB` header.
 - `CART_TYP_EMPTY` (12) has no `<fw>` entry; its table slot points to the empty configuration. That is why an empty slot also needs a FW pack.
-- **Free FW IDs**: 14 and 15 for new menu cartridges (`cart_typ_t` and the status fields are 4 bits). For DB mappers: 24, 37-48 except 40-42, and 58 and up.
+- **Free FW IDs**: 10, 14 and 15 for new menu cartridges (`cart_typ_t` and the status fields are 4 bits). For DB mappers: 24, 37-48 except 40-42, and 60 and up.
 - Menu text: `CONF_STR_SLOT_A` / `CONF_STR_SLOT_B` in `rtl/msx_config.sv`.
 
 ## 4. Recipes

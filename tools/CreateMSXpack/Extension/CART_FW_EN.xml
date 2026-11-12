@@ -225,14 +225,6 @@
       <mapper>MEGAASCII16</mapper>
     </block>
   </fw>
-  <fw name="MEGARAM">                 <!-- OCM internal ESE-SCC / MegaRAM: mode from Slot1Mode / Slot2Mode
-                                           (switched I/O port 42h); slot 1 uses 1 MB of it -->
-    <block>
-      <ram>2097152</ram>
-      <mapper>MEGARAM</mapper>
-      <device>SCC</device>
-    </block>
-  </fw>
   <fw name="MOONSOUND">               <!-- Sunrise MoonSound: OPL4 with the 2 MB wave ROM and 2 MB of sample RAM
                                            behind it; nothing of it is visible in the slot -->
     <block start="0" count="1">

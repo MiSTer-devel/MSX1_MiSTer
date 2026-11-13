@@ -42,6 +42,7 @@ module wd279x_demodulator #(parameter sysCLK)
     logic [1:0]  check_crc;
     logic [1:0]  a1_cnt;
     logic [2:0]  sec_id_cnt;
+    logic [5:0]  dam_win;               // bytes after the ID field without a data mark
     logic        crc_calc, crcwr;
 
     // FM a MFM dekodér
@@ -114,6 +115,12 @@ module wd279x_demodulator #(parameter sysCLK)
                 a1_cnt     <= 0;
             end
 
+            // The data mark must follow within 43 (MFM) / 30 (FM) bytes of the ID, else the ID is void
+            if (IDAM_valid && !DAM_valid) begin
+                if (dam_win >= (DDENn ? 6'd30 : 6'd43)) IDAM_valid <= 0;
+                else if (fdd_rx)                         dam_win <= dam_win + 6'd1;
+            end
+
             // Marks are not looked for inside a data field: the chip counts 128 << N bytes
             if (!DDENn && mfm_a1 && !DAM_valid) begin
                 a1_cnt     <= a1_cnt + 2'd1;
@@ -168,8 +175,10 @@ module wd279x_demodulator #(parameter sysCLK)
                     sec_id_cnt <= 0;
                     IDAM_done   <= 1;
                     IDAM_crc_ok <= crc_out == {IDAM_data[4], fdd_data};
-                    if (crc_out == {IDAM_data[4], fdd_data})
+                    if (crc_out == {IDAM_data[4], fdd_data}) begin
                         IDAM_valid <= 1;
+                        dam_win    <= '0;
+                    end
                 end
             end
 

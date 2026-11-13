@@ -125,7 +125,7 @@ module wd279x_command_III
 						state <= S_IDLE;
 					end else begin
 						head_load  <= 1;
-						wait_count <= command[2] ? 5'd15 : 5'd0;	// E: 15 ms head settle
+						wait_count <= command[2] ? 5'd30 : 5'd0;	// E: 30 ms head settle (1 MHz clock)
 						state      <= S_DELAY;
 					end
 				S_DELAY:

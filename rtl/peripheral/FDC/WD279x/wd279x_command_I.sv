@@ -106,7 +106,6 @@ module wd279x_command_I
 							if (command[3]) head_load   <= 1;	// h = 1: load the head
 							else            head_unload <= 1;
 							state <= STATE_STEP_BC;
-							$display("Command I Track %X Command %x dataReg %X %t", track, command, reg_data, $time);
 							case(command[6:5])
 								2'b00: begin
 									if (!command[4]) begin				// RESTORE
@@ -196,7 +195,7 @@ module wd279x_command_I
 						INTRQ <= 1;
 					end else begin
 						head_load <= 1;
-						wait_count <= 15;
+						wait_count <= 5'd30;		// head settle: 30 ms with the 1 MHz clock of MSX
 						state <= STATE_VERIFY_II;
 					end
 				end

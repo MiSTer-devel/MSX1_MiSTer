@@ -143,7 +143,6 @@ module wd279x_command_II  #(parameter WD279_57=1)
 					if (command_start) begin
 						INTRQ <= 0;
 						if (command[7:6] == 2'b10) begin
-							$display("Command II m(%d) Track Side sector: %X %X %X %t", command[4], track, command[3], sector, $time);
 							reg_CRC_ERROR <= 0;
 							reg_LOST_DATA <= 0;
 							reg_RECORD_NOT_FOUND <= 0;
@@ -160,7 +159,7 @@ module wd279x_command_II  #(parameter WD279_57=1)
 					end else begin
 						head_load <= 1;
 						state <= STATE_CHECK;
-						wait_count <= command[2] ? 5'd15 : 5'd0 ;		//WAIT 15ms or 0ms
+						wait_count <= command[2] ? 5'd30 : 5'd0;		// E: 30 ms head settle (1 MHz clock)
 					end
 				end
 				STATE_CHECK:

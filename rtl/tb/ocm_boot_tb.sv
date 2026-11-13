@@ -3,7 +3,7 @@
 // from the SD card into ESE-RAM, leaves the IPL phase (write to A8h) and the BIOS runs
 // (M1 fetches from MAIN ROM, VDP writes).
 // +dos: then runs on (+run_ms MSX time) and logs the switched I/O ports, the internal
-// ESE-SCC / MegaRAM accesses in slots 1/2 and the text screen (shadow VRAM from ports 98h/99h).
+// ESE-SCC / MegaRAM accesses in slots 1/2 and the text screen (VDP mode and R2, physical VRAM).
 // +fw=<CART_FW_EN.msx>: FW pack (needed for cartridge types other than ROM), +status=<hex>: OSD.
 // Run: wsl.exe -- bash rtl/tb/run_ocm_boot.sh <1chipMSX.msx> <OCM-BIOS.rom>
 module ocm_boot_tb;
@@ -339,41 +339,25 @@ always @(posedge clk_core) begin
     end
 end
 
-// Shadow VRAM / VDP registers from the I/O ports, text screen dump
-logic [7:0]  vram_sh [0:131071];
-logic [7:0]  vreg [0:63];
-logic [16:0] vaddr = '0;
-logic [7:0]  v99_lat = '0;
-bit          v99_second = 0;
-always @(posedge clk_core) begin
-    if (sys.MSX.cpu_bus.req && !req_q && !reset && sys.MSX.cpu_bus.iorq && !sys.MSX.cpu_bus.m1) begin
-        if (sys.MSX.cpu_bus.addr[7:0] == 8'h98) begin
-            if (sys.MSX.cpu_bus.wr) vram_sh[vaddr] = sys.MSX.cpu_bus.data;
-            vaddr = vaddr + 1'b1;
-        end
-        if (sys.MSX.cpu_bus.addr[7:0] == 8'h99) begin
-            if (sys.MSX.cpu_bus.wr) begin
-                if (!v99_second) begin v99_lat = sys.MSX.cpu_bus.data; v99_second = 1; end
-                else begin
-                    v99_second = 0;
-                    if (sys.MSX.cpu_bus.data[7]) vreg[sys.MSX.cpu_bus.data[5:0]] = v99_lat;
-                    else vaddr = {vreg[14][2:0], sys.MSX.cpu_bus.data[5:0], v99_lat};
-                end
-            end else v99_second = 0;
-        end
-    end
-end
-
+// Text screen from the VDP itself: mode and name table (R2) of the V9958, characters from the
+// physical VRAM (vram_lo / vram_hi). A shadow built from ports 98h / 99h missed the register
+// writes through 9Bh, the VDP commands and the R14 handling, so it showed no or stale text.
 function automatic string screen_text();
-    bit         t2   = vreg[1][4] && vreg[0][2];                    // TEXT2 80, TEXT1 40, else GRAPHIC1 32
-    int         cols = vreg[1][4] ? (t2 ? 80 : 40) : 32;
-    int unsigned base = t2 ? {vreg[2][6:2], 12'h000} : {vreg[2][6:0], 10'h000};
-    string      txt  = "";
+    bit          t1   = sys.MSX.devices.v99.VDP_i.VDPMODETEXT1;
+    bit          t2   = sys.MSX.devices.v99.VDP_i.VDPMODETEXT2;
+    bit          g13  = sys.MSX.devices.v99.VDP_i.VDPMODEGRAPHIC1 || sys.MSX.devices.v99.VDP_i.VDPMODEGRAPHIC2 ||
+                        sys.MSX.devices.v99.VDP_i.VDPMODEGRAPHIC3;
+    logic [6:0]  r2   = sys.MSX.devices.v99.VDP_i.U_VDP_REGISTER.REG_R2_PT_NAM_ADDR;
+    int          cols = t2 ? 80 : t1 ? 40 : 32;
+    int unsigned base = t2 ? {r2[6:2], 12'h000} : {r2, 10'h000};
+    string       txt  = "";
+    if (!(t1 || t2 || g13)) return "";
     for (int r = 0; r < 24; r++) begin
         string line = "";
         int    last = -1;
         for (int c = 0; c < cols; c++) begin
-            logic [7:0] ch = vram_sh[17'(base + r * cols + c)];
+            int unsigned a  = base + r * cols + c;
+            logic  [7:0] ch = a < 65536 ? sys.vram_lo.mem[a] : sys.vram_hi.mem[a - 65536];
             line = {line, string'((ch >= 8'h20 && ch < 8'h7F) ? ch : 8'h20)};
             if (ch > 8'h20 && ch < 8'h7F) last = c;
         end
@@ -545,10 +529,12 @@ initial begin
         void'($value$plusargs("vram_dump=%s", dump));
         for (int ms = 0; ms < run_ms; ms += 100) begin
             repeat (MSX::CLK_CORE_HZ / 10) @(posedge clk_core);
-            st = $sformatf("SD rd %0d wr %0d | slot 1 rd %0d wr %0d m1 %0d reg %0d | slot 2 rd %0d wr %0d m1 %0d reg %0d snd %0d | PSG %0d OPLL %0d out %0d | mode %b %b | VDP R0 %02h R1 %02h R2 %02h",
+            st = $sformatf("SD rd %0d wr %0d | slot 1 rd %0d wr %0d m1 %0d reg %0d | slot 2 rd %0d wr %0d m1 %0d reg %0d snd %0d | PSG %0d OPLL %0d out %0d | mode %b %b | VDP T1 %0d T2 %0d R2 %02h",
                            sectors_read, sectors_written, ese_rd[0], ese_wr[0], ese_m1[0], ese_reg[0],
                            ese_rd[1], ese_wr[1], ese_m1[1], ese_reg[1], ese_snd[1], psg_wr, opll_wr, opll_hi - opll_lo,
-                           sys.MSX.devices.ocm.Slot1Mode, sys.MSX.devices.ocm.Slot2Mode, vreg[0], vreg[1], vreg[2]);
+                           sys.MSX.devices.ocm.Slot1Mode, sys.MSX.devices.ocm.Slot2Mode,
+                           sys.MSX.devices.v99.VDP_i.VDPMODETEXT1, sys.MSX.devices.v99.VDP_i.VDPMODETEXT2,
+                           sys.MSX.devices.v99.VDP_i.U_VDP_REGISTER.REG_R2_PT_NAM_ADDR);
             if (st != st_last) begin $display("%0t %0d ms: %s", $time, ms, st); st_last = st; end
             opll_lo = 1 << 30; opll_hi = -(1 << 30);
             now = screen_text();

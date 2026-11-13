@@ -7,7 +7,7 @@
 //   - every byte of the OTIR reaches E5 exactly once, written by the expected CPU;
 //   - the CPU at each marker, registers handed over through the stack;
 //   - separate IM (Z80 IM 2, R800 IM 1) and no interrupt acknowledge inside CHGCPU (DI);
-//   - a warm reset keeps the parked R800, a cold reset starts it again from 0000h.
+//   - a reset (also the OSD reset) clears F4 and starts the R800 again from 0000h.
 // Plusargs: +sel=<0..2> CPU speed as msx_cpu_tb, +v verbose log.
 // OLD_CPU: msx_cpu without the switch ports (run_cpu_switch.sh ALT=<dir>), must fail.
 // Run: wsl.exe -- bash rtl/tb/run_cpu_switch.sh
@@ -20,7 +20,7 @@ clock_bus_if clock_bus(clk, clk);
 clock #(.sysCLK(21477270)) u_clock (.clock_bus(clock_bus));
 
 int unsigned sel = 0;
-logic        reset = 1, cold_reset = 1;
+logic        reset = 1;
 logic        m1_n, mreq_n, iorq_n, rd_n, wr_n, rfsh_n;
 logic [15:0] addr;
 logic  [7:0] dout, di;
@@ -55,7 +55,6 @@ msx_cpu dut (
     .vdp_wr_hold(1'b0),
     .vdp_wr_wait(1'b0),
     .io_hold   (),
-    .cold_reset(cold_reset),
     .r800_active(r800_active),
 `endif
     .int_rq    (int_rq),
@@ -95,18 +94,16 @@ task automatic fail(input string s);
 endtask
 
 // expected first fetch after each change of the running CPU: {r800, address}
-localparam int NSW = 12;
+localparam int NSW = 10;
 logic [16:0] exp_sw[NSW] = '{{1'b1, 16'h0000}, {1'b0, L_OTIR_COLD}, {1'b1, L_RESUME}, {1'b0, L_OTIR_CHG},
-                             {1'b1, L_RESUME}, {1'b0, L_OTIR_CHG}, {1'b1, L_RESUME},           // warm reset
-                             {1'b1, L_RESUME}, {1'b0, L_OTIR_CHG},                              // cold reset
+                             {1'b1, L_RESUME}, {1'b0, L_OTIR_CHG}, {1'b1, L_RESUME},           // reset
                              {1'b1, 16'h0000}, {1'b0, L_OTIR_COLD}, {1'b1, L_RESUME}};
 // expected writes to E5: {r800, data}
-localparam int NE5 = 19;
+localparam int NE5 = 16;
 logic [8:0] exp_e5[NE5] = '{{1'b0, 8'h40}, {1'b1, 8'h60}, {1'b0, 8'h60},     // cold boot handshake
                             {1'b0, 8'h40}, {1'b1, 8'h60}, {1'b0, 8'h60},     // marker 1, 2
                             {1'b0, 8'h00}, {1'b1, 8'h60}, {1'b0, 8'h60},     // marker 3, 4
-                            {1'b0, 8'h40},                                   // marker 5, warm reset
-                            {1'b0, 8'h40}, {1'b1, 8'h60}, {1'b0, 8'h60},     // marker 6, 7, cold reset
+                            {1'b0, 8'h40},                                   // marker 5, reset
                             {1'b0, 8'h40}, {1'b1, 8'h60}, {1'b0, 8'h60},     // cold boot handshake
                             {1'b0, 8'h40},                                   // marker 1
                             9'h1FF, 9'h1FF};
@@ -180,14 +177,14 @@ task automatic expect_cpu(input int m, input logic r800);
     if (active != r800) fail($sformatf("marker %0d on %s, expected %s", m, active ? "R800" : "Z80", r800 ? "R800" : "Z80"));
 endtask
 
-task automatic do_reset(input logic cold);
+task automatic do_reset();
     @(posedge clk);
-    reset <= 1; cold_reset <= cold;
+    reset <= 1;
     s1990_sel <= 0; cpu_status <= 8'h60;    // S1990 resets with the machine
-    if (cold) f4 <= 0;
+    f4 <= 0;                                // not inverted (turbo R): every reset
     marker <= 0; int_rq <= 0; arm <= 0; in_chg <= 0;
     repeat (20) @(posedge clk);
-    reset <= 0; cold_reset <= 0;
+    reset <= 0;
 endtask
 
 task automatic report();
@@ -206,7 +203,7 @@ initial begin
     void'($value$plusargs("sel=%d", sel));
     verbose = $test$plusargs("v");
     repeat (20) @(posedge clk);
-    reset = 0; cold_reset = 0;
+    reset = 0;
     expect_cpu(1, 1);
     if (im1_r800 != 1 || im2_z80 != 0) fail($sformatf("marker 1: IM 1 / IM 2 handlers %0d / %0d, expected 1 / 0", im1_r800, im2_z80));
     expect_cpu(2, 0);
@@ -220,14 +217,7 @@ initial begin
     expect_cpu(4, 0);
     expect_cpu(5, 1);
     repeat (200) @(posedge clk);
-    do_reset(0);                        // warm: F4 bit 7 set, R800 stays parked
-    expect_cpu(6, 1);
-    expect_cpu(7, 0);
-    if ({w(16'hE040), w(16'hE042), w(16'hE044)} != {16'hB1B1, 16'hB2B2, 16'hB3B3})
-        fail("R800 after the warm reset did not get the Z80 registers (E040h)");
-    wait (marker == 16);                // 2Fh: end
-    repeat (200) @(posedge clk);
-    do_reset(1);                        // cold: R800 from 0000h again
+    do_reset();                         // with the R800 running: it starts from 0000h again
     expect_cpu(1, 1);
     if (n_sw != NSW) fail($sformatf("%0d switches, expected %0d", n_sw, NSW));
     if (n_e5 != NE5 - 2) fail($sformatf("%0d writes to E5, expected %0d", n_e5, NE5 - 2));

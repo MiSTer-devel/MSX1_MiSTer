@@ -173,7 +173,6 @@ msx_cpu cpu (
    .vdp_wr_hold(cpu_speed.vdp_wr_hold),
    .vdp_wr_wait(cpu_speed.vdp_wr_wait),
    .io_hold   (io_hold),
-   .cold_reset(core_hard_reset),
    .r800_active(),
    .bus_phase (cpu_phase),
    .bus_phase_next(cpu_phase_next),

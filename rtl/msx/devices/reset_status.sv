@@ -16,8 +16,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 
-// Port F4 (reset status): cleared only by a cold reset, so the BIOS can tell a warm boot
-// (MSX2+ skips the logo); as OCM portF4_bit7 (pColdReset).
+// Port F4 (reset status). Inverted (MSX2+, OCM portF4_bit7 pColdReset): cleared only by a cold
+// reset, so the BIOS skips the logo after the OSD reset. Not inverted (turbo R): cleared by
+// every reset as openMSX; its BIOS takes the warm path with the slots of a running system.
 module dev_reset_status (
     cpu_bus_if.device_mp    cpu_bus,
     input  MSX::io_device_t io_device[3],
@@ -38,7 +39,7 @@ module dev_reset_status (
 
                 reset_status latch_port_i (
                     .clk(cpu_bus.clk),
-                    .reset(hard_reset),
+                    .reset(hard_reset || (cpu_bus.reset && !io_device[i].param[0])),
                     .data(cpu_bus.data),
                     .wr(cs_enable && cpu_bus.wr && cpu_bus.req),
                     .rd(cs_enable && cpu_bus.rd),

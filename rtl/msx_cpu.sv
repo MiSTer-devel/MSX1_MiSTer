@@ -63,7 +63,6 @@ module msx_cpu (
     input                vdp_wr_hold,   // Matsushita with turbo: VDP writes are timed
     input                vdp_wr_wait,   // Matsushita turbo on: VDP writes keep the gap
     output               io_hold,       // pending VDP access must not start yet
-    input                cold_reset,    // power-up / menu reset / pack upload: R800 context to reset
     output logic         r800_active,   // CPU running now (1 = R800)
     output logic         bus_phase,     // clk in which MREQ / IORQ / RD / WR may become active (after CE_n)
     output               bus_phase_next, // bus_phase one clk ahead (SDRAM: no other work then)
@@ -203,7 +202,7 @@ module msx_cpu (
             if (r800_active) ctx_r800 <= core_reg;
             else             ctx_z80  <= core_reg;
         end
-        if (cold_reset)
+        if (reset)          // the R800 starts at 0000h after every reset (the BIOS cold path)
             ctx_r800 <= R800_RESET_CTX;
     end
 

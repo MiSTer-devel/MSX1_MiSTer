@@ -25,7 +25,7 @@ always #1 clk = ~clk;
 clock_bus_if clock_bus(clk, clk);
 clock #(.sysCLK(21477270)) u_clock (.clock_bus(clock_bus));
 
-logic        reset = 1, cold_reset = 1, r800_sel = 0, turbor = 1, verbose = 0;
+logic        reset = 1, r800_sel = 0, turbor = 1, verbose = 0;
 logic        wr_hold = 0, wr_wait = 0;
 logic  [1:0] clock_sel = 2'd0;
 logic        m1_n, mreq_n, iorq_n, rd_n, wr_n, rfsh_n;
@@ -53,7 +53,6 @@ msx_cpu dut (
 `else
     .turbor    (turbor),
 `endif
-    .cold_reset(cold_reset),
     .r800_active(active),
     .bus_phase (),
     .bus_phase_next(),
@@ -171,7 +170,7 @@ initial begin
     verbose = $test$plusargs("v");
     w = turbor ? 1 : 0;                                     // T9769 wait state
 
-    repeat (4) @(posedge clk); cold_reset = 0;
+    repeat (4) @(posedge clk);
     repeat (4) @(posedge clk); reset = 0;
 
     // --- Z80 (3.58 MHz, M1 wait 1): NOP 5 T = 30 clk, VDP port one T (6 clk) longer with the T9769

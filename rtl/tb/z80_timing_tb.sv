@@ -17,7 +17,7 @@ clock #(.sysCLK(21477270)) u_clock (.clock_bus(clock_bus));
 
 `include "z80_timing_cases.svh"
 
-logic        reset = 1, cold_reset = 1, int_rq = 0, verbose = 0;
+logic        reset = 1, int_rq = 0, verbose = 0;
 logic  [1:0] sel = 0;
 logic  [2:0] m1_wait = 3'd1;
 logic        m1_n, mreq_n, iorq_n, rd_n, wr_n, rfsh_n;
@@ -43,7 +43,6 @@ msx_cpu dut (
     .vdp_wr_wait(1'b0),
     .io_hold   (),
 `endif
-    .cold_reset(cold_reset),
     .r800_active(),
     .bus_phase (),
     .bus_phase_next(),
@@ -119,7 +118,7 @@ initial begin
     if ($value$plusargs("sel=%d", t)) sel = t[1:0];
     per = sel == 2'd1 ? 2 : sel == 2'd2 ? 4 : 6;
     verbose = $test$plusargs("v");
-    repeat (4) @(posedge clk); cold_reset = 0;
+    repeat (4) @(posedge clk);
     repeat (4) @(posedge clk); reset = 0;
 end
 

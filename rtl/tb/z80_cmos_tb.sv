@@ -33,7 +33,6 @@ msx_cpu dut (
     .vdp_wr_hold(1'b0),
     .vdp_wr_wait(1'b0),
     .io_hold   (),
-    .cold_reset(reset),
     .r800_active(),
     .bus_phase (),
     .bus_phase_next(),

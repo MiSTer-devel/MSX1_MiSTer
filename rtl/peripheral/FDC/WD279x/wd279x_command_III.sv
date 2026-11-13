@@ -48,7 +48,7 @@ module wd279x_command_III
 	input  logic        READYn,
 	input  logic        WPROTn,
 	input  logic        DDENn,
-	output logic        HLD,
+	output logic        head_load,       // 1 clk
 
 	// demodulator
 	input  logic  [7:0] IDAM_data[6],
@@ -95,7 +95,7 @@ module wd279x_command_III
 	                {READYn, reg_WRITE_PROTECTED, 1'b0, reg_RECORD_NOT_FOUND, reg_CRC_ERROR, reg_LOST_DATA, DRQ, busy};
 
 	always_ff @(posedge clk) begin
-		{drq_set, data_write, sector_write, tx_wr, tx_a1, tx_c2, tx_mark, tx_crc} <= '0;
+		{drq_set, data_write, sector_write, tx_wr, tx_a1, tx_c2, tx_mark, tx_crc, head_load} <= '0;
 		last_index <= INDEXn;
 		if (index_edge) index_count <= index_count + 3'd1;
 
@@ -105,7 +105,6 @@ module wd279x_command_III
 			reg_RECORD_NOT_FOUND <= 0;
 			reg_CRC_ERROR        <= 0;
 			reg_LOST_DATA        <= 0;
-			HLD   <= 0;
 			INTRQ <= 0;
 			wg    <= 0;
 		end else begin
@@ -125,7 +124,7 @@ module wd279x_command_III
 						INTRQ <= 1;
 						state <= S_IDLE;
 					end else begin
-						HLD        <= 1;
+						head_load  <= 1;
 						wait_count <= command[2] ? 5'd15 : 5'd0;	// E: 15 ms head settle
 						state      <= S_DELAY;
 					end

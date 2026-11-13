@@ -36,8 +36,9 @@ module wd279x_command_I
 	input  logic 		READYn,
 	input  logic 		WPROTn,
 	input  logic 		TRK00n,
-	output logic        HLD,
-
+	input  logic        HLD,
+	output logic        head_load,       // 1 clk
+	output logic        head_unload,     // 1 clk
 
 	input  logic  [7:0] track,
 	output logic  [7:0] track_out,
@@ -81,12 +82,12 @@ module wd279x_command_I
 
 	always_ff @(posedge clk) begin
 		track_write <= 0;
+		{head_load, head_unload} <= '0;
 		last_index <= INDEXn;
 		if (last_index && !INDEXn) index_count <= index_count + 3'd1;
 		if (~MRn || interrupt) begin
 			STEPn <= 1;
 			SDIRn <= 1;
-			HLD <= 1;
 			reg_CRC_ERROR <= 0;
 			reg_SEEK_ERROR <= 0;
 			INTRQ <= 0;
@@ -102,7 +103,8 @@ module wd279x_command_I
 						if (!command[7]) begin
 							reg_CRC_ERROR <= 0;
 							reg_SEEK_ERROR <= 0;
-							HLD <= command[3];				// h = 1: load the head
+							if (command[3]) head_load   <= 1;	// h = 1: load the head
+							else            head_unload <= 1;
 							state <= STATE_STEP_BC;
 							$display("Command I Track %X Command %x dataReg %X %t", track, command, reg_data, $time);
 							case(command[6:5])
@@ -193,7 +195,7 @@ module wd279x_command_I
 						state <= STATE_IDLE;
 						INTRQ <= 1;
 					end else begin
-						HLD <= 1;
+						head_load <= 1;
 						wait_count <= 15;
 						state <= STATE_VERIFY_II;
 					end

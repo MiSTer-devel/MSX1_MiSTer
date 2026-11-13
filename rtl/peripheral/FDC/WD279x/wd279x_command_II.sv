@@ -45,7 +45,7 @@ module wd279x_command_II  #(parameter WD279_57=1)
 	input  logic		WPROTn,
 	input  logic        DDENn,
 	input  logic  [1:0] len_add,     // added to N of the ID for the data length (WD2795/7 L = 0: 1)
-	output logic        HLD,
+	output logic        head_load,   // 1 clk
 
 	output logic  [7:0] status,
 	output logic        INTRQ,
@@ -122,7 +122,7 @@ module wd279x_command_II  #(parameter WD279_57=1)
 
 	always_ff @(posedge clk) begin
 		sector_write <= 0;
-		{drq_set, tx_wr, tx_a1, tx_mark, tx_crc} <= '0;
+		{drq_set, tx_wr, tx_a1, tx_mark, tx_crc, head_load} <= '0;
 
 		if (~MRn || interrupt) begin
 			state <= STATE_IDLE;
@@ -131,7 +131,6 @@ module wd279x_command_II  #(parameter WD279_57=1)
 			reg_RECORD_NOT_FOUND <= 0;
 			reg_WRITE_PROTECTED <= 0;
 			reg_RECORD_TYPE <= 0;
-			HLD <= 0;
 			INTRQ <= 0;
 			wg <= 0;
 			gap_sent <= 0;
@@ -159,7 +158,7 @@ module wd279x_command_II  #(parameter WD279_57=1)
 						state <= STATE_IDLE;
 						INTRQ <= 1;
 					end else begin
-						HLD <= 1;
+						head_load <= 1;
 						state <= STATE_CHECK;
 						wait_count <= command[2] ? 5'd15 : 5'd0 ;		//WAIT 15ms or 0ms
 					end

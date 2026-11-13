@@ -57,7 +57,26 @@ module wd279x #(parameter WD279_57=1, parameter sysCLK)
 	assign busy = command_start | status[0];
 	assign INTRQ = INTRQ_I | INTRQ_II | INTRQ_III | INTRQ_IV;
 	assign status = status_command_type_I | status_command_type_II | status_command_type_III | status_command_type_IV;
-	assign HLD = HLD_I | HLD_II | HLD_III;
+
+	// Head load: a command loads the head (type I with h or V, type II and III); it stays loaded until
+	// 15 index pulses pass with no command (datasheet) or a type I command with h = 0 unloads it
+	logic       last_INDEXn;
+	logic [3:0] idle_index;
+	always_ff @(posedge clk) begin
+		last_INDEXn <= INDEXn;
+		if (~MRn) begin
+			HLD        <= 1'b0;
+			idle_index <= '0;
+		end else begin
+			if (busy) idle_index <= '0;
+			else if (HLD && last_INDEXn && !INDEXn) begin
+				idle_index <= idle_index + 4'd1;
+				if (idle_index == 4'd14) HLD <= 1'b0;
+			end
+			if (head_unload_I) HLD <= 1'b0;
+			if (head_load_I || head_load_II || head_load_III) HLD <= 1'b1;
+		end
+	end
 
 	// WD2795/7: bit 1 of the type II and III commands is U, the side select output SSO (the 2793
 	// compares the side instead and has no SSO), bit 3 is L, the sector length flag: L = 0 makes
@@ -174,7 +193,7 @@ logic [7:0] reg_data_out_I;
 logic       reg_data_write_I;
 logic [7:0] status_command_type_I;
 logic       INTRQ_I;
-logic 		HLD_I;
+logic       head_load_I, head_unload_I;
 wd279x_command_I command_I (
 	.clk(clk),
 	.msclk(msclk),
@@ -197,7 +216,9 @@ wd279x_command_I command_I (
 	.READYn(READYn),
 	.WPROTn(WPROTn),
 	.TRK00n(TRK00n),
-	.HLD(HLD_I),
+	.HLD(HLD),
+	.head_load(head_load_I),
+	.head_unload(head_unload_I),
 	.INTRQ(INTRQ_I),
 	.INTRQ_ACK(INTRQ_ACK)
 );
@@ -208,7 +229,7 @@ logic [7:0] status_command_type_II;
 logic       INTRQ_II;
 logic       enable_write_reg_data_II;
 logic       drq_set_II;
-logic       HLD_II;
+logic       head_load_II;
 logic       wg_II, tx_wr_II, tx_a1_II, tx_mark_II, tx_crc_II;
 logic [7:0] tx_data_II;
 wd279x_command_II #(.WD279_57(WD279_57)) command_II (
@@ -228,7 +249,7 @@ wd279x_command_II #(.WD279_57(WD279_57)) command_II (
 	.WPROTn(WPROTn),
 	.DDENn(DDENn),
 	.len_add(len_add),
-	.HLD(HLD_II),
+	.head_load(head_load_II),
 	.INTRQ(INTRQ_II),
 	.INTRQ_ACK(INTRQ_ACK),
 	.DRQ(DRQ),
@@ -253,7 +274,7 @@ wd279x_command_II #(.WD279_57(WD279_57)) command_II (
 );
 
 logic [7:0] status_command_type_III;
-logic       INTRQ_III, HLD_III, drq_set_III, data_write_III, sector_write_III;
+logic       INTRQ_III, head_load_III, drq_set_III, data_write_III, sector_write_III;
 logic [7:0] data_out_III, sector_out_III;
 logic       wg_III, tx_wr_III, tx_a1_III, tx_c2_III, tx_mark_III, tx_crc_III;
 logic [7:0] tx_data_III;
@@ -277,7 +298,7 @@ wd279x_command_III command_III (
 	.READYn(READYn),
 	.WPROTn(WPROTn),
 	.DDENn(DDENn),
-	.HLD(HLD_III),
+	.head_load(head_load_III),
 	.IDAM_data(IDAM_data),
 	.IDAM_done(IDAM_done),
 	.IDAM_crc_ok(IDAM_crc_ok),

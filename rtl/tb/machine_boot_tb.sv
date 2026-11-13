@@ -676,6 +676,9 @@ initial begin
     $display("disk ROM M1 %0d, FDC commands %0d, Read Data ok %0d / abnormal %0d, HPS reads %0d (LBA 0: %0d)",
              disk_m1, fdc_log, reads_ok, reads_bad, lba_reads, lba0_reads);
     if (io_holds != 0) $display("VDP accesses held back: %0d", io_holds);
+    $display("OSD: Mount Drive 1 %0s, Mount Drive 2 %0s (menu mask %04h)",
+             status_menumask[4] ? "on" : "off", status_menumask[5] ? "on" : "off", status_menumask);
+    if (!no_disk && !status_menumask[4]) begin errors++; $display("FAIL disk given, but Mount Drive 1 hidden in the OSD"); end
     if (sys.io_device[DEV_S1990][0].enable)
         $display("turbo R: S1990 E5 writes %0d, A7 writes %0d, main RAM via main_cs: %0d reads, %0d writes", s1990_wr, a7_wr, main_rd, main_wr);
 

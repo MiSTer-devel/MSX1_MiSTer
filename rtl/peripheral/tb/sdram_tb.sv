@@ -2,10 +2,14 @@
 // against a simple SDRAM chip model (ACTIVE / READ / WRITE, CL 2, DQM, burst 1).
 // Checks data integrity across refresh collisions and measures read latency in clk_core.
 // ch4 (OPL4 sample memory): word reads and byte writes run beside a CPU that starts its
-// accesses only in cpu_phase cycles, every 6 / 3 / 2 clk_core (3.58 MHz, R800, 10.7 MHz). The
-// data of both must be right and the CPU reads must not get slower than without ch4.
+// accesses only in cpu_phase cycles, every 6 / 3 / 2 clk_core (3.58 MHz, 7.16 MHz, 10.7 MHz)
+// or at a changing pace with stops (speed switch, stopped CPU clock). The data of both must be
+// right. A CPU read never waits for another channel or for a refresh: the data is there on
+// the 2nd clk_core edge at the latest (a CPU at 10.7 MHz without wait states needs it on the
+// 3rd), and the chip still gets its refresh in time.
 // ch2 / ch3 reads run beside them too; their data goes through the same I/O register (C6).
-// Run: wsl.exe -- bash rtl/peripheral/tb/run_sdram.sh [alt_sdram.sv]   (+define+OLD for old port list)
+// Run: wsl.exe -- bash rtl/peripheral/tb/run_sdram.sh [alt_sdram.sv]   (+define+OLD for old port list,
+//      OLDPH=1 for the version with the cpu_phase port)
 `timescale 1ns/1ps
 module sdram_tb;
 
@@ -20,6 +24,7 @@ memory_bus_if bus();
 logic [26:0] c4_addr = 0;
 logic  [7:0] c4_din = 0;
 logic        c4_req = 0, c4_rnw = 1, cpu_phase = 0;
+wire         cpu_phase_next;
 wire  [15:0] c4_dout;
 wire         c4_done;
 logic        init = 1;
@@ -47,7 +52,12 @@ sdram dut (
     .ch3_addr(c3_addr), .ch3_dout(c3_dout), .ch3_din(c3_din), .ch3_req(c3_req), .ch3_rnw(c3_rnw), .ch3_ready(c3_ready), .ch3_done(c3_done)
 `ifndef NO_CH4
     , .ch4_addr(c4_addr), .ch4_dout(c4_dout), .ch4_din(c4_din), .ch4_req(c4_req), .ch4_rnw(c4_rnw),
-    .ch4_done(c4_done), .cpu_phase(cpu_phase)
+    .ch4_done(c4_done),
+`ifdef OLDPH
+    .cpu_phase(cpu_phase)
+`else
+    .cpu_phase_next(cpu_phase_next)
+`endif
 `endif
 );
 
@@ -59,6 +69,9 @@ logic  [2:0] rd_pipe_v = 0;
 int          rd_pipe_a [3];
 assign dq = dq_drv;
 
+int sclk_n = 0, rf_last = 0, rf_n = 0, rf_max = 0;     // refresh: count and longest gap (clk)
+always @(negedge clk_sdram) sclk_n++;
+
 always @(negedge clk_sdram) begin
     int a;
     // CL 2: data driven 2 SDRAM_CLK after READ, held for one cycle
@@ -68,6 +81,10 @@ always @(negedge clk_sdram) begin
     begin
         case ({nras, ncas, nwe})
             3'b011: row_open[{ncs, ba}] <= sa;                             // ACTIVE
+            3'b001: if (!ncs) begin                                        // AUTO REFRESH (chip 0)
+                if (rf_n != 0 && sclk_n - rf_last > rf_max) rf_max = sclk_n - rf_last;
+                rf_last = sclk_n; rf_n++;
+            end
             3'b101: begin                                                  // READ
                 rd_pipe_v[0] <= 1'b1;
                 rd_pipe_a[0] <= {ncs, ba, row_open[{ncs, ba}], sa[8:0]};
@@ -164,16 +181,23 @@ task automatic ch23_write(input int ch, input int a, input logic [7:0] v);
 endtask
 
 `ifndef NO_CH4
-// CPU with T states of tlen clk_core: an access starts only in a cpu_phase cycle
+// CPU with T states of tlen clk_core: an access starts only in a cpu_phase cycle, which
+// cpu_phase_next announces a cycle ahead. vary: the length changes at random (speed switch)
+// and the CPU clock stops now and then.
 int tlen = 6, tcnt = 0;
-bit phase_on = 1;
+bit phase_on = 1, vary = 0, stop = 0, hold_phase = 0;
+assign cpu_phase_next = phase_on && tcnt >= tlen - 1;
 always @(posedge clk_core) begin
-    tcnt      <= tcnt >= tlen - 1 ? 0 : tcnt + 1;
-    cpu_phase <= phase_on && tcnt >= tlen - 1;
+    if (!stop && !(hold_phase && cpu_phase_next)) tcnt <= tcnt >= tlen - 1 ? 0 : tcnt + 1;
+    cpu_phase <= cpu_phase_next;
+    if (vary) begin
+        if ($urandom % 12 == 0) tlen <= $urandom % 3 == 0 ? 6 : $urandom % 2 ? 3 : 2;
+        stop <= stop ? $urandom % 4 != 0 : $urandom % 40 == 0;
+    end else stop <= 0;
 end
 task automatic to_phase;
     @(posedge clk_core);
-    while (tcnt < tlen - 1) @(posedge clk_core);
+    while (!cpu_phase_next) @(posedge clk_core);   // the cycle that begins now is a phase cycle
     #1;
 endtask
 task automatic cpu_read_ph(input int a);
@@ -206,11 +230,29 @@ endtask
 
 // ch2 / ch3 reads (clk domain, as nvram_backup through system_memory): request, ready falls
 // and rises again with the data. Area 0x030000-0x0300FF is filled by upload before.
+// Every 4th access is a byte write into 0x030100-0x0301FF (flash programming, SRAM backup),
+// read back by the CPU at the end.
 bit c23_run = 0;
-int c23_ops = 0;
+int c23_ops = 0, c23_wr = 0;
 initial forever begin
     @(posedge clk_sdram); #1;
-    if (c23_run) begin
+    if (c23_run && $urandom % 4 == 0) begin
+        int a, ch, t;
+        logic [7:0] v;
+        a  = 27'h030100 + ($urandom % 256);
+        ch = 2 + $urandom % 2;
+        v  = 8'($urandom);
+        if (ch == 2) begin c2_addr = 27'(a); c2_din = v; c2_rnw = 0; c2_req = 1; end
+        else         begin c3_addr = 27'(a); c3_din = v; c3_rnw = 0; c3_req = 1; end
+        @(posedge clk_sdram); #1;
+        c2_rnw = 1; c3_rnw = 1;
+        for (t = 0; t < 20000 && !(ch == 2 ? c2_done : c3_done); t++) @(posedge clk_sdram);
+        #1;
+        if (!(ch == 2 ? c2_done : c3_done)) begin errors++; if (errors < 10) $display("FAIL ch%0d write not done", ch); end
+        c2_req = 0; c3_req = 0;
+        ref_mem[a] = v; c23_wr++;
+        repeat (4 + $urandom % 40) @(posedge clk_sdram);
+    end else if (c23_run) begin
         int a, ch, t;
         a  = 27'h030000 + ($urandom % 256);
         ch = 2 + $urandom % 2;
@@ -285,11 +327,13 @@ initial begin
     $display("read latency (clk_core edges until data valid): 1:%0d 2:%0d 3:%0d 4:%0d 5:%0d 6+:%0d",
              lat_hist[1], lat_hist[2], lat_hist[3], lat_hist[4], lat_hist[5], lat_hist[6] + lat_hist[7]);
 `ifndef NO_CH4
-    for (int t = 0; t < 3; t++) begin
+    for (int t = 0; t < 4; t++) begin
         int base_max, base_slow, n4;
+        vary = t == 3;
         tlen = t == 0 ? 6 : t == 1 ? 3 : 2;
         for (int with4 = 0; with4 < 2; with4++) begin
             foreach (lat_hist[i]) lat_hist[i] = 0;
+            rf_n = 0; rf_max = 0;
             ch4_run = with4; c23_run = with4; ch4_ops = 0; c23_ops = 0; ch4_wait = 0; ch4_wait_max = 0;
             core(20);
             for (int i = 0; i < 6000; i++) begin
@@ -304,8 +348,12 @@ initial begin
                 int mx, slow; mx = 0; slow = 0;
                 for (int i = 1; i < 8; i++) if (lat_hist[i] != 0) mx = i;
                 for (int i = 3; i < 8; i++) slow += lat_hist[i];
-                $display("T = %0d clk, ch4 %s: latency 1:%0d 2:%0d 3:%0d 4:%0d 5+:%0d, ch4 accesses %0d, ch2/ch3 reads %0d", tlen, with4 ? "on " : "off",
-                         lat_hist[1], lat_hist[2], lat_hist[3], lat_hist[4], lat_hist[5] + lat_hist[6] + lat_hist[7], ch4_ops, c23_ops);
+                $display("T = %s clk, ch4 %s: latency 1:%0d 2:%0d 3:%0d 4:%0d 5+:%0d, ch4 accesses %0d, ch2/ch3 reads %0d, refresh %0d (gap at most %0d clk)",
+                         vary ? "2-6" : $sformatf("%0d", tlen), with4 ? "on " : "off",
+                         lat_hist[1], lat_hist[2], lat_hist[3], lat_hist[4], lat_hist[5] + lat_hist[6] + lat_hist[7], ch4_ops, c23_ops, rf_n, rf_max);
+                // nothing may hold up the CPU; the refresh still comes (64 ms / 8192 rows = 671 clk)
+                if (slow != 0) begin errors++; $display("FAIL %0d CPU reads had to wait (data later than the 2nd clk_core edge)", slow); end
+                if (rf_n < 100 || rf_max > 671) begin errors++; $display("FAIL refresh: %0d, longest gap %0d clk", rf_n, rf_max); end
                 if (with4 && ch4_ops > 0)
                     $display("           ch4 answers after %0d.%0d clk_core on average, %0d at most", ch4_wait / ch4_ops,
                              (ch4_wait * 10 / ch4_ops) % 10, ch4_wait_max);
@@ -314,12 +362,22 @@ initial begin
                     n4 = ch4_ops;
                     if (mx > base_max) begin errors++; $display("FAIL ch4 slows the CPU down: latency %0d, without ch4 %0d", mx, base_max); end
                     if (slow > 2 * base_slow + 20) begin errors++; $display("FAIL more slow CPU reads with ch4: %0d, without %0d", slow, base_slow); end
-                    if (tlen > 2 && n4 < 3000) begin errors++; $display("FAIL ch4 starved: %0d accesses", n4); end
+                    if (tlen > 2 && !vary && n4 < 3000) begin errors++; $display("FAIL ch4 starved: %0d accesses", n4); end
+                    if (vary && n4 < 1000) begin errors++; $display("FAIL ch4 starved: %0d accesses", n4); end
                     if (c23_ops < 100) begin errors++; $display("FAIL ch2/ch3 reads starved: %0d", c23_ops); end
                 end
             end
         end
     end
+    // bytes written by ch2 / ch3 beside the CPU
+    for (int i = 0; i < 256; i++) if (ref_mem.exists(27'h030100 + i)) cpu_read(27'h030100 + i, 8);
+    if (c23_wr < 100) begin errors++; $display("FAIL ch2/ch3 writes starved: %0d", c23_wr); end
+    // every cycle announced as a phase cycle (no free cycle at all): the refresh must still come
+    vary = 0; hold_phase = 1; core(20); rf_n = 0; rf_max = 0;
+    core(4000);
+    $display("no free cycle: refresh %0d (gap at most %0d clk)", rf_n, rf_max);
+    if (rf_n < 20 || rf_max > 671) begin errors++; $display("FAIL refresh without a free cycle: %0d, longest gap %0d clk", rf_n, rf_max); end
+    hold_phase = 0;
     // CPU stopped (no cpu_phase): ch4 runs alone
     phase_on = 0; ch4_ops = 0; ch4_run = 1; core(4000); ch4_run = 0; core(40);
     if (ch4_ops < 500) begin errors++; $display("FAIL ch4 without a CPU clock: %0d accesses", ch4_ops); end

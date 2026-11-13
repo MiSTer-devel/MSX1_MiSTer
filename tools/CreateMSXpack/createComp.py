@@ -9,6 +9,19 @@ ROM_DIR = 'ROM'
 XML_DIR_COMP = 'Computer'
 DIR_SAVE = 'MSX'
 
+# <engine>: MSX-Engine of the machine -> header byte 4.
+# bit 0: CMOS Z80 inside the engine (OUT (C),0 writes FFh, SCF / CCF keep the Y flag)
+# bit 1: one more wait state on the VDP ports 98h-9Bh
+ENGINE_FLAGS = {
+    '':      0x00,
+    'S3527': 0x00,
+    'S1985': 0x00,
+    'T7775': 0x01,
+    'T7937': 0x01,
+    'T9763': 0x01,
+    'T9769': 0x03,
+}
+
 def parse_msx_block(root):
     """
     Parses a 'block' element from the XML and returns a dictionary with its properties.
@@ -134,6 +147,9 @@ def create_msx_config_header(config, outfile):
     cpu = config.get('cpu', ('Z80',{}))[0]
     wait_count = convert_to_int(config.get('wait_count', ('0',{}))[0])
     cpu_frequency = convert_to_int(config.get('cpu_frequency', ('0',{}))[0])
+    engine = config.get('engine', ('',{}))[0]
+    if engine not in ENGINE_FLAGS:
+        raise Exception(f"Unknown engine '{engine}'")
     conf = 0
     
     #CPU variants
@@ -148,7 +164,7 @@ def create_msx_config_header(config, outfile):
     #CPU frequency
     conf = conf | (cpu_frequency & 0x7)
 
-    data = struct.pack('BBBBBBBB', ord('M'), ord('S'), ord('x'), conf, 0, 0, 0, 0)
+    data = struct.pack('BBBBBBBB', ord('M'), ord('S'), ord('x'), conf, ENGINE_FLAGS[engine], 0, 0, 0)
     outfile.write(data)
 
 def add_block_type_to_file(address, typ, params, outfile, constants):

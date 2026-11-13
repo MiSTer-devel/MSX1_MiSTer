@@ -81,7 +81,7 @@ reset_sync rst_sync_sdram (.clk(clk_sdram), .arst(~locked_sdram),          .rst(
 //  [22]     OCM slot 1 (internal ESE-SCC)
 //  [24:23]  OCM slot 2 (internal ESE-SCC / MegaRAM)
 //  [25]     vertical crop
-//  [26]     turbo R firmware switch
+//  [26]     firmware switch (turbo R, machines with the Matsushita switched I/O)
 //  [27]     pause when OSD open
 //  [32:29]  slot B cartridge type (not OCM)
 //  [38]     SRAM save
@@ -126,7 +126,7 @@ localparam CONF_STR = {
    "h3-;",
    "h3O[13],Joysticks Swap,No,Yes;",
    "h3O[14],Mouse,Port 1,Port 2;",
-   // turbo R (hC): machines with the S1990
+   // firmware switch (hC): machines with the S1990 or the Matsushita switched I/O
    "hC-;",
    "hCO[26],Firmware switch,Off,On;",
    "H3-;",
@@ -255,7 +255,7 @@ memory_bus_if    memory_bus_sdram_ch1();
 memory_bus_if    memory_bus_sdram_ch2();
 memory_bus_if    memory_bus_sdram_ch3();
 wave_bus_if      wave_bus_sdram_ch4();
-wire             cpu_phase;
+wire             cpu_phase_next;
 wire             pause;
 wire       [5:0] joy[2];
 
@@ -307,7 +307,8 @@ msx_system msx_system
    .memory_bus_sdram_ch2(memory_bus_sdram_ch2),
    .memory_bus_sdram_ch3(memory_bus_sdram_ch3),
    .wave_bus_sdram_ch4(wave_bus_sdram_ch4),
-   .cpu_phase(cpu_phase),
+   .cpu_phase(),
+   .cpu_phase_next(cpu_phase_next),
    .ddr3_addr(ddr3_addr),
    .ddr3_rd(ddr3_rd),
    .ddr3_dout(ddr3_dout),
@@ -533,7 +534,7 @@ sdram sdram
    .ch4_req  (wave_bus_sdram_ch4.req),
    .ch4_rnw  (~wave_bus_sdram_ch4.we),
    .ch4_done (wave_bus_sdram_ch4.ack),
-   .cpu_phase(cpu_phase)
+   .cpu_phase_next(cpu_phase_next)
 );
 
 endmodule

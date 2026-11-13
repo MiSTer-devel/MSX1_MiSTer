@@ -20,7 +20,7 @@ typedef enum logic {CAS_AUDIO_FILE,CAS_AUDIO_ADC} cas_audio_src_t;
 typedef enum logic [1:0] {Z80, R800, UNKN1, UNKN2} cpu_t;
 
 typedef enum logic [3:0] {CART_TYP_SCC, CART_TYP_SCC2, CART_TYP_FM_PAC, CART_TYP_MFRSD, CART_TYP_GM2, CART_TYP_FDC, CART_MEGASCC1, CART_MEGASCC2, CART_MEGA_ASCII_8, CART_MEGA_ASCII_16, CART_TYP_UNUSED10, CART_TYP_ROM, CART_TYP_EMPTY, CART_TYP_MOONSOUND, CART_TYP_MSX_MIDI } cart_typ_t;
-typedef enum logic [4:0] {DEV_NONE, DEV_OPLL, DEV_SCC, DEV_WD2793, DEV_MSX2_RAM, DEV_LATCH_PORT, DEV_KANJI, DEV_OCM_BOOT, DEV_VDP_TMS, DEV_VDP_V99xx, DEV_RTC, DEV_PSG, DEV_PPI, DEV_RESET_STATUS, DEV_TC8566AF, DEV_OPM, DEV_YM2148, DEV_DAC, DEV_SYSTIMER, DEV_S1990, DEV_TURBOR_PCM, DEV_TURBOR_PAUSE, DEV_OPL4, DEV_MSX_MIDI } device_t;
+typedef enum logic [4:0] {DEV_NONE, DEV_OPLL, DEV_SCC, DEV_WD2793, DEV_MSX2_RAM, DEV_LATCH_PORT, DEV_KANJI, DEV_OCM_BOOT, DEV_VDP_TMS, DEV_VDP_V99xx, DEV_RTC, DEV_PSG, DEV_PPI, DEV_RESET_STATUS, DEV_TC8566AF, DEV_OPM, DEV_YM2148, DEV_DAC, DEV_SYSTIMER, DEV_S1990, DEV_TURBOR_PCM, DEV_TURBOR_PAUSE, DEV_OPL4, DEV_MSX_MIDI, DEV_MATSUSHITA, DEV_CIEL_TURBO } device_t;
 typedef enum logic [5:0] {MAPPER_NONE, MAPPER_OFFSET, MAPPER_ASCII16, MAPPER_RTYPE, MAPPER_ASCII8, MAPPER_KOEI, MAPPER_WIZARDY, MAPPER_KONAMI, 
                           MAPPER_FMPAC, MAPPER_GM2, VY0010, MAPPER_KONAMI_SCC, MAPPER_MSX2, MAPPER_GENERIC16KB, MAPPER_CROSS_BLAIM, MAPPER_GENERIC8KB, 
                           MAPPER_HARRY_FOX, MAPPER_ZEMINA_80, MAPPER_ZEMINA_90, MAPPER_KONAMI_SCC_PLUS, 
@@ -404,10 +404,12 @@ package MSX;
 
     typedef struct packed {
         logic        en;        // 1 = overrides the static speed from msx_config
-        logic  [1:0] clock_sel; // msx_cpu encoding: 00 3.58, 01 10.7, 10 5.39 MHz
+        logic  [1:0] clock_sel; // msx_cpu encoding: 00 3.58, 01 10.7, 10 5.37, 11 7.16 MHz
         logic  [3:0] mem_wait;  // wait states on each memory access
         logic  [3:0] io_wait;   // extra wait states on each I/O access
-    } cpu_speed_t;             // devices (OCM turbo) -> msx_cpu; '0 = no override
+        logic        vdp_wr_hold; // Matsushita with turbo: VDP writes are timed
+        logic        vdp_wr_wait; // Matsushita turbo on: VDP writes keep the gap
+    } cpu_speed_t;             // devices (OCM / Matsushita / CIEL turbo) -> msx_cpu; '0 = no override
 
     // Inactive (neutral) values and pairwise merge of the bundles above.
     localparam mapper_out_t MAPPER_OUT_IDLE = {27'h7FFFFFF, 1'b1, 1'b0, 1'b0, 1'b0, 8'hFF};
@@ -442,7 +444,7 @@ package MSX;
         logic           joy_swap;       // OCM: swap joystick ports
         logic           mouse_port;     // OCM: PS/2 mouse on port 1 (0) / 2 (1)
         logic           ocm_r800;       // OCM: CPU type R800 (MULUB / MULUW)
-        logic           turbor_firmware; // turbo R: firmware switch on (S1990 register 5)
+        logic           firmware_sw;    // firmware switch on (turbo R S1990 register 5, Matsushita 41h)
         logic           osd_pause;      // OSD open and "Pause when OSD open" on
     } user_config_t;    
     
@@ -518,6 +520,8 @@ package MSX;
         cpu_t cpu;
         logic [2:0] wait_count;
         logic [2:0] cpu_clock_sel;
+        logic       cmos_z80;       // CMOS Z80 inside a Toshiba MSX-Engine (T7775, T7937, T9763, T9769)
+        logic       vdp_io_wait;    // T9769: one more wait state on the VDP ports
         logic [5:0] fdd;        // drives shown in the OSD, a bit pair per FDC position (2*N_FDC used)
     } msx_config_t;
 

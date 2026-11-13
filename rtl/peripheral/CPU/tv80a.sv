@@ -75,6 +75,7 @@ module TV80a#(
 )(
     input           RESET_n,
     input           R800_mode,
+    input           CMOS,           // CMOS Z80: OUT (C),0 writes FFh, SCF / CCF keep Y
     input           CLK,
     input           CE_p,
     input           CE_n,
@@ -96,6 +97,7 @@ module TV80a#(
     output    [2:0] MC,             // machine cycle (1 = M1)
     output    [2:0] TS,             // T state
     output          IntCycle_n,     // 0 = interrupt acknowledge cycle
+    output    [1:0] MULU,           // R800 multiply running (bit 0), MULUW (bit 1)
     output  [211:0] REG,            // savestate, see TV80
     input           DIRSet,
     input   [211:0] DIR
@@ -179,6 +181,8 @@ module TV80a#(
         .TS(TState),
         .IntCycle_n(IntCycle_n),
         .R800_mode(R800_mode),
+        .CMOS(CMOS),
+        .MULU(MULU),
         .REG(REG),
         .DIRSet(DIRSet),
         .DIR(DIR)

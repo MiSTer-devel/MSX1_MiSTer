@@ -69,6 +69,8 @@
 //  +m02 : Savestate ports REG / DIRSet / DIR as T80.vhd of the MiSTer T80 (T80(c) version 350,
 //         Sorgelig); DIRSet also clears Alternate, the pending write-back and the INT/NMI/HALT
 //         state, so the core can resume fetching at the loaded PC (Z80 / R800 switch, turbo R)
+//  +m03 : CMOS input (Z80 inside a Toshiba MSX-Engine): OUT (C),0 writes FFh, SCF / CCF keep Y;
+//         SCF / CCF take X (Y) from F | A, the R800 keeps X, Y (and H for CCF), as openMSX
 
 module TV80#( parameter Mode      = 0,
                         R800_MULU = 1,
@@ -105,6 +107,8 @@ module TV80#( parameter Mode      = 0,
     output        [2:0] TS,
     output              IntCycle_n,
     input               R800_mode,
+    input               CMOS,
+    output        [1:0] MULU,           // R800 multiply running (bit 0), MULUW (bit 1)
     output              IntE,
     output              Stop,
     // Savestate (MiSTer T80 layout): IFF2, IFF1, IM, IY, HL', DE', BC', IX, HL, DE, BC, PC, SP, R, I, F', A', F, A
@@ -513,16 +517,22 @@ module TV80#( parameter Mode      = 0,
                         end
                         if (I_CCF) begin
                             F[Flag_C] <= ~F[Flag_C];
-                            F[Flag_Y] <= ACC[5];
-                            F[Flag_H] <= F[Flag_C];
-                            F[Flag_X] <= ACC[3];
+                            if (~R800_mode) begin
+                                F[Flag_H] <= F[Flag_C];
+                                F[Flag_X] <= F[Flag_X] | ACC[3];
+                                if (~CMOS)
+                                    F[Flag_Y] <= F[Flag_Y] | ACC[5];
+                            end
                             F[Flag_N] <= '0;
                         end
                         if (I_SCF) begin
                             F[Flag_C] <= '1;
-                            F[Flag_Y] <= ACC[5];
                             F[Flag_H] <= '0;
-                            F[Flag_X] <= ACC[3];
+                            if (~R800_mode) begin
+                                F[Flag_X] <= F[Flag_X] | ACC[3];
+                                if (~CMOS)
+                                    F[Flag_Y] <= F[Flag_Y] | ACC[5];
+                            end
                             F[Flag_N] <= '0;
                         end
                     end
@@ -851,7 +861,7 @@ module TV80#( parameter Mode      = 0,
                 4'b1011: BusB <= F;
                 4'b1100: BusB <= PC[7:0];
                 4'b1101: BusB <= PC[15:8];
-                4'b1110: BusB <= 8'b00000000;
+                4'b1110: BusB <= {8{CMOS}};                 // OUT (C),0
                 default: BusB <= 8'b00000000;
             endcase
 
@@ -891,6 +901,7 @@ module TV80#( parameter Mode      = 0,
     assign HALT_n = ~Halt_FF;
     assign BUSAK_n = ~BusAck;
     assign IntCycle_n = ~IntCycle;
+    assign MULU = {MULU_W, I_MULU};
     assign IntE = IntE_FF1;
     assign IORQ = IORQ_i;
     assign Stop = I_DJNZ;
@@ -1030,7 +1041,7 @@ module TV80#( parameter Mode      = 0,
         else if (CEN) begin
             if (~(IntCycle && MCycle == 3'd1))
                 IntWait <= 2'd2;
-            else if (TState == 3'd2 && Wait_i && IntWait != 2'd0)
+            else if (TState == 3'd2 && IntWait != 2'd0)     // /WAIT counts only after them
                 IntWait <= IntWait - 2'd1;
         end
     end

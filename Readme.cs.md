@@ -88,7 +88,7 @@ Se SDRAM stačí modul 32 MB. Největší stroj (1chipMSX) potřebuje asi 8 MB, 
 | Tape Monitor | On (výchozí) / Off: signál z pásky je slyšet ve zvuku, dokud běží motor. Na 1chipMSX se nezobrazuje. |
 | Cas File (`.CAS`) | Obraz pásky, zobrazuje se při Tape Input = File. |
 | Tape Rewind | Přetočí obraz pásky na začátek. |
-| Firmware switch | Off / On, jen u strojů s S1990 (turbo R). |
+| Firmware switch | Off / On, jen u strojů, které přepínač mají: turbo R a stroje Panasonic, National a Sanyo se zařízením Matsushita (switched I/O). |
 | Video | Poměr stran, scandoubler (None, HQ2x, CRT 25/50/75 %), Vertical Crop, Scale (Normal, V-Integer, Narrower/Wider HV-Integer, HV-Integer), Border (platí pro VDP TMS i V99xx). |
 | Pause when OSD open | No (výchozí) / Yes: stroj stojí, dokud je OSD otevřené (CPU drženo, zvuk ztlumený, obraz na HDMI zamrzne). |
 | Reset | Reset stroje. |
@@ -123,7 +123,7 @@ Jádro obsahuje tyto hardwarové moduly:
 - `PSG` – [generátor zvuku AY-3-8910 / YM2149](https://www.msx.org/wiki/General_Instrument_AY-3-8910)
 - `VDP` – [grafický procesor řady TMS](https://www.msx.org/wiki/Texas_Instruments_TMS9918), PAL nebo NTSC podle definice stroje
 - `VDP` – Yamaha [V9938](https://www.msx.org/wiki/Yamaha_V9938) / [V9958](https://www.msx.org/wiki/Yamaha_V9958), 128 KB VRAM
-- `CPU` – [Z80](https://www.msx.org/wiki/Z80) na 3,58 MHz; režim R800 u turbo R, viz [Známá omezení](#známá-omezení)
+- `CPU` – [Z80](https://www.msx.org/wiki/Z80) na 3,58 MHz s čekacím stavem MSX v každém výběru operačního kódu; chování NMOS nebo CMOS podle [MSX-Engine](https://www.msx.org/wiki/MSX-Engine) stroje (T9769 i s čekacím stavem na portech VDP); turbo 5,37 MHz u Panasonic FS-A1FX, FS-A1WX a FS-A1WSX, turbo 7,16 MHz u CIEL Expert Turbo; režim R800 u turbo R, viz [Známá omezení](#známá-omezení)
 - `MEM_MAPPER` – paměťový mapper MSX2
 - `KANJI` – [Kanji ROM](https://www.msx.org/wiki/Kanji_ROM) (úrovně 1 a 2; varianty pro hangul)
 - `FDD` – emulace disketové mechaniky nad surovými obrazy `.DSK` (720K, 640K, 360K, 320K; podporována výměna disku)
@@ -139,6 +139,8 @@ Jádro obsahuje tyto hardwarové moduly:
 - `MSX_MIDI` – [MSX-MIDI](https://www.msx.org/wiki/MSX-MIDI) (UART i8251 + časovač i8254, I/O porty E8h–EFh), MIDI IN i MIDI OUT přes UART MiSTeru
 - `SFG01` – [Yamaha SFG-01](https://www.msx.org/wiki/Yamaha_SFG-01)
 - `SFG05` – [Yamaha SFG-05](https://www.msx.org/wiki/Yamaha_SFG-05)
+- Matsushita switched I/O (MSX2 / MSX2+ Panasonic, National a Sanyo): přepínač turba, přepínač firmware, 2 KB SRAM firmwaru
+- CIEL Expert Turbo: přepínač turba
 - turbo R: řadič systému `S1990` (přepínání Z80/R800 a ROM/DRAM, přepínač firmware), PCM, klávesa Pause s LED, systémový časovač; viz [MSX turbo R](https://www.msx.org/wiki/MSX_turbo_R)
 - [1chipMSX](https://www.msx.org/wiki/1chipMSX): IPL ROM, přepínané I/O porty 40-4F, ESE-RAM, MegaSD s SD kartou (VHD), turbo 3,58 / 5,37 / 10,74 MHz
 
@@ -205,14 +207,14 @@ Jádro se integruje s MiSTerFPGA a podporuje tyto funkce platformy:
 - `Kazeta` – přehrávání souborů `.CAS` (musí být zapnutý motor MSX) nebo skutečná páska přes analogový vstup MiSTeru (ADC); páska je slyšet. Výstup na pásku neexistuje.
 - `MIDI` – s UART MiSTeru v režimu MIDI (31250 Bd) MIDI IN i MIDI OUT u YM2148 (stroje Yamaha) a MSX-MIDI; MidiLink posílá MIDI OUT do USB MIDI zařízení nebo softwarového syntezátoru
 - `Video` – nativní časování MSX, PAL/NTSC podle definice stroje (TMS) nebo softwarově (V99xx), volby škálování a scandoubleru
-- `LED` – aktivita SD/VHD, pauza (stroj pozastavený nebo LED pause u turbo R), LED turbo u turbo R
+- `LED` – aktivita SD/VHD, pauza (stroj pozastavený nebo LED pause u turbo R), LED turbo (R800 u turbo R, turbo u MSX2+ Panasonic a u CIEL Expert Turbo)
 - `Podpora SDRAM` – volitelná; potřebují ji větší stroje a cartridge, viz [Bez modulu SDRAM](#bez-modulu-sdram)
 
 ## Známá omezení
-- **Nic se neukládá trvale:** SRAM cartridge (FM-PAC, Game Master 2, KOEI, ASCII se SRAM), zápisy do flash (MegaFlashROM, ASCII16-X) a CMOS RTC se při novém načtení ztratí. Položky **SRAM Save / SRAM Load** nic nedělají. FS-A1ST a FS-A1GT nemají SRAM svého mapperu Panasonic (16 / 32 KB).
+- **Nic se neukládá trvale:** SRAM cartridge (FM-PAC, Game Master 2, KOEI, ASCII se SRAM), zápisy do flash (MegaFlashROM, ASCII16-X), SRAM firmwaru strojů Panasonic a National a CMOS RTC se při novém načtení ztratí. Položky **SRAM Save / SRAM Load** nic nedělají. FS-A1ST a FS-A1GT nemají SRAM svého mapperu Panasonic (16 / 32 KB).
 - **Disky:** jen surové obrazy `.DSK` (720K, 640K, 360K, 320K); žádné 40stopé, 1,44 MB, XSA, D88, HFE ani DMK. WD279x Read Track je jen částečný. Cartridge FDC funguje jen ve slotu 1 a jen na strojích bez FDC; cartridge s TC8566AF neexistuje.
 - **Páska:** jen přehrávání, žádné ukládání; konec souboru se nedetekuje (po posledním bloku se přehrávají nesmyslná data).
-- **R800:** turbo R běží zhruba 2x rychleji než Z80 místo skutečných 4x (časování R800 není modelováno); chybí mikrofon turbo R.
+- **R800:** R800 u turbo R vykonává počty taktů Z80 na 10,7 MHz, tedy asi 3x rychleji než Z80; skutečný potřebuje na instrukci méně taktů a je ještě rychlejší. I/O, násobení a odstup přístupů k VDP trvají jako na skutečném stroji. Chybí mikrofon turbo R.
 - **ROM:** ROM nad 64 KB potřebuje záznam v databázi, mapper se z hlavičky ROM nerozpoznává. Zrcadla ROM Konami SCC nejsou hotová.
 - **V99x8:** chybí sprity v overscanu a okno FH v textových režimech. Nastavení rychlosti VDP a hlasitosti na 1chipMSX se ukládají bez účinku.
 - **1chipMSX:** bez MoonSound, bez zvláštních kláves PrintScreen/ScrollLock (Pause je obecná pauza stroje).

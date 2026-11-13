@@ -19,11 +19,11 @@ module tb_wait (
    logic        MREQ_n, IORQ_n, RD_n, WR_n;
 
    TV80a #(.Mode(0), .R800_MULU(0), .IOWait(1)) cpu (
-      .RESET_n(rst_n), .R800_mode(1'b0), .CLK(clk), .CE_p(ce_p), .CE_n(ce_n),
+      .RESET_n(rst_n), .R800_mode(1'b0), .CMOS(1'b0), .CLK(clk), .CE_p(ce_p), .CE_n(ce_n),
       .WAIT_n(wait_n), .INT_n(1'b1), .NMI_n(1'b1), .BUSRQ_n(1'b1),
       .M1_n(m1_n), .MREQ_n(MREQ_n), .IORQ_n(IORQ_n), .RD_n(RD_n), .WR_n(WR_n),
       .RFSH_n(), .HALT_n(), .BUSAK_n(), .A(A), .DI(DI), .DO(DO),
-      .MC(), .TS(), .IntCycle_n(), .REG(), .DIRSet(1'b0), .DIR('0)
+      .MC(), .TS(), .IntCycle_n(), .MULU(), .REG(), .DIRSet(1'b0), .DIR('0)
    );
    assign addr = A;
 

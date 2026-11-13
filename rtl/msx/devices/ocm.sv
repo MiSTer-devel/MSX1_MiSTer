@@ -440,6 +440,8 @@ module dev_ocm
     assign cpu_speed.clock_sel = ~present ? 2'b00 : clk10m ? 2'b01 : clk5m ? 2'b10 : 2'b00;
     assign cpu_speed.mem_wait  = present && clk10m ? CustomSpeed : 4'd0;
     assign cpu_speed.io_wait   = ~present ? 4'd0 : clk10m ? 4'd3 : clk5m ? 4'd6 : 4'd0;
+    assign cpu_speed.vdp_wr_hold = 1'b0;
+    assign cpu_speed.vdp_wr_wait = 1'b0;
 
     wire [2:0] speed_lev = 3'b001 - CustomSpeed[2:0];   // custom speed level 1..7
 

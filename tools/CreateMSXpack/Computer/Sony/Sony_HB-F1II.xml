@@ -4,7 +4,8 @@
 <msxConfig>
   <cpu>Z80</cpu>                   <!-- Z80 --> 
   <wait_count>1</wait_count>       <!-- 0 - 3 -->  
-  <cpu_frequency>0</cpu_frequency> <!-- 0-3.58, 1-5.39, 2-10.7-->  
+  <cpu_frequency>0</cpu_frequency> <!-- 0-3.58, 1-5.37, 2-10.7, 3-7.16 MHz -->  
+  <engine>S1985</engine>         <!-- MSX-Engine, NMOS Z80 outside -->
   <device mask="0xFC" port="0x98" VDP_ID="V9938">V99xx</device>
   <device mask="0xF8" port="0xA0" system="true">PSG</device>
   <device mask="0xF8" port="0xA8">PPI</device>

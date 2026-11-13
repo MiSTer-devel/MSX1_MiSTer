@@ -142,5 +142,23 @@
             "max": 1,
             "default": 0
         }
+    },
+    "MATSUSHITA": {
+        "turbo": {
+            "param_type": "enum",
+            "enums": ["false", "true"],
+            "min": null,
+            "max": null,
+            "default": 0,
+            "value_offset": 0
+        },
+        "sram": {
+            "param_type": "enum",
+            "enums": ["false", "true"],
+            "min": null,
+            "max": null,
+            "default": 0,
+            "value_offset": 1
+        }
     }
 }

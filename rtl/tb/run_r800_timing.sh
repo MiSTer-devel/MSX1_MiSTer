@@ -1,9 +1,10 @@
 #!/bin/bash
-# R800 timing of msx_cpu (Verilator --timing): 7.16 MHz, no M1 wait, VDP I/O spacing, T9769 wait.
+# CPU speed and VDP port timing of msx_cpu (Verilator --timing): R800 7.16 MHz without M1 wait,
+# VDP access spacing (R800, Matsushita turbo), T9769 wait, Z80 at 5.37 and 7.16 MHz.
 #   wsl.exe -- bash rtl/tb/run_r800_timing.sh            turbor = 1 and 0
 #   wsl.exe -- bash rtl/tb/run_r800_timing.sh +v         single verbose run
 # ALT=<dir> takes tv80.sv, tv80a.sv, tv80_reg.sv and msx_cpu.sv from <dir> and builds the tb
-# without the turbo R ports (OLD_CPU): the core before the R800 timing must fail.
+# for the msx_cpu before io_hold (OLD_CPU, port turbor): must fail.
 set -e
 cd "$(dirname "$0")"
 CPU=../peripheral/CPU

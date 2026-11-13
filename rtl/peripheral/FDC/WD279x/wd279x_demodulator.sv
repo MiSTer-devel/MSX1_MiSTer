@@ -72,15 +72,19 @@ module wd279x_demodulator #(parameter sysCLK)
         end
     end
 
+    // Cell lengths in clk, rounded: the cell enable of the drive averages sysCLK / 500 kHz
+    localparam int MFM_CELL = (sysCLK + 250_000) / 500_000;
+    localparam int FM_CELL  = (sysCLK + 125_000) / 250_000;
+
     // --- FM dekodér: 4 us cells (250 kbit/s media written in FM) ---
-    fmdem #(.bwidth(sysCLK / 250_000)) fmdem_i (
+    fmdem #(.bwidth(FM_CELL)) fmdem_i (
         .clk(clk),
         .rstn(MRn),
         .datin(RAWRDn),
         .init(1'b0),
         .brk(1'b0),
         .raw(raw),
-        .bitlen(sysCLK / 250_000),
+        .bitlen(FM_CELL),
         .RXDAT(fm_data),
         .RXED(fm_rx),
         .DetMF8(fm_f8),
@@ -97,7 +101,7 @@ module wd279x_demodulator #(parameter sysCLK)
         .init(1'b0),
         .brk(1'b0),
         .raw(raw),
-        .bitlen(sysCLK / 500_000),
+        .bitlen(MFM_CELL),
         .RXDAT(mfm_data),
         .RXED(mfm_rx),
         .DetMA1(mfm_a1),

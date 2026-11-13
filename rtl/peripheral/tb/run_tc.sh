@@ -26,7 +26,7 @@ if [ -n "$PREV" ]; then
 fi
 if [ -n "$OLD_GLUE" ]; then
     sed -e 's|assign FDD_bus.MOTORn = !(!sel\[1\] \&\& ctl0\[{2.b10, sel\[0\]}\]);   \/\/ bit 4 \/ 5|assign FDD_bus.MOTORn = sel[1] ? 1'"'"'b1 : ctl0[{2'"'"'b10, sel[0]}];|' \
-        -e 's|localparam int BITLEN = 2 \* (sysCLK / 500_000);|localparam int BITLEN = 80;|' \
+        -e 's|localparam int BITLEN = (sysCLK + 125_000) / 250_000;|localparam int BITLEN = 80;|' \
         -e 's|.sysclk(sysCLK / 1_000_000)|.sysclk(sysCLK / 1000)|' \
         "$GLUE" > "$OUT/tc8566af_glue.sv"
     grep -c "BITLEN = 80\|sysCLK / 1000)\|? 1'b1 : ctl0" "$OUT/tc8566af_glue.sv" | sed 's/^/old glue substitutions: /'

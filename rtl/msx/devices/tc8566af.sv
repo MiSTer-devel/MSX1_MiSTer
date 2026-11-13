@@ -94,7 +94,7 @@ module dev_TC8566AF #(parameter sysCLK)
 
    // Bit cell of 250 kbit/s media as the drive makes it (fdd: 500 kHz enable); for the writes
    // also in 1/256 clocks: 4 us FM, 2 us MFM (sftfrac)
-   localparam int BITLEN = 2 * (sysCLK / 500_000);
+   localparam int BITLEN = (sysCLK + 125_000) / 250_000;     // rounded: 86 clk
    localparam int CELLF  = (sysCLK / 1000) * 1024 / 1000;
    localparam int CELLM  = CELLF / 2;
 

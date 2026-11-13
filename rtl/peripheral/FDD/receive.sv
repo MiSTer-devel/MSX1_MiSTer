@@ -48,14 +48,17 @@ module receive #(parameter int sysCLK)
 
     logic [7:0] mfm_data, fm_data;
     logic       mfm_ed, fm_ed, mfm_a1, fm_fe, fm_fb, fm_f8;
+    // Cell lengths in clk, rounded: the cell enable averages sysCLK / 500 kHz
+    localparam int MFM_CELL = (sysCLK + 250_000) / 500_000;
+    localparam int FM_CELL  = (sysCLK + 125_000) / 250_000;
     mfmdem dem_mfm (
         .clk(clk), .rstn(~reset), .init(init), .brk(!wg || !mfm), .raw(1'b0), .datin(wd),
-        .bitlen(32'(sysCLK / 500_000)),
+        .bitlen(MFM_CELL),
         .RXDAT(mfm_data), .RXED(mfm_ed), .DetMA1(mfm_a1), .DetMC2(), .broken(), .curlen()
     );
-    fmdem #(.bwidth(sysCLK / 250_000)) dem_fm (
+    fmdem #(.bwidth(FM_CELL)) dem_fm (
         .clk(clk), .rstn(~reset), .init(init), .brk(!wg || mfm), .raw(1'b0), .datin(wd),
-        .bitlen(sysCLK / 250_000),
+        .bitlen(FM_CELL),
         .RXDAT(fm_data), .RXED(fm_ed), .DetMF8(fm_f8), .DetMFB(fm_fb), .DetMFC(), .DetMFE(fm_fe), .curlen()
     );
 

@@ -21,7 +21,6 @@ module emu
 );
 
 ///////// Default values for ports not used in this core /////////
-assign USER_OUT = '1;
 assign {UART_RTS, UART_DTR} = 0;
 
 assign VGA_F1 = 0;
@@ -89,7 +88,16 @@ reset_sync rst_sync_sdram (.clk(clk_sdram), .arst(~locked_sdram),          .rst(
 //  [40]     tape input (file / ADC)
 //  [41]     border
 //  [42]     tape monitor (0 = on)
-// Free: [28], [37:33], [127:43]
+//  [44:43]  user port: MT32-pi / MIDI adapter / off
+//  [45]     use MT32-pi (0 = yes)
+//  [47:46]  MT32-pi info: none / OSD message / LCD on / LCD after an update
+//  [48]     MT32-pi synth: Munt / FluidSynth
+//  [50:49]  MT32-pi Munt ROM set
+//  [53:51]  MT32-pi SoundFont
+//  [54]     MT32-pi reset (hanging notes)
+// Free: [28], [37:33], [127:55]
+// status_menumask: [12:0] msx_system, [13] MT32-pi found, [14] toggles on its mode report
+// (the OSD is redrawn when the mask changes)
 `include "build_id.v"
 localparam CONF_STR = {
    "MSX1;UART115200,MIDI;",
@@ -135,6 +143,18 @@ localparam CONF_STR = {
    "HBF5,CAS,Cas File,31700000;",
    "HBT9,Tape Rewind;",
    "-;",
+   "P2,MIDI;",
+   "P2O[44:43],User Port,MT32-pi,MIDI In/Out,Off;",
+   "hDP2-;",
+   "hDP2O[45],Use MT32-pi,Yes,No;",
+   "hDP2O[47:46],Show Info,No,Yes,LCD-On,LCD-Auto;",
+   "hDP2-;",
+   "hDP2-,Default Config:;",
+   "hDP2O[48],Synth,Munt,FluidSynth;",
+   "hDP2O[50:49],Munt ROM,MT-32 v1,MT-32 v2,CM-32L;",
+   "hDP2O[53:51],SoundFont,0,1,2,3,4,5,6,7;",
+   "hDP2-;",
+   "hDP2R[54],Reset Hanging Notes;",
    "P1,Video settings;",
    "P1O[2:1],Aspect ratio,Original,Full Screen,[ARC1],[ARC2];",
    "P1O[5:3],Scandoubler Fx,None,HQ2x,CRT 25%,CRT 50%,CRT 75%;",
@@ -149,7 +169,11 @@ localparam CONF_STR = {
    // joystick button names (joy bit 4 = trigger A, 5 = trigger B); not "J1", it forces
    // keyboard joystick emulation and takes the cursor keys
    "J,Fire 1,Fire 2;",
-   "I,BAD MSX CONF,NOT SUPPORTED CONF,NOT SUPPORTED BLOCK,BAD MSX FW CONF,NOT FW CONF,DEVICE MISSING,Device not in this core build,No CRC32 DB,Not find CRC32 in DB,SMALL MEMORY,FDC already in machine,ROM too big;",
+   "I,BAD MSX CONF,NOT SUPPORTED CONF,NOT SUPPORTED BLOCK,BAD MSX FW CONF,NOT FW CONF,DEVICE MISSING,Device not in this core build,No CRC32 DB,Not find CRC32 in DB,SMALL MEMORY,FDC already in machine,ROM too big,",
+   // 13-24: mode reported by the MT32-pi (midi_port INFO_BASE)
+   "MT32-pi: SoundFont #0,MT32-pi: SoundFont #1,MT32-pi: SoundFont #2,MT32-pi: SoundFont #3,",
+   "MT32-pi: SoundFont #4,MT32-pi: SoundFont #5,MT32-pi: SoundFont #6,MT32-pi: SoundFont #7,",
+   "MT32-pi: MT-32 v1,MT32-pi: MT-32 v2,MT32-pi: CM-32L,MT32-pi: Unknown mode;",
    "V,v",`BUILD_DATE
 };
 
@@ -157,9 +181,10 @@ wire             forced_scandoubler;
 wire      [21:0] gamma_bus;
 wire       [1:0] buttons;
 wire     [127:0] status;
-wire      [15:0] status_menumask;
-wire             info_req;
-wire       [7:0] info;
+wire      [15:0] sys_menumask;
+wire             sys_info_req, mt32_info_req;
+wire       [7:0] sys_info, mt32_info;
+wire             mt32_available, mt32_newmode;
 wire      [10:0] ps2_key;
 wire      [24:0] ps2_mouse;
 wire      [31:0] joy0, joy1;
@@ -183,6 +208,7 @@ wire             img_readonly;
 wire      [15:0] sdram_sz;
 wire      [64:0] rtc;
 wire      [31:0] uart_speed;
+wire       [7:0] uart_mode;
 
 hps_io #(.CONF_STR(CONF_STR),.VDNUM(VDNUM)) hps_io
 (
@@ -193,7 +219,7 @@ hps_io #(.CONF_STR(CONF_STR),.VDNUM(VDNUM)) hps_io
    .forced_scandoubler(forced_scandoubler),
    .buttons(buttons),
    .status(status),
-   .status_menumask(status_menumask),
+   .status_menumask({sys_menumask[15], mt32_newmode, mt32_available, sys_menumask[12:0]}),
    .ps2_key(ps2_key),
    .ps2_mouse(ps2_mouse),
    .joystick_0(joy0),
@@ -217,8 +243,9 @@ hps_io #(.CONF_STR(CONF_STR),.VDNUM(VDNUM)) hps_io
    .sd_buff_wr(sd_buff_wr),
    .sdram_sz(sdram_sz),
    .RTC(rtc),
-   .info_req(info_req),
-   .info(info),
+   .info_req(sys_info_req | mt32_info_req),      // a machine error has priority
+   .info(sys_info_req ? sys_info : mt32_info),
+   .uart_mode(uart_mode),
    .uart_speed(uart_speed)
 );
 
@@ -249,7 +276,10 @@ blockDevMux #(.VDNUM(VDNUM)) blockDevMux
 );
 
 /////////////////   MSX SYSTEM   /////////////////
-MSX::video_t     video_bus;
+MSX::video_t     video_core, video_bus;
+wire      [15:0] core_audio_l, core_audio_r;
+wire             midi_tx, midi_rx;
+wire      [31:0] midi_rx_speed;
 ext_sd_card_if   ext_SD_card_bus();
 memory_bus_if    memory_bus_sdram_ch1();
 memory_bus_if    memory_bus_sdram_ch2();
@@ -275,9 +305,9 @@ msx_system msx_system
    .rst_core_async(rst_core_async),
    .reset(reset),
    .status(status),
-   .status_menumask(status_menumask),
-   .info_req(info_req),
-   .info(info),
+   .status_menumask(sys_menumask),
+   .info_req(sys_info_req),
+   .info(sys_info),
    .ps2_key(ps2_key),
    .ps2_mouse(ps2_mouse),
    .joy(joy),
@@ -286,21 +316,21 @@ msx_system msx_system
    .ioctl_addr(ioctl_addr),
    .rtc(rtc),
    .sdram_sz(sdram_sz),
-   .uart_speed(uart_speed),
+   .uart_speed(midi_rx_speed),
    .img_readonly(img_readonly),
    .img_size(img_size),
    .sd_img_mounted(block_device_SD.img_mounted),
    .osd_status(OSD_STATUS),
    .block_device_FDD(block_device_FDD),
    .msx_config(msx_config),
-   .video_bus(video_bus),
-   .audio_L(AUDIO_L),
-   .audio_R(AUDIO_R),
+   .video_bus(video_core),
+   .audio_L(core_audio_l),
+   .audio_R(core_audio_r),
    .led_turbo(led_turbo),
    .led_pause(led_pause),
    .pause(pause),
-   .uart_rxd(UART_RXD),
-   .uart_txd(UART_TXD),
+   .uart_rxd(midi_rx),
+   .uart_txd(midi_tx),
    .tape_adc(tape_in),
    .ext_SD_card_bus(ext_SD_card_bus),
    .memory_bus_sdram_ch1(memory_bus_sdram_ch1),
@@ -313,6 +343,43 @@ msx_system msx_system
    .ddr3_rd(ddr3_rd),
    .ddr3_dout(ddr3_dout),
    .ddr3_ready(ddr3_ready)
+);
+
+/////////////////   MIDI, MT32-pi   /////////////////
+// MIDI of the machine (YM2148, MSX-MIDI) to the HPS UART and the user port; audio and LCD
+// of the MT32-pi into the sound and the picture
+midi_port midi_port
+(
+   .clk(clock_bus.clk),
+   .reset(reset),
+   .CLK_AUDIO(CLK_AUDIO),
+   .port_mode(status[44:43]),
+   .mt32_disable(status[45]),
+   .mt32_info(status[47:46]),
+   .mt32_mode_req(status[48]),
+   .mt32_rom_req(status[50:49]),
+   .mt32_sf_req(status[53:51]),
+   .mt32_reset_req(status[54]),
+   .mt32_available(mt32_available),
+   .mt32_newmode(mt32_newmode),
+   .info_req(mt32_info_req),
+   .info(mt32_info),
+   .uart_mode(uart_mode),
+   .uart_speed(uart_speed),
+   .UART_RXD(UART_RXD),
+   .UART_TXD(UART_TXD),
+   .USER_IN(USER_IN),
+   .USER_OUT(USER_OUT),
+   .midi_tx(midi_tx),
+   .midi_rx(midi_rx),
+   .midi_rx_speed(midi_rx_speed),
+   .pause(pause),
+   .core_audio_l(core_audio_l),
+   .core_audio_r(core_audio_r),
+   .audio_l(AUDIO_L),
+   .audio_r(AUDIO_R),
+   .video_in(video_core),
+   .video_out(video_bus)
 );
 
 /////////////////   SD CARD   /////////////////

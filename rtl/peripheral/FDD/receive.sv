@@ -49,12 +49,12 @@ module receive #(parameter int sysCLK)
     logic [7:0] mfm_data, fm_data;
     logic       mfm_ed, fm_ed, mfm_a1, fm_fe, fm_fb, fm_f8;
     mfmdem dem_mfm (
-        .clk(clk), .rstn(~reset), .init(init), .brk(!wg || !mfm), .datin(wd),
+        .clk(clk), .rstn(~reset), .init(init), .brk(!wg || !mfm), .raw(1'b0), .datin(wd),
         .bitlen(32'(sysCLK / 500_000)),
         .RXDAT(mfm_data), .RXED(mfm_ed), .DetMA1(mfm_a1), .DetMC2(), .broken(), .curlen()
     );
     fmdem #(.bwidth(sysCLK / 250_000)) dem_fm (
-        .clk(clk), .rstn(~reset), .init(init), .brk(!wg || mfm), .datin(wd),
+        .clk(clk), .rstn(~reset), .init(init), .brk(!wg || mfm), .raw(1'b0), .datin(wd),
         .bitlen(sysCLK / 250_000),
         .RXDAT(fm_data), .RXED(fm_ed), .DetMF8(fm_f8), .DetMFB(fm_fb), .DetMFC(), .DetMFE(fm_fe), .curlen()
     );

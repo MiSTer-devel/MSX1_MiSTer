@@ -15,6 +15,7 @@ module fmdem #(
     input  logic              datin,
     input  logic              init,
     input  logic              brk,
+    input  logic              raw,      // bytes also without a mark, missing clocks ignored (Read Track)
     output logic [7:0]        RXDAT,
     output logic              RXED,
     output logic              DetMF8,
@@ -154,11 +155,11 @@ module fmdem #(
                     32'b10101010101010101111011101111010: begin fmsync <= 1'b1; RXED <= 1'b1; charcount <= 0; DetMFC <= 1'b1; end
                     32'b10101010101010101111010101111110: begin fmsync <= 1'b1; RXED <= 1'b1; charcount <= 0; DetMFE <= 1'b1; end
                     default: begin
-                        if (fmsync && (charcount % 2 == 0) && !datsft[0]) begin
+                        if (fmsync && !raw && (charcount % 2 == 0) && !datsft[0]) begin
                             fmsync <= 1'b0;
                             charcount <= 0;
 //                            daterr <= 1'b1;
-                        end else if (fmsync) begin
+                        end else if (fmsync || raw) begin
                             if (charcount == 15) begin
                                 RXED <= 1'b1;
                                 charcount <= 0;

@@ -20,8 +20,8 @@
 //   Read Address (C0h): the six bytes of the next ID field go to the CPU one byte time apart,
 //     the sector register gets the track byte, CRC error as on the disk, record not found after
 //     five index pulses.
-//   Read Track (E0h): every byte the demodulator yields from index to index. It keeps its byte
-//     sync through the gaps, so only the bytes before the first mark after the index are lost.
+//   Read Track (E0h): every byte from index to index; the demodulator assembles bytes also out of
+//     sync (after a write splice) as the chip does, the marks resync it.
 //   Write Track (F0h): DRQ at once, Lost Data and end when it is not serviced before the index;
 //     then from index to index the CPU's bytes: MFM F5 = A1 (presets the CRC), F6 = C2, F7 = the
 //     two CRC bytes; FM F7 = CRC, F8-FC and FE = marks with missing clocks; a byte the CPU did not
@@ -49,6 +49,7 @@ module wd279x_command_III
 	input  logic        WPROTn,
 	input  logic        DDENn,
 	output logic        head_load,       // 1 clk
+	output logic        read_track,      // demodulator in raw mode
 
 	// demodulator
 	input  logic  [7:0] IDAM_data[6],
@@ -91,6 +92,7 @@ module wd279x_command_III
 	wire        index_edge = last_index && !INDEXn;
 
 	assign busy = state != S_IDLE;
+	assign read_track = state == S_RT_WAIT || state == S_RT_READ;
 	assign status = !is_III ? 8'h00 :
 	                {READYn, reg_WRITE_PROTECTED, 1'b0, reg_RECORD_NOT_FOUND, reg_CRC_ERROR, reg_LOST_DATA, DRQ, busy};
 

@@ -274,7 +274,7 @@ wd279x_command_II #(.WD279_57(WD279_57)) command_II (
 );
 
 logic [7:0] status_command_type_III;
-logic       INTRQ_III, head_load_III, drq_set_III, data_write_III, sector_write_III;
+logic       INTRQ_III, head_load_III, read_track_III, drq_set_III, data_write_III, sector_write_III;
 logic [7:0] data_out_III, sector_out_III;
 logic       wg_III, tx_wr_III, tx_a1_III, tx_c2_III, tx_mark_III, tx_crc_III;
 logic [7:0] tx_data_III;
@@ -299,6 +299,7 @@ wd279x_command_III command_III (
 	.WPROTn(WPROTn),
 	.DDENn(DDENn),
 	.head_load(head_load_III),
+	.read_track(read_track_III),
 	.IDAM_data(IDAM_data),
 	.IDAM_done(IDAM_done),
 	.IDAM_crc_ok(IDAM_crc_ok),
@@ -352,6 +353,7 @@ wd279x_demodulator #(.sysCLK(sysCLK)) demodulator (
 	.INDEXn(INDEXn),
 	.DDENn(DDENn),
 	.RAWRDn(RAWRDn),
+	.raw(read_track_III),
 	.len_add(len_add),
 	.IDAM_data(IDAM_data),
     .fdd_data(fdd_data),

@@ -16,6 +16,7 @@ module mfmdem #(
     input  logic                   rstn,
     input  logic                   init,
     input  logic                   brk,
+    input  logic                   raw,     // bytes also without a mark, pattern errors ignored (Read Track)
     input  logic                   datin,
     input  logic  [31:0]           bitlen,
 
@@ -170,7 +171,7 @@ module mfmdem #(
                 mfmsync   <= 1'b0;
                 charcount <= 4'b0;
             end else if (lsft) begin
-                if (datsft[1:0] == 2'b11 || datsft[4:0] == 5'b10000) begin
+                if (!raw && (datsft[1:0] == 2'b11 || datsft[4:0] == 5'b10000)) begin
                     mfmsync   <= 1'b0;
                     charcount <= 4'b0;
                     daterr    <= 1'b1;
@@ -185,7 +186,7 @@ module mfmdem #(
                     charcount <= 4'b0;
                     DetMC2    <= 1'b1;
                     RXED      <= 1'b1;
-                end else if (mfmsync) begin
+                end else if (mfmsync || raw) begin
                     if (charcount == 4'd15) begin
                         RXED      <= 1'b1;
                         charcount <= 4'b0;

@@ -23,6 +23,7 @@ module wd279x_demodulator #(parameter sysCLK)
     input  logic        INDEXn,
     input  logic        DDENn,
     input  logic        RAWRDn,
+    input  logic        raw,            // Read Track: bytes from the index on, also out of sync
     input  logic [1:0]  len_add,        // added to N of the ID for the data length (WD2795/7 L = 0: 1)
     output logic [7:0]  IDAM_data[6],
     output logic [7:0]  fdd_data,
@@ -76,6 +77,9 @@ module wd279x_demodulator #(parameter sysCLK)
         .clk(clk),
         .rstn(MRn),
         .datin(RAWRDn),
+        .init(1'b0),
+        .brk(1'b0),
+        .raw(raw),
         .bitlen(sysCLK / 250_000),
         .RXDAT(fm_data),
         .RXED(fm_rx),
@@ -90,6 +94,9 @@ module wd279x_demodulator #(parameter sysCLK)
         .clk(clk),
         .rstn(MRn),
         .datin(RAWRDn),
+        .init(1'b0),
+        .brk(1'b0),
+        .raw(raw),
         .bitlen(sysCLK / 500_000),
         .RXDAT(mfm_data),
         .RXED(mfm_rx),

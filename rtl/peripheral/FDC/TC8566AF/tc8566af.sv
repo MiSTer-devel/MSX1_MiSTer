@@ -4391,6 +4391,7 @@ module tc8566af #(
 
             .init(deminit),
             .brk(dembreak),
+            .raw(1'b0),
 
             .RXDAT(fmrxdat),
             .RXED(fmrxed),
@@ -4410,6 +4411,7 @@ module tc8566af #(
         
         .init(deminit),
         .brk(dembreak),
+        .raw(1'b0),
         
         .RXDAT(mfmrxdat),
         .RXED(mfmrxed),

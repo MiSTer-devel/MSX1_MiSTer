@@ -212,14 +212,14 @@ Jádro se integruje s MiSTerFPGA a podporuje tyto funkce platformy:
 
 ## Známá omezení
 - **Nic se neukládá trvale:** SRAM cartridge (FM-PAC, Game Master 2, KOEI, ASCII se SRAM), zápisy do flash (MegaFlashROM, ASCII16-X), SRAM firmwaru strojů Panasonic a National a CMOS RTC se při novém načtení ztratí. Položky **SRAM Save / SRAM Load** nic nedělají. FS-A1ST a FS-A1GT nemají SRAM svého mapperu Panasonic (16 / 32 KB).
-- **Disky:** jen surové obrazy `.DSK` (720K, 640K, 360K, 320K); žádné 40stopé, 1,44 MB, XSA, D88, HFE ani DMK. WD279x Read Track je jen částečný. Cartridge FDC funguje jen ve slotu 1 a jen na strojích bez FDC; cartridge s TC8566AF neexistuje.
+- **Disky:** jen surové obrazy `.DSK` (720K, 640K, 360K, 320K); žádné 40stopé, 1,44 MB, XSA, D88, HFE ani DMK. Cartridge FDC funguje jen ve slotu 1 a jen na strojích bez FDC; cartridge s TC8566AF neexistuje.
 - **Páska:** jen přehrávání, žádné ukládání; konec souboru se nedetekuje (po posledním bloku se přehrávají nesmyslná data).
 - **R800:** R800 u turbo R vykonává počty taktů Z80 na 10,7 MHz, tedy asi 3x rychleji než Z80; skutečný potřebuje na instrukci méně taktů a je ještě rychlejší. I/O, násobení a odstup přístupů k VDP trvají jako na skutečném stroji. Chybí mikrofon turbo R.
 - **ROM:** ROM nad 64 KB potřebuje záznam v databázi, mapper se z hlavičky ROM nerozpoznává. Zrcadla ROM Konami SCC nejsou hotová.
 - **V99x8:** chybí sprity v overscanu a okno FH v textových režimech. Nastavení rychlosti VDP a hlasitosti na 1chipMSX se ukládají bez účinku.
 - **1chipMSX:** bez MoonSound, bez zvláštních kláves PrintScreen/ScrollLock (Pause je obecná pauza stroje).
 - **Pauza:** stojí jen CPU; kazeta (CAS) a řadiče disket běží dál, takže pauza během nahrávání může skončit chybou čtení.
-- Žádná hlasitost ani ztlumení po zdrojích v OSD, chybí deform bity 0/1 SCC+, žádné V9990.
+- Žádná hlasitost ani ztlumení po zdrojích v OSD, chybí deform bity 0/1 SCC+, žádné V9990. MT32-pi na user portu není: MIDI jde ven jen přes UART (MidiLink, např. do MUNT nebo FluidSynth).
 
 ## Poděkování
 - [MSX_MiSTer](https://github.com/MiSTer-devel/MSX_MiSTer) od Sorgeliga – port OCM-PLD od KdL na MiSTer a inspirace pro toto jádro. Stroj 1chipMSX byl převeden z něj: IPL ROM, systémové I/O porty a řízení rychlosti CPU, ESE-RAM s MegaSD, MegaSCC/MegaRAM a myš PS/2.

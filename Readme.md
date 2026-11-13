@@ -212,14 +212,14 @@ The core integrates with MiSTerFPGA and supports the following features provided
 
 ## Known Limitations
 - **Nothing is persistent:** cartridge SRAM (FM-PAC, Game Master 2, KOEI, ASCII with SRAM), flash writes (MegaFlashROM, ASCII16-X), the firmware SRAM of the Panasonic and National machines and the RTC CMOS are lost on reload. The **SRAM Save / SRAM Load** items do nothing. The FS-A1ST and FS-A1GT lack the SRAM of their Panasonic mapper (16 / 32 KB).
-- **Disks:** only raw `.DSK` images (720K, 640K, 360K, 320K); no 40-track, 1.44 MB, XSA, D88, HFE or DMK. WD279x Read Track is partial. The FDC cartridge works only in slot 1 and only in machines without an FDC; there is no TC8566AF cartridge.
+- **Disks:** only raw `.DSK` images (720K, 640K, 360K, 320K); no 40-track, 1.44 MB, XSA, D88, HFE or DMK. The FDC cartridge works only in slot 1 and only in machines without an FDC; there is no TC8566AF cartridge.
 - **Tape:** playback only, no saving; the end of the file is not detected (garbage is played after the last block).
 - **R800:** the R800 of the turbo R runs the Z80 cycle counts at 10.7 MHz, about 3x the Z80 speed; the real one needs fewer cycles per instruction and is faster still. I/O, multiplication and the spacing of VDP accesses take their real time. No turbo R microphone.
 - **ROMs:** a ROM over 64 KB needs an entry in the database, there is no mapper detection from the ROM header. Konami SCC ROM mirrors are not done.
 - **V99x8:** sprites in the overscan and the FH window in text modes are not done. The VDP speed and volume settings of the 1chipMSX are stored without effect.
 - **1chipMSX:** no MoonSound, no special keys PrintScreen/ScrollLock (Pause is the general machine pause).
 - **Pause:** only the CPU stops; a tape (CAS) and the floppy controllers keep running, so a pause during loading can end with a read error.
-- No per-source volume or mute in the OSD, SCC+ deform bits 0/1 missing, no V9990.
+- No per-source volume or mute in the OSD, SCC+ deform bits 0/1 missing, no V9990. No MT32-pi on the user port: MIDI goes out only through the UART (MidiLink, e.g. to MUNT or FluidSynth).
 
 ## Acknowledgements
 - [MSX_MiSTer](https://github.com/MiSTer-devel/MSX_MiSTer) by Sorgelig – the MiSTer port of KdL's OCM-PLD and the inspiration for this core. The 1chipMSX machine was converted from it: the IPL ROM, the system I/O ports and CPU speed logic, the ESE-RAM with the MegaSD, the MegaSCC/MegaRAM and the PS/2 mouse.

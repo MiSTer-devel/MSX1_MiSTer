@@ -8,6 +8,11 @@
 // +dsk=none: no disk in the drive (the boot must not hang on the empty drive).
 // +key=<hex>: a key held down from the start until +key_ms (default 8000), PS/2 code with bit 8
 // = extended, e.g. 171 = Delete (Panasonic FS-A1F: skips the A1 Cockpit firmware).
+// +key_from=<ms>: the key goes down only at that time (e.g. +key=29 Space to start a game);
+// +key2_from=<ms>: pressed once more (200 ms); +key2_every=<ms> +key2_until=<ms> repeat it.
+// +reglog=<ms>: V99x8 register writes (R#, value, V_CNT, H_CNT) from that time, 400 lines.
+// +m1trace=<n>: after +reset_ms the first n instruction fetches (address, opcode, slot state).
+// +satlog=<ms>: VRAM writes to 1E00h..1E7Fh (sprite attributes of Graphic 3) with the VDP line, 300.
 // Cartridge: +fw=<CART_FW_EN.msx> +db=<mappers.db> +rom=<game.rom> loads a ROM into slot A as the
 // OSD does (FW pack, mapper database, ROM; the mapper comes from the CRC32 in the database).
 // +slotb=<n>: OSD slot B item (CONF_STR_SLOT_B, 8 = MoonSound; needs +fw). +ch4_delay=<clk>: slower
@@ -16,7 +21,7 @@
 // +slota=<n>: OSD slot A item (CONF_STR_SLOT_A, 1 = FDC; needs +fw). +error=<n>: the pack load
 // must stop with this error_t (e.g. 11 = ERR_FDC_PRESENT), then PASS.
 // +frames=<prefix> +frame_ms=<ms> +frame_n=<n>: n frames of the video output (DE area) from
-// frame_ms on as <prefix>_NNN.ppm.
+// frame_ms on as <prefix>_NNN.ppm; +frame_every=<ms> repeats the n frames every so many ms. +border=1: OSD Border on (status[41]).
 // Turbo R: +firmware=1 turns the firmware switch on (OSD status[26]); +pause_ms=<ms> presses the
 // Pause key (hps_io event 377h) at that time and checks that the BIOS lights the pause LED (A7h
 // bit 0) and turns it off after a second press 500 ms later. The FS-A1ST BIOS pauses BASIC in
@@ -28,6 +33,8 @@
 // +osd_ms=<ms>: the OSD opens at that time with "Pause when OSD open" off (the machine runs),
 // 200 ms later the option goes on (paused), 400 ms later the OSD closes (runs again).
 // Paused (CPU held, also the turbo R hardware pause) = msx_system `pause` (HDMI freeze) on.
+// +reset_ms=<ms>: Reset from the OSD (status[21], 1 ms) at that time; +expect counts only once the
+// screen has been without it after the reset.
 // Run: wsl.exe -- bash rtl/tb/run_machine_boot.sh <machine.msx> <image.dsk> [expected text]
 module machine_boot_tb;
 localparam int unsigned FW_BASE = MSX::DDR3_FW_PACK, DB_BASE = MSX::DDR3_DB;   // DDR3 areas
@@ -267,12 +274,17 @@ wire  access = sys.MSX.cpu_bus.req && !req_q && !reset;
 // Turbo R: writes to the S1990 (E5h) with the last M1 fetch, CPU / DRAM mode changes, accesses
 // to the main RAM through main_cs (Panasonic RAM banks, DRAM mode)
 logic [15:0] last_m1 = '0;
+bit          m1_hist_on = 0;     // instruction fetch histogram (after +reset_ms)
+int          m1_hist [int];
 int          s1990_wr = 0, main_rd = 0, main_wr = 0, a7_wr = 0, m1_all = 0, vdp_wr = 0;
 logic        r800_q = 0, dram_q = 0, hold_q = 0;
 logic  [1:0] sel_q = '0;
 int          sel_log = 0, io_holds = 0;
 always @(posedge clk_core) begin
-    if (access && sys.MSX.cpu_bus.mreq && sys.MSX.cpu_bus.m1) begin last_m1 <= sys.MSX.cpu_bus.addr; m1_all++; end
+    if (access && sys.MSX.cpu_bus.mreq && sys.MSX.cpu_bus.m1) begin
+        last_m1 <= sys.MSX.cpu_bus.addr; m1_all++;
+        if (m1_hist_on) m1_hist[sys.MSX.cpu_bus.addr]++;
+    end
     if (access && sys.MSX.cpu_bus.iorq && !sys.MSX.cpu_bus.m1 && sys.MSX.cpu_bus.wr && sys.MSX.cpu_bus.addr[7:2] == 6'b100110) vdp_wr++;
     if (access && sys.MSX.cpu_bus.iorq && !sys.MSX.cpu_bus.m1 && sys.MSX.cpu_bus.wr && sys.MSX.cpu_bus.addr[7:0] == 8'hA7
         && sys.io_device[DEV_TURBOR_PAUSE][0].enable) begin
@@ -442,10 +454,19 @@ task automatic dump_vram(input string prefix);
               sys.MSX.devices.v99.VDP_i.U_VDP_REGISTER.REG_R23_VSTART_LINE,
               sys.MSX.devices.v99.VDP_i.U_VDP_REGISTER.REG_R25_YJK,
               sys.MSX.devices.v99.VDP_i.U_VDP_REGISTER.REG_R25_YAE);
+    $fdisplay(fd, "R11R5 %03h R6 %02h SP_OFF %0d SP_SIZE %0d SP_ZOOM %0d COL0 %0d R18 %02h",
+              sys.MSX.devices.v99.VDP_i.U_VDP_REGISTER.REG_R11R5_SP_ATR_ADDR,
+              sys.MSX.devices.v99.VDP_i.U_VDP_REGISTER.REG_R6_SP_GEN_ADDR,
+              sys.MSX.devices.v99.VDP_i.U_VDP_REGISTER.REG_R8_SP_OFF,
+              sys.MSX.devices.v99.VDP_i.U_VDP_REGISTER.REG_R1_SP_SIZE,
+              sys.MSX.devices.v99.VDP_i.U_VDP_REGISTER.REG_R1_SP_ZOOM,
+              sys.MSX.devices.v99.VDP_i.U_VDP_REGISTER.REG_R8_COL0_ON,
+              sys.MSX.devices.v99.VDP_i.U_VDP_REGISTER.REG_R18_ADJ);
     $fclose(fd);
 endtask
 
 // Video capture: frames of the DE area as PPM
+localparam int FR_W = 640, FR_H = 300;   // frame size of the dump (with the border)
 string      frame_prefix = "";
 int         frame_left = 0, frame_idx = 0, fr_w = 0, fr_h = 0, fr_x = 0;
 bit         frame_arm = 0, fr_on = 0, prev_vbl = 1;
@@ -464,31 +485,67 @@ end
 
 always @(posedge clk_core) if (video_bus.ce_pix) begin
     if (video_bus.vblank && !prev_vbl && fr_on) begin            // frame done
-        for (int y = fr_h; y < 240; y++) for (int i = 0; i < 256; i++) $fwrite(frame_fd, "%c%c%c", 8'd0, 8'd0, 8'd0);
+        for (int y = fr_h; y < FR_H; y++) for (int i = 0; i < FR_W; i++) $fwrite(frame_fd, "0 0 0\n");
         $fclose(frame_fd);
         $display("%0t frame %0d: %0dx%0d", $time, frame_idx, fr_w, fr_h);
         frame_idx++; frame_left--; fr_on = 0;
     end
     if (!video_bus.vblank && prev_vbl && frame_arm && frame_left > 0) begin   // frame starts
         frame_fd = $fopen($sformatf("%s_%03d.ppm", frame_prefix, frame_idx), "wb");
-        $fwrite(frame_fd, "P6\n%0d %0d\n255\n", 256, 192 + 48);
+        $fwrite(frame_fd, "P3\n%0d %0d\n255\n", FR_W, FR_H);
         fr_on = 1; fr_w = 0; fr_h = 0; fr_x = 0;
     end
     prev_vbl = video_bus.vblank;
     if (fr_on && !video_bus.vblank) begin
         if (!video_bus.hblank) begin
-            if (fr_x < 256 && fr_h < 240) $fwrite(frame_fd, "%c%c%c", video_bus.R, video_bus.G, video_bus.B);
+            if (fr_x < FR_W && fr_h < FR_H) $fwrite(frame_fd, "%0d %0d %0d\n", video_bus.R, video_bus.G, video_bus.B);
             fr_x++;
         end else if (fr_x > 0) begin
-            for (int i = fr_x; i < 256; i++) if (fr_h < 240) $fwrite(frame_fd, "%c%c%c", 8'd0, 8'd0, 8'd0);
+            for (int i = fr_x; i < FR_W; i++) if (fr_h < FR_H) $fwrite(frame_fd, "0 0 0\n");
             if (fr_x > fr_w) fr_w = fr_x;
             fr_h++; fr_x = 0;
         end
     end
 end
 final if (fr_on) begin
-    for (int y = fr_h; y < 240; y++) for (int i = 0; i < 256; i++) $fwrite(frame_fd, "%c%c%c", 8'd0, 8'd0, 8'd0);
+    for (int y = fr_h; y < FR_H; y++) for (int i = 0; i < FR_W; i++) $fwrite(frame_fd, "0 0 0\n");
     $fclose(frame_fd);
+end
+
+// V99x8 register writes with the beam position
+bit reglog_on = 0, regwr_q;
+int reglog_n = 0;
+always @(posedge clk_core) begin
+    regwr_q <= sys.MSX.devices.v99.VDP_i.U_VDP_REGISTER.VDPREGWRPULSE;
+    if (reglog_on && reglog_n < 400 && sys.MSX.devices.v99.VDP_i.U_VDP_REGISTER.VDPREGWRPULSE && !regwr_q &&
+        !sys.MSX.devices.v99.VDP_i.U_VDP_REGISTER.VDPREGPTR[5]) begin
+        $display("%0t R#%0d <= %02h  V_CNT %0d H_CNT %0d", $time, sys.MSX.devices.v99.VDP_i.U_VDP_REGISTER.VDPREGPTR,
+                 sys.MSX.devices.v99.VDP_i.U_VDP_REGISTER.VDPP1DATA, sys.MSX.devices.v99.VDP_i.V_CNT, sys.MSX.devices.v99.VDP_i.H_CNT);
+        reglog_n++;
+    end
+end
+
+// instruction fetches after the OSD reset
+bit m1trace_on = 0, m1t_q;
+int m1trace_n = 0, m1trace_cnt = 0;
+always @(posedge clk_core) begin
+    m1t_q <= sys.MSX.cpu_bus.req && sys.MSX.cpu_bus.m1 && sys.MSX.cpu_bus.mreq;
+    if (m1trace_on && !reset && m1trace_cnt < m1trace_n && sys.MSX.cpu_bus.req && sys.MSX.cpu_bus.m1 && sys.MSX.cpu_bus.mreq && !m1t_q) begin
+        $display("%0t M1 %04h  r800 %0d dram %0d", $time, sys.MSX.cpu_bus.addr, sys.MSX.turbor_r800, sys.MSX.turbor_dram);
+        m1trace_cnt++;
+    end
+end
+
+// VRAM writes to the Graphic 3 sprite attribute table with the beam position
+bit satlog_on = 0, satwe_q = 1;
+int satlog_ms = -1, satlog_n = 0;
+always @(posedge clk_core) begin
+    satwe_q <= sys.MSX.devices.v99.VDP_i.PRAMWE_N;
+    if (satlog_on && satlog_n < 300 && !sys.MSX.devices.v99.VDP_i.PRAMWE_N && satwe_q && sys.MSX.devices.v99.VDP_i.PRAMADR[16:7] == 10'h03C) begin
+        $display("%0t SAT %04h <= %02h  line %0d H_CNT %0d", $time, sys.MSX.devices.v99.VDP_i.PRAMADR[15:0], sys.MSX.devices.v99.VDP_i.PRAMDBO,
+                 $signed(sys.MSX.devices.v99.VDP_i.U_SSG.FF_MONITOR_LINE), sys.MSX.devices.v99.VDP_i.H_CNT);
+        satlog_n++;
+    end
 end
 
 function automatic bit contains(input string s, input string k);
@@ -517,11 +574,11 @@ endtask
 // ------------------------------------------------------------------ run
 initial begin
     string pack_name, dsk_name, expect_txt = "", last = "", now, dump, fname;
-    int frame_ms = 0;
+    int frame_ms = 0, frame_every = 0, frame_n = 10;
     int fd, c, errors = 0, run_ms = 15000, found_ms = -1, key_ms = 8000, pause_ms = -1, fw = 0, m1_paused = 0;
-    int slota = 0, slotb = 0, want_err = 0, osd_ms = -1;
+    int slota = 0, slotb = 0, want_err = 0, osd_ms = -1, reset_ms = -1, key_from = 0, key2_from = -1, key2_every = 0, key2_until = 0, k2 = 0, reglog_ms = -1;
     logic [8:0] key = '0;
-    bit         use_key, no_disk, tc_used, turbor_pause;
+    bit         use_key, no_disk, tc_used, turbor_pause, expect_armed = 1;
 
     if (!$value$plusargs("pack=%s", pack_name) || !$value$plusargs("dsk=%s", dsk_name)) begin
         $display("usage: +pack=<machine.msx> +dsk=<image.dsk> [+expect=<text>] [+run_ms=<ms>]"); $finish;
@@ -529,10 +586,20 @@ initial begin
     void'($value$plusargs("expect=%s", expect_txt));
     void'($value$plusargs("run_ms=%d", run_ms));
     void'($value$plusargs("key_ms=%d", key_ms));
+    void'($value$plusargs("key_from=%d", key_from));
+    void'($value$plusargs("key2_from=%d", key2_from));
+    void'($value$plusargs("key2_every=%d", key2_every));
+    void'($value$plusargs("key2_until=%d", key2_until));
+    void'($value$plusargs("reglog=%d", reglog_ms));
+    void'($value$plusargs("m1trace=%d", m1trace_n));
+    void'($value$plusargs("satlog=%d", satlog_ms));
     use_key = $value$plusargs("key=%h", key);
     void'($value$plusargs("pause_ms=%d", pause_ms));
     void'($value$plusargs("osd_ms=%d", osd_ms));
+    void'($value$plusargs("reset_ms=%d", reset_ms));
+    expect_armed = reset_ms < 0;
     if ($value$plusargs("firmware=%d", fw)) status[26] = fw[0];
+    if ($test$plusargs("border=1")) status[41] = 1;
     if ($value$plusargs("slota=%d", slota)) status[20:17] = 4'(slota);
     if ($value$plusargs("slotb=%d", slotb)) status[32:29] = 4'(slotb);
     void'($value$plusargs("ch4_delay=%d", ch4_delay));
@@ -545,7 +612,8 @@ initial begin
     if ($value$plusargs("rom=%s", fname)) begin fd = $fopen(fname, "rb"); while ((c = $fgetc(fd)) != -1) rom.push_back(8'(c)); $fclose(fd); end
     if ($value$plusargs("frames=%s", frame_prefix)) begin
         void'($value$plusargs("frame_ms=%d", frame_ms));
-        frame_left = 10; void'($value$plusargs("frame_n=%d", frame_left));
+        void'($value$plusargs("frame_n=%d", frame_n)); frame_left = frame_n;
+        void'($value$plusargs("frame_every=%d", frame_every));
     end
     if (rom.size() > 0) $display("FW pack %0d B, mapper DB %0d B, ROM %0d B", fwpk.size(), db.size(), rom.size());
     no_disk = dsk_name == "none";
@@ -596,7 +664,7 @@ initial begin
     if (!no_disk && !msx_config.fdd[VD - 1]) begin errors++; $display("FAIL msx_config.fdd[%0d] = 0: VD %0d not enabled", VD - 1, VD); end
 
     // key down once the keyboard map of the pack is loaded
-    if (use_key) begin
+    if (use_key && key_from == 0) begin
         ps2_key = {1'b1, 1'b1, key};
         $display("%0t key %03h down", $time, key);
     end
@@ -610,7 +678,29 @@ initial begin
     for (int ms = 0; ms < run_ms; ms += 100) begin
         repeat (MSX::CLK_CORE_HZ / 10) @(posedge clk_core);
         if (frame_prefix != "" && ms + 100 >= frame_ms) frame_arm = 1;
-        if (use_key && ps2_key[9] && ms + 100 >= key_ms) begin
+        if (frame_every > 0 && ms > frame_ms && (ms - frame_ms) % frame_every == 0) frame_left = frame_n;
+        if (reglog_ms >= 0 && ms >= reglog_ms) reglog_on = 1;
+        if (satlog_ms >= 0 && ms >= satlog_ms) satlog_on = 1;
+        if (reset_ms >= 0 && ms == reset_ms + 1000) m1_hist_on = 1;
+        if (reset_ms >= 0 && ms == reset_ms + 1100) begin
+            int top [$];
+            m1_hist_on = 0;
+            $display("%0t fetches 1000..1100 ms after the reset (address: count), r800 %0d dram %0d:", $time,
+                     sys.MSX.turbor_r800, sys.MSX.turbor_dram);
+            foreach (m1_hist[a]) top.push_back(a);
+            top.sort() with (-m1_hist[item]);
+            foreach (top[i]) if (i < 40) $display("  %04h: %0d", top[i], m1_hist[top[i]]);
+        end
+        k2 = (key2_every > 0 && ms >= key2_from && ms <= key2_until) ? key2_from + (ms - key2_from) / key2_every * key2_every : key2_from;
+        if (key2_from >= 0 && (ms == k2 || ms == k2 + 200)) begin
+            ps2_key = {~ps2_key[10], ms == k2, key};
+            $display("%0t %0d ms: key %03h %s", $time, ms, key, ms == k2 ? "down" : "up  ");
+        end
+        if (use_key && key_from > 0 && ms == key_from) begin
+            ps2_key = {~ps2_key[10], 1'b1, key};
+            $display("%0t %0d ms: key %03h down", $time, ms, key);
+        end
+        if (use_key && ps2_key[9] && ms + 100 >= key_ms && ms > key_from) begin
             ps2_key = {~ps2_key[10], 1'b0, ps2_key[8:0]};
             use_key = 0;
             $display("%0t %0d ms: key %03h released", $time, ms, ps2_key[8:0]);
@@ -639,6 +729,12 @@ initial begin
             if (ms == osd_ms + 600) begin osd_status = 0; m1_paused = m1_all; $display("%0t %0d ms: OSD closed", $time, ms); end
             if (ms == osd_ms + 800) check_running("OSD closed", m1_paused, errors);
         end
+        if (ms == reset_ms) begin
+            $display("%0t %0d ms: Reset from the OSD", $time, ms);
+            expect_armed = 0;
+            m1trace_on = 1;
+            status[21] = 1; repeat (MSX::CLK_CORE_HZ / 1000) @(posedge clk_core); status[21] = 0;
+        end
         if (pause_ms >= 0 && turbor_pause && ms == pause_ms + 100) m1_paused = m1_all;
         if (pause_ms >= 0 && turbor_pause && ms == pause_ms + 400) begin
             if (!sys.MSX.devices.dev_turbor_pause.paused) begin errors++; $display("FAIL the Pause key did not set the pause"); end
@@ -666,12 +762,13 @@ initial begin
         if (ms % 1000 == 0)
             $display("%0t %0d ms: M1 %0d, VDP writes %0d, disk ROM M1 %0d, FDC commands %0d, reads ok %0d bad %0d, HPS reads %0d",
                      $time, ms, m1_all, vdp_wr, disk_m1, fdc_log, reads_ok, reads_bad, lba_reads);
-        if (expect_txt != "" && (contains(now, expect_txt) || (ms % 500 == 0 && vram_has(expect_txt)))) begin
+        if (!expect_armed && reset_ms >= 0 && ms > reset_ms && !contains(now, expect_txt) && !vram_has(expect_txt)) expect_armed = 1;
+        if (expect_txt != "" && expect_armed && (contains(now, expect_txt) || (ms % 500 == 0 && vram_has(expect_txt)))) begin
             found_ms = ms; break;
         end
     end
     $display("%0t final screen:\n%s", $time, screen_text());
-    if (found_ms < 0 && expect_txt != "" && vram_has(expect_txt)) found_ms = run_ms;
+    if (found_ms < 0 && expect_txt != "" && expect_armed && vram_has(expect_txt)) found_ms = run_ms;
     if ($value$plusargs("vram_dump=%s", dump)) dump_vram(dump);
     $display("disk ROM M1 %0d, FDC commands %0d, Read Data ok %0d / abnormal %0d, HPS reads %0d (LBA 0: %0d)",
              disk_m1, fdc_log, reads_ok, reads_bad, lba_reads, lba0_reads);

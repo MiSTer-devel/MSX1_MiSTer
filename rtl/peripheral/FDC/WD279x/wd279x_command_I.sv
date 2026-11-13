@@ -212,7 +212,7 @@ module wd279x_command_I
 							INTRQ <= 1;
 							reg_SEEK_ERROR <= 1;
 						end
-						if (IDAM_valid && IDAM_data[ID_TRACK] == track_rq) begin
+						if (IDAM_valid && IDAM_data[ID_TRACK] == track) begin	// the track register, not the target
 							state <= STATE_IDLE;
 							INTRQ <= 1;
 						end

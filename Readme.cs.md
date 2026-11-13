@@ -89,6 +89,7 @@ Se SDRAM stačí modul 32 MB. Největší stroj (1chipMSX) potřebuje asi 8 MB, 
 | Cas File (`.CAS`) | Obraz pásky, zobrazuje se při Tape Input = File. |
 | Tape Rewind | Přetočí obraz pásky na začátek. |
 | Firmware switch | Off / On, jen u strojů, které přepínač mají: turbo R a stroje Panasonic, National a Sanyo se zařízením Matsushita (switched I/O). |
+| MIDI | **User Port**: MT32-pi (výchozí; [MT32-pi](https://github.com/dwhinham/mt32-pi) nebo jen MIDI OUT na pinu 1), MIDI In/Out (adaptér MIDI: OUT na pinu 1, IN na pinu 0), Off. Jakmile se MT32-pi najde, objeví se jeho volby: Use MT32-pi, Show Info (No / Yes: zpráva při změně jeho režimu / LCD-On / LCD-Auto: jeho displej v levém horním rohu obrazu, stále nebo 3 s po změně), výchozí Synth (Munt, FluidSynth), Munt ROM, SoundFont a Reset Hanging Notes. |
 | Video | Poměr stran, scandoubler (None, HQ2x, CRT 25/50/75 %), Vertical Crop, Scale (Normal, V-Integer, Narrower/Wider HV-Integer, HV-Integer), Border (platí pro VDP TMS i V99xx). |
 | Pause when OSD open | No (výchozí) / Yes: stroj stojí, dokud je OSD otevřené (CPU drženo, zvuk ztlumený, obraz na HDMI zamrzne). |
 | Reset | Reset stroje. |
@@ -135,8 +136,8 @@ Jádro obsahuje tyto hardwarové moduly:
 - `SCC+` – [Konami 052539 Enhanced SCC](https://www.msx.org/wiki/Konami_052539)
 - `OPL4` – [Yamaha YMF278B](https://www.msx.org/wiki/MoonSound) (MoonSound: FM OPL3 a 24kanálová vlnová syntéza)
 - `DAC` – 8bitový DAC Konami Synthesizer
-- `YM2148` – rozhraní MIDI modulů Yamaha SFG, MIDI IN i MIDI OUT přes UART MiSTeru
-- `MSX_MIDI` – [MSX-MIDI](https://www.msx.org/wiki/MSX-MIDI) (UART i8251 + časovač i8254, I/O porty E8h–EFh), MIDI IN i MIDI OUT přes UART MiSTeru
+- `YM2148` – rozhraní MIDI modulů Yamaha SFG, MIDI IN i MIDI OUT přes UART MiSTeru nebo uživatelský port
+- `MSX_MIDI` – [MSX-MIDI](https://www.msx.org/wiki/MSX-MIDI) (UART i8251 + časovač i8254, I/O porty E8h–EFh), MIDI IN i MIDI OUT přes UART MiSTeru nebo uživatelský port
 - `SFG01` – [Yamaha SFG-01](https://www.msx.org/wiki/Yamaha_SFG-01)
 - `SFG05` – [Yamaha SFG-05](https://www.msx.org/wiki/Yamaha_SFG-05)
 - Matsushita switched I/O (MSX2 / MSX2+ Panasonic, National a Sanyo): přepínač turba, přepínač firmware, 2 KB SRAM firmwaru
@@ -205,7 +206,11 @@ Jádro se integruje s MiSTerFPGA a podporuje tyto funkce platformy:
 - `Klávesnice` – klávesnice PS/2, maticové rozložení pro každý stroj (`kbd_layout` v definici stroje, generuje [CreateKeyMap](tools/CreateKeyMap/README.cs.md)); klávesa Pause pozastaví stroj (CPU drženo, zvuk ztlumený, obraz na HDMI zamrzne; u turbo R ji jako na skutečném stroji čte BIOS z portu A7h), F11 = turbo na 1chipMSX
 - `Myš` – myš PS/2 jako myš MSX, jen 1chipMSX
 - `Kazeta` – přehrávání souborů `.CAS` (musí být zapnutý motor MSX) nebo skutečná páska přes analogový vstup MiSTeru (ADC); páska je slyšet. Výstup na pásku neexistuje.
-- `MIDI` – s UART MiSTeru v režimu MIDI (31250 Bd) MIDI IN i MIDI OUT u YM2148 (stroje Yamaha) a MSX-MIDI; MidiLink posílá MIDI OUT do USB MIDI zařízení nebo softwarového syntezátoru
+- `MIDI` – MIDI IN i MIDI OUT u YM2148 (stroje Yamaha) a MSX-MIDI, dvěma cestami:
+  - UART MiSTeru v režimu MIDI (31250 Bd): MidiLink posílá MIDI OUT do USB MIDI zařízení nebo softwarového syntezátoru (MUNT, FluidSynth) a přivádí MIDI IN z USB MIDI zařízení
+  - uživatelský port: [MT32-pi](https://github.com/dwhinham/mt32-pi) (MIDI OUT; jeho zvuk se přimíchá do zvukového výstupu a jeho displej lze zobrazit přes obraz) nebo adaptér MIDI (MIDI OUT na pinu 1, MIDI IN na pinu 0)
+
+  MIDI IN se bere z uživatelského portu, je-li nastaven na MIDI In/Out, jinak z UART. MIDI OUT jde na obojí; jen když hraje MT32-pi a UART je v režimu MIDI, MidiLink nedostává nic, aby hudba nezněla dvakrát
 - `Video` – nativní časování MSX, PAL/NTSC podle definice stroje (TMS) nebo softwarově (V99xx), volby škálování a scandoubleru
 - `LED` – aktivita SD/VHD, pauza (stroj pozastavený nebo LED pause u turbo R), LED turbo (R800 u turbo R, turbo u MSX2+ Panasonic a u CIEL Expert Turbo)
 - `Podpora SDRAM` – volitelná; potřebují ji větší stroje a cartridge, viz [Bez modulu SDRAM](#bez-modulu-sdram)
@@ -219,7 +224,7 @@ Jádro se integruje s MiSTerFPGA a podporuje tyto funkce platformy:
 - **V99x8:** chybí sprity v overscanu a okno FH v textových režimech. Nastavení rychlosti VDP a hlasitosti na 1chipMSX se ukládají bez účinku.
 - **1chipMSX:** bez MoonSound, bez zvláštních kláves PrintScreen/ScrollLock (Pause je obecná pauza stroje).
 - **Pauza:** stojí jen CPU; kazeta (CAS) a řadiče disket běží dál, takže pauza během nahrávání může skončit chybou čtení.
-- Žádná hlasitost ani ztlumení po zdrojích v OSD, chybí deform bity 0/1 SCC+, žádné V9990. MT32-pi na user portu není: MIDI jde ven jen přes UART (MidiLink, např. do MUNT nebo FluidSynth).
+- Žádná hlasitost ani ztlumení po zdrojích v OSD, chybí deform bity 0/1 SCC+, žádné V9990.
 
 ## Poděkování
 - [MSX_MiSTer](https://github.com/MiSTer-devel/MSX_MiSTer) od Sorgeliga – port OCM-PLD od KdL na MiSTer a inspirace pro toto jádro. Stroj 1chipMSX byl převeden z něj: IPL ROM, systémové I/O porty a řízení rychlosti CPU, ESE-RAM s MegaSD, MegaSCC/MegaRAM a myš PS/2.

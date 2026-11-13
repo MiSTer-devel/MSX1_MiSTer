@@ -1,10 +1,12 @@
 #!/bin/bash
 # sdram testbench (Verilator --timing). Usage: wsl.exe -- bash rtl/peripheral/tb/run_sdram.sh
-# Optional $1 = alternative sdram.sv (CH4=1: it has the ch4 ports); OLD=1 for the version without core_phase port.
+# Optional $1 = alternative sdram.sv (CH4=1: it has the ch4 ports); OLD=1 for the version without core_phase port,
+# OLDPH=1 for the version with the cpu_phase port (windows from the measured phase period).
 set -e
 cd "$(dirname "$0")"
 DUT=${1:-../sdram.sv}
 DEFS=""; [ -n "$OLD" ] && DEFS="+define+OLD"
+[ -n "$OLDPH" ] && DEFS="$DEFS +define+OLDPH"
 [ -n "$1" ] && [ -z "$CH4" ] && DEFS="$DEFS +define+NO_CH4"    # other sdram.sv: without ch4 unless CH4=1
 OUT=$(mktemp -d)
 # C6: SDRAM_DQ may feed one register only (ch1_saved_data, placed in the I/O cell)

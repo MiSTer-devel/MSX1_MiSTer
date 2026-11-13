@@ -46,6 +46,7 @@ msx_cpu dut (
     .cold_reset(cold_reset),
     .r800_active(),
     .bus_phase (),
+    .bus_phase_next(),
     .int_rq    (int_rq),
     .di        (di),
     .m1_n, .mreq_n, .iorq_n, .rd_n, .wr_n, .rfsh_n,

@@ -62,6 +62,7 @@ module msx_system (
     memory_bus_if.device_mp     memory_bus_sdram_ch3,
     wave_bus_if.device_mp       wave_bus_sdram_ch4,     // OPL4 sample memory
     output                      cpu_phase,              // clk in which the CPU may start a bus access
+    output                      cpu_phase_next,         // cpu_phase one clk ahead (SDRAM)
     output             [27:0]   ddr3_addr,
     output                      ddr3_rd,
     input               [7:0]   ddr3_dout,
@@ -157,6 +158,7 @@ msx #(.sysCLK(sysCLK)) MSX
    .memory_bus(memory_bus_msx),
    .wave_bus(wave_bus),
    .cpu_phase(cpu_phase),
+   .cpu_phase_next(cpu_phase_next),
    .audio_L(audio_L),
    .audio_R(audio_R),
    .ps2_key(ps2_key),

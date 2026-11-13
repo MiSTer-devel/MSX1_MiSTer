@@ -108,6 +108,7 @@ module TV80#( parameter Mode      = 0,
     output              IntCycle_n,
     input               R800_mode,
     input               CMOS,
+    output        [1:0] MULU,           // R800 multiply running (bit 0), MULUW (bit 1)
     output              IntE,
     output              Stop,
     // Savestate (MiSTer T80 layout): IFF2, IFF1, IM, IY, HL', DE', BC', IX, HL, DE, BC, PC, SP, R, I, F', A', F, A
@@ -900,6 +901,7 @@ module TV80#( parameter Mode      = 0,
     assign HALT_n = ~Halt_FF;
     assign BUSAK_n = ~BusAck;
     assign IntCycle_n = ~IntCycle;
+    assign MULU = {MULU_W, I_MULU};
     assign IntE = IntE_FF1;
     assign IORQ = IORQ_i;
     assign Stop = I_DJNZ;

@@ -23,6 +23,8 @@
 // software (A7h = 81h); when it enables the hardware pause (bit 1) the CPU must stop as well.
 // Other machines: +pause_ms=<ms> the Pause key pauses the machine (CPU stopped, sound muted,
 // pause LED), the second press 500 ms later resumes it.
+// +ch1_lat=2: SDRAM read data of the CPU valid on the 2nd clk_core edge (worst case of the
+// controller) instead of the 1st.
 // +osd_ms=<ms>: the OSD opens at that time with "Pause when OSD open" off (the machine runs),
 // 200 ms later the option goes on (paused), 400 ms later the OSD closes (runs again).
 // Paused (CPU held, also the turbo R hardware pause) = msx_system `pause` (HDMI freeze) on.
@@ -123,13 +125,22 @@ end
 
 // ------------------------------------------------------------------ SDRAM channels
 logic [7:0] sdram [0:(1<<25)-1];
-logic ch1_q = 0; logic [7:0] ch1_data = 0;
+// ch1 read data is valid on the 1st clk_core edge after the request; +ch1_lat=2: on the 2nd,
+// the longest the SDRAM controller takes (rtl/peripheral/tb/sdram_tb.sv)
+logic ch1_q = 0; logic [7:0] ch1_data = 0, ch1_data2 = 0;
+bit   ch1_lat2 = 0;
 always @(posedge clk_core) begin
     ch1_q <= sd_ch1.ram_cs;
     if (sd_ch1.ram_cs && !ch1_q && !sd_ch1.rnw) sdram[sd_ch1.addr[24:0]] = sd_ch1.data;
-    ch1_data <= sdram[sd_ch1.addr[24:0]];
+    ch1_data  <= sdram[sd_ch1.addr[24:0]];
+    ch1_data2 <= ch1_data;
 end
-assign sd_ch1.q = ch1_data; assign sd_ch1.sdram_ready = 1'b1; assign sd_ch1.sdram_done = 1'b0;
+assign sd_ch1.q = ch1_lat2 ? ch1_data2 : ch1_data;
+assign sd_ch1.sdram_ready = 1'b1; assign sd_ch1.sdram_done = 1'b0;
+initial begin
+    int n;
+    if ($value$plusargs("ch1_lat=%d", n)) ch1_lat2 = n == 2;
+end
 
 typedef struct { logic q; int busy; logic done; logic ready; logic [7:0] data; } chan_t;
 chan_t c2 = '{0, 0, 0, 1, 0}, c3 = '{0, 0, 0, 1, 0};

@@ -23,7 +23,7 @@ module tb_wait (
       .WAIT_n(wait_n), .INT_n(1'b1), .NMI_n(1'b1), .BUSRQ_n(1'b1),
       .M1_n(m1_n), .MREQ_n(MREQ_n), .IORQ_n(IORQ_n), .RD_n(RD_n), .WR_n(WR_n),
       .RFSH_n(), .HALT_n(), .BUSAK_n(), .A(A), .DI(DI), .DO(DO),
-      .MC(), .TS(), .IntCycle_n(), .REG(), .DIRSet(1'b0), .DIR('0)
+      .MC(), .TS(), .IntCycle_n(), .MULU(), .REG(), .DIRSet(1'b0), .DIR('0)
    );
    assign addr = A;
 

@@ -43,7 +43,7 @@ module tb_tv80 (
       .WAIT_n(1'b1), .INT_n(int_n), .NMI_n(nmi_n), .BUSRQ_n(1'b1),
       .M1_n(M1_n), .MREQ_n(MREQ_n), .IORQ_n(IORQ_n), .RD_n(RD_n), .WR_n(WR_n),
       .RFSH_n(), .HALT_n(), .BUSAK_n(), .A(A), .DI(DI), .DO(DO),
-      .MC(), .TS(), .IntCycle_n(), .REG(), .DIRSet(1'b0), .DIR('0)
+      .MC(), .TS(), .IntCycle_n(), .MULU(), .REG(), .DIRSet(1'b0), .DIR('0)
    );
 
    // ROM 0000-00FF (mirrored up to 7FFF), RAM 8000-80FF (mirrored up to FFFF)

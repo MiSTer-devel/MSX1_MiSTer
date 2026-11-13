@@ -31,6 +31,7 @@ module msx #(parameter sysCLK)
    memory_bus_if.device_mp  memory_bus,
    wave_bus_if.device_mp    wave_bus,             // OPL4 sample memory
    output                   cpu_phase,            // clk in which the CPU may start a bus access
+   output                   cpu_phase_next,       // cpu_phase one clk ahead
    //I/O
    output            [15:0] audio_L,
    output            [15:0] audio_R,
@@ -175,6 +176,7 @@ msx_cpu cpu (
    .cold_reset(core_hard_reset),
    .r800_active(),
    .bus_phase (cpu_phase),
+   .bus_phase_next(cpu_phase_next),
    .int_rq    (cpu_interrupt),
    .di        (d_to_cpu),
    .m1_n      (m1_n),

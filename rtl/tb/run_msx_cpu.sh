@@ -30,6 +30,7 @@ else
     # Golden hash (n=200000) from the derived-clock implementation before CE, identical for
     # every speed/wait. lat = memory read latency margin of the CE version: lat+1 fails.
     # (derived-clock version had margin +1: 11/12, 7/8, 3/4)
+    # sel 0 3.58, 2 5.37, 1 10.7, 3 7.16 MHz
     # sel wait lat
     while read -r sel wait lat; do
         for l in 0 $lat; do
@@ -43,6 +44,8 @@ else
 2 1 7
 1 0 2
 1 1 3
+3 0 4
+3 1 5
 EOF
     # Run-time speed switching (OCM turbo) at the 10.7 MHz latency margin, with and
     # without memory / I/O wait states.

@@ -1,9 +1,11 @@
 // CPU speed and VDP port timing of msx_cpu (doc/cpu.md, doc/turboR.md chapter 3 and 6):
 //   - Z80 3.58 MHz with one M1 wait: NOP 5 T = 30 clk; T9769 (vdp_io_wait): one more wait
 //     state on the VDP ports (98-9B);
-//   - R800: 7.16 MHz, no M1 wait state (NOP 4 T = 12 clk); two accesses to the VDP ports
-//     start exactly 62 R800 cycles apart when they come sooner (openMSX VDPIODelay), reads
-//     and writes; other ports not delayed;
+//   - R800: Z80 T states at 10.7 MHz, no M1 wait state (NOP 4 T = 8 clk); I/O cycles with
+//     3 wait states (OUT (n),A 14 T = 28 clk = 9.3 cycles of 7.16 MHz); MULUB 14 and MULUW 36
+//     cycles of 7.16 MHz (42 / 108 clk); two accesses to the VDP ports start exactly 62 R800
+//     cycles (186 clk) apart when they come sooner (openMSX VDPIODelay), reads and writes;
+//     other ports not delayed;
 //   - the Z80 timing is back after the switch to the Z80;
 //   - Matsushita turbo (5.37 MHz, vdp_wr_wait): two VDP writes start 46 cycles of 5.37 MHz
 //     apart, reads are not delayed (openMSX MSXMatsushita);
@@ -11,7 +13,7 @@
 // "Start" is what the devices see: the bus strobes masked by io_hold, as in msx.sv.
 // Zero-latency memory, r800_sel driven directly (the S1990 is not part of the test). Program
 // (both CPUs start at 0000h): LD A,0; OUT (98h),A x2; OUT (A0h),A x2; IN A,(98h) x2;
-// 16 x NOP; JP 0000h.
+// MULUB A,B; MULUW HL,BC (NOPs on the Z80); 16 x NOP; JP 0000h.
 // Plusargs: +turbor=0 (no T9769 wait), +v verbose. OLD_CPU (run_r800_timing.sh ALT=<dir>): the
 // msx_cpu before io_hold (port turbor), must fail.
 // Run: wsl.exe -- bash rtl/tb/run_r800_timing.sh
@@ -54,6 +56,7 @@ msx_cpu dut (
     .cold_reset(cold_reset),
     .r800_active(active),
     .bus_phase (),
+    .bus_phase_next(),
     .int_rq    (1'b0),
     .di        (di),
     .m1_n, .mreq_n, .iorq_n, .rd_n, .wr_n, .rfsh_n,
@@ -66,14 +69,15 @@ assign io_hold = 1'b0;
 
 // ---------------- memory ----------------
 logic [7:0] mem [0:255];
-localparam logic [15:0] NOP_FIRST = 16'h000E, NOP_LAST = 16'h001D;
+localparam logic [15:0] NOP_FIRST = 16'h0012, NOP_LAST = 16'h0021;
 initial begin
     foreach (mem[i]) mem[i] = 8'h00;
     {mem[0], mem[1]} = {8'h3E, 8'h00};                      // LD A,0
     {mem[2], mem[3], mem[4], mem[5]} = {8'hD3, 8'h98, 8'hD3, 8'h98};    // OUT (98h),A x2
     {mem[6], mem[7], mem[8], mem[9]} = {8'hD3, 8'hA0, 8'hD3, 8'hA0};    // OUT (A0h),A x2
     {mem[10], mem[11], mem[12], mem[13]} = {8'hDB, 8'h98, 8'hDB, 8'h98}; // IN A,(98h) x2
-    {mem[30], mem[31], mem[32]} = {8'hC3, 8'h00, 8'h00};    // JP 0000h (000Eh-001Dh: NOP)
+    {mem[14], mem[15], mem[16], mem[17]} = {8'hED, 8'hC1, 8'hED, 8'hC3}; // MULUB A,B; MULUW HL,BC
+    {mem[34], mem[35], mem[36]} = {8'hC3, 8'h00, 8'h00};    // JP 0000h (0012h-0021h: NOP)
 end
 assign di = (~mreq_n && ~rd_n) ? mem[addr[7:0]] : 8'h00;    // IN reads 00h (A stays 0)
 
@@ -84,15 +88,15 @@ always @(posedge clk) cyc++;
 // per phase: NOP M1 interval (min / max), I/O cycle lengths (IORQ low, waits included), the
 // gap between the ends of the two OUT cycles of a pair (98h, A0h) and the starts of the four
 // VDP accesses as the devices see them (OUT, OUT, IN, IN)
-typedef struct { int nop_min, nop_max, len98_1, len98_2, lenA0, gap98, gapA0, loops; int s98[4]; } meas_t;
+typedef struct { int nop_min, nop_max, len98_1, len98_2, lenA0, gap98, gapA0, loops, mulub, muluw; int s98[4]; } meas_t;
 meas_t m;
 task automatic clear_meas();
     m = '{nop_min: 1 << 30, nop_max: 0, len98_1: -1, len98_2: -1, lenA0: -1, gap98: -1, gapA0: -1, loops: 0,
-          s98: '{-1, -1, -1, -1}};
+          mulub: -1, muluw: -1, s98: '{-1, -1, -1, -1}};
 endtask
 
 logic        m1_q = 0, io_q = 0, dev_q = 0, measure = 0;
-int          t_m1 = 0, t_io_start = 0, t_98 = -1, t_A0 = -1;
+int          t_m1 = 0, t_io_start = 0, t_98 = -1, t_A0 = -1, t_mul = 0;
 int          n98 = 0, nA0 = 0, d98 = 0;
 wire         m1_act  = ~m1_n && ~mreq_n;
 wire         io_act  = ~iorq_n && m1_n;
@@ -106,6 +110,9 @@ always @(posedge clk) begin
             if (cyc - t_m1 < m.nop_min) m.nop_min = cyc - t_m1;
             if (cyc - t_m1 > m.nop_max) m.nop_max = cyc - t_m1;
         end
+        if (measure && addr == 16'h0010) m.mulub = cyc - t_mul;     // MULUB: 000Eh to 0010h
+        if (measure && addr == 16'h0012) m.muluw = cyc - t_mul;     // MULUW: 0010h to 0012h
+        if (addr == 16'h000E || addr == 16'h0010) t_mul = cyc;
         if (addr == 16'h0000) begin
             if (measure) m.loops++;
             n98 = 0; nA0 = 0; d98 = 0;
@@ -144,7 +151,7 @@ endtask
 // the device sees a held access at least as long as a plain I/O cycle
 task automatic check_window(input string phase);
     int win = m.gap98 - (m.s98[1] - m.s98[0]) + m.len98_1;
-    if (win < m.lenA0) fail($sformatf("%s held VDP access seen for %0d clk, plain I/O cycle %0d", phase, win, m.lenA0));
+    if (win < m.len98_1) fail($sformatf("%s held VDP access seen for %0d clk, one not held %0d", phase, win, m.len98_1));
 endtask
 
 // run complete loops of the program and report
@@ -153,9 +160,9 @@ task automatic run_loops(input string phase, input int n);
     @(posedge clk); clear_meas(); measure = 1;
     wait (m.loops == n); @(posedge clk); measure = 0;
     if (verbose || errors)
-        $display("%s: NOP M1 interval %0d..%0d clk, OUT(98) %0d / %0d clk, OUT(A0) %0d clk, gap 98 %0d, gap A0 %0d, VDP starts +%0d +%0d +%0d",
+        $display("%s: NOP M1 interval %0d..%0d clk, OUT(98) %0d / %0d clk, OUT(A0) %0d clk, gap 98 %0d, gap A0 %0d, VDP starts +%0d +%0d +%0d, MULUB %0d, MULUW %0d",
                  phase, m.nop_min, m.nop_max, m.len98_1, m.len98_2, m.lenA0, m.gap98, m.gapA0,
-                 m.s98[1] - m.s98[0], m.s98[2] - m.s98[1], m.s98[3] - m.s98[2]);
+                 m.s98[1] - m.s98[0], m.s98[2] - m.s98[1], m.s98[3] - m.s98[2], m.mulub, m.muluw);
 endtask
 
 initial begin
@@ -177,15 +184,20 @@ initial begin
     expect_eq("Z80 gap of the OUT (A0) pair", m.gapA0, 12 * 6);                 // OUT (n),A = 11 T + M1 wait
     expect_eq("Z80 VDP writes not held", m.s98[1] - m.s98[0], (12 + w) * 6);
     expect_eq("Z80 VDP reads not held", m.s98[3] - m.s98[2], (12 + w) * 6);
+    expect_eq("Z80 ED C1 is a NOP", m.mulub, 10 * 6);
+    expect_eq("Z80 ED C3 is a NOP", m.muluw, 10 * 6);
     if (active) fail("R800 active without a request");
 
-    // --- R800 (7.16 MHz, no M1 wait): NOP 4 T = 12 clk, VDP accesses start 62 T = 186 clk apart
+    // --- R800 (10.7 MHz, no M1 wait): NOP 4 T = 8 clk, I/O with 3 wait states, MULUB / MULUW
+    // 14 / 36 cycles of 7.16 MHz, VDP accesses start 62 such cycles = 186 clk apart
     r800_sel = 1;
     @(posedge clk); wait (active); if (verbose) $display("%0t R800 active", $time);
     run_loops("R800", 4);
-    expect_eq("R800 NOP interval min", m.nop_min, 12);
-    expect_eq("R800 NOP interval max", m.nop_max, 12);
-    expect_eq("R800 gap of the OUT (A0) pair", m.gapA0, 11 * 3);                // OUT (n),A = 11 T
+    expect_eq("R800 NOP interval min", m.nop_min, 8);
+    expect_eq("R800 NOP interval max", m.nop_max, 8);
+    expect_eq("R800 gap of the OUT (A0) pair", m.gapA0, (11 + 3) * 2);          // OUT (n),A = 11 T + 3 waits
+    expect_eq("R800 MULUB", m.mulub, 14 * 3);
+    expect_eq("R800 MULUW", m.muluw, 36 * 3);
     expect_eq("R800 first OUT (98) not delayed", m.len98_1, m.lenA0);
     expect_eq("R800 VDP write after write", m.s98[1] - m.s98[0], 62 * 3);
     expect_eq("R800 VDP read after write", m.s98[2] - m.s98[1], 62 * 3);
@@ -208,7 +220,7 @@ initial begin
     expect_eq("turbo VDP write after write", m.s98[1] - m.s98[0], 46 * 4);
     expect_eq("turbo VDP read after read", m.s98[3] - m.s98[2], (12 + w) * 4);
     expect_eq("turbo gap of the OUT (A0) pair", m.gapA0, 12 * 4);
-    if (m.s98[2] - m.s98[1] > 3 * 12 * 4) fail("turbo VDP read held after a write");
+    if (m.s98[2] - m.s98[1] >= 46 * 4) fail("turbo VDP read held after a write");
     check_window("turbo");
 
     // --- Matsushita, turbo off: nothing held

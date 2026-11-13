@@ -511,6 +511,7 @@ ARCHITECTURE rtl OF ascal IS
 	SIGNAL o_lex0,o_lex1,o_lex2,o_lex3       : std_logic;
 	SIGNAL o_wr : unsigned(3 DOWNTO 0);
 	SIGNAL o_hcpt,o_vcpt,o_vcpt_pre,o_vcpt_pre2,o_vcpt_pre3,o_vcpt2 : uint12;
+	SIGNAL o_vlast : boolean; -- o_vcpt_pre3+1>=o_vtotal, registered (timing)
 	SIGNAL o_ihsize,o_ihsizem,o_ivsize : uint12;
 	SIGNAL o_ihsize_temp, o_ihsize_temp2 : natural RANGE 0 TO 32767;
 
@@ -2785,7 +2786,7 @@ BEGIN
 						o_vcpt_sync <= o_vcpt_sync+1;
 					END IF;
 
-					IF o_vcpt_pre3+1>=o_vtotal THEN
+					IF o_vlast THEN
 						o_vcpt_pre3<=0;
 					ELSIF o_vrr_sync2 THEN
 						o_vcpt_pre3<=o_vsstart;
@@ -2839,6 +2840,8 @@ BEGIN
 			END IF;
 
 			o_vcpt2<=o_vcpt_pre3;
+			-- o_vcpt_pre3 changes only at a line end, so one clock of latency is invisible
+			o_vlast<=(o_vcpt_pre3+1>=o_vtotal);
 			o_vrr_sync<=(o_vrr='1' AND (o_sync OR o_sync_max) AND o_vcpt2>=o_vdisp AND o_vcpt2<o_vsstart);
 			o_vrr_sync2<=o_vrr_sync;
 

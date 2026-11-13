@@ -90,6 +90,9 @@ module vdp_adjust_tb;
 
     int errors = 0;
     int lead0, trail0, start0;
+    // horizontal R#18 values and the pixels the picture moves (right = positive)
+    byte adj [5] = '{8'h00, 8'h02, 8'h08, 8'h0C, 8'h0F};
+    int  adj_px [5] = '{0, -2, 8, 4, 1};
 
     task automatic check_row(input string what, input int rw, input int lead, input int trail);
         bit ok = f_width[rw] == 1024 && f_lead[rw] == lead && f_trail[rw] == trail && f_start[rw] == start0;
@@ -151,6 +154,13 @@ module vdp_adjust_tb;
         set_reg(18, 8'h07); wait_frames(2); check_shift("R#18 = 07 (7 left)",  100, -7);
         set_reg(18, 8'h08); wait_frames(2); check_shift("R#18 = 08 (8 right)", 100,  8);
         set_reg(18, 8'h0F); wait_frames(2); check_shift("R#18 = 0F (1 right)", 100,  1);
+        // every line moves alike, the first and the last line of the window included
+        foreach (adj[i]) begin
+            set_reg(18, adj[i]); wait_frames(2);
+            check_rows($sformatf("R#18 = %02h, lines", adj[i]), 0, 191, 192);
+            check_shift($sformatf("R#18 = %02h, first line", adj[i]), 0,   adj_px[i]);
+            check_shift($sformatf("R#18 = %02h, last line", adj[i]),  191, adj_px[i]);
+        end
         set_reg(18, 8'h00);
 
         $display("R#18 written on display line 15, cleared after the display (Go Figure)");
@@ -175,12 +185,21 @@ module vdp_adjust_tb;
         check_shift("R#27 = 0, R#25 MSK", 100, -4, 8, 0);     // ESE: a masked picture is centred
         set_reg(25, 8'h00);
 
-        $display("PAL, 212 lines (the same before the fix)");
+        $display("PAL, 212 lines");
         set_reg(9, 8'h82); wait_frames(3);
         start0 += 4;                            // LED_TV_X_PAL
         check_shift("R#9 = 82", 100, 0);
         if (f_rows != 212) begin errors++; $display("FAIL window of %0d lines, expected 212", f_rows); end
+        check_rows("R#9 = 82, lines", 0, 211, 212);
         set_reg(18, 8'h08); wait_frames(2); check_shift("R#9 = 82, R#18 = 08 (8 right)", 100, 8);
+        $display("PAL, 192 lines (Philips NMS 8220, Lilly's Saga: R#18 = 0C)");
+        set_reg(9, 8'h02);
+        foreach (adj[i]) begin
+            set_reg(18, adj[i]); wait_frames(2);
+            check_rows($sformatf("R#9 = 02, R#18 = %02h, lines", adj[i]), 0, 191, 192);
+            check_shift($sformatf("R#9 = 02, R#18 = %02h, first line", adj[i]), 0,   adj_px[i]);
+            check_shift($sformatf("R#9 = 02, R#18 = %02h, last line", adj[i]),  191, adj_px[i]);
+        end
 
         $display("%s vdp_adjust_tb (%0d errors)", errors ? "FAIL" : "PASS", errors);
         $finish;

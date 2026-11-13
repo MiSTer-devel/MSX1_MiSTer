@@ -375,15 +375,19 @@ end
 logic [6:0]  W_OWIN_X0;
 logic [10:0] W_OWIN_BASE;
 logic [8:0]  FF_OUT_LINE, W_OUT_LINE_NEXT;
+logic        FF_OUT_HELD;     // last step held at 255: the next one is skipped, as the picture
 assign W_OWIN_X0   = OFFSET_X + (VDPR9PALMODE ? LED_TV_X_PAL : LED_TV_X_NTSC);
 assign W_OWIN_BASE = {2'b00, W_OWIN_X0, 2'b10};         // X counter load (R#25 MSK = 0)
-assign W_OUT_LINE_NEXT = (FF_OUT_LINE == 9'd255) ? FF_OUT_LINE : FF_OUT_LINE + 9'd1;
+// Steps like FF_MONITOR_LINE: held at 255, and the first step after the preset is skipped
+// when the line before it was held (PAL: the picture starts one line after the preset).
+assign W_OUT_LINE_NEXT = FF_OUT_HELD ? FF_OUT_LINE : FF_OUT_LINE + 9'd1;
 
 always_ff @(posedge CLK21M or posedge RESET) begin
     if (RESET) begin
         OWINDOW_X   <= 1'b0;
         OWINDOW_Y   <= 1'b0;
         FF_OUT_LINE <= 9'b0;
+        FF_OUT_HELD <= 1'b0;
     end else begin
         // WINDOW_X of an unadjusted line: 67 clocks after the load, 256 pixels
         if (W_H_CNT == W_OWIN_BASE + 11'd67)        OWINDOW_X <= 1'b1;
@@ -405,6 +409,7 @@ always_ff @(posedge CLK21M or posedge RESET) begin
                          (REG_R9_Y_DOTS == 1'b1 && W_OUT_LINE_NEXT == 9'd212))
                     OWINDOW_Y <= 1'b0;
                 FF_OUT_LINE <= W_OUT_LINE_NEXT;
+                FF_OUT_HELD <= W_OUT_LINE_NEXT == 9'd255;
             end
         end
     end

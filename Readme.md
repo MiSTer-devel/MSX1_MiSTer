@@ -88,7 +88,7 @@ With SDRAM, a 32 MB module is enough. The largest machine (1chipMSX) needs about
 | Tape Monitor | On (default) / Off: the tape signal is heard in the sound output while the motor runs. Not shown on the 1chipMSX. |
 | Cas File (`.CAS`) | Tape image, shown when Tape Input is File. |
 | Tape Rewind | Rewinds the tape image. |
-| Firmware switch | Off / On, only on machines with the S1990 (turbo R). |
+| Firmware switch | Off / On, only on machines that have one: turbo R and the Panasonic, National and Sanyo machines with the Matsushita switched I/O. |
 | Video | Aspect ratio, scandoubler (None, HQ2x, CRT 25/50/75 %), Vertical Crop, Scale (Normal, V-Integer, Narrower/Wider HV-Integer, HV-Integer), Border (applies to the TMS and V99xx VDP). |
 | Pause when OSD open | No (default) / Yes: the machine stops while the OSD is open (CPU held, sound muted, HDMI picture frozen). |
 | Reset | Reset of the machine. |
@@ -123,7 +123,7 @@ The core includes the following hardware modules:
 - `PSG` – [AY-3-8910 / YM2149 Programmable Sound Generator](https://www.msx.org/wiki/General_Instrument_AY-3-8910)
 - `VDP` – [Video Display Processor (TMS family)](https://www.msx.org/wiki/Texas_Instruments_TMS9918), PAL or NTSC per machine definition
 - `VDP` – Yamaha [V9938](https://www.msx.org/wiki/Yamaha_V9938) / [V9958](https://www.msx.org/wiki/Yamaha_V9958), 128 KB VRAM
-- `CPU` – [Z80](https://www.msx.org/wiki/Z80) at 3.58 MHz; R800 mode of the turbo R, see [Known limitations](#known-limitations)
+- `CPU` – [Z80](https://www.msx.org/wiki/Z80) at 3.58 MHz with the MSX wait state in every opcode fetch; NMOS or CMOS behaviour by the machine's [MSX-Engine](https://www.msx.org/wiki/MSX-Engine) (the T9769 also with its wait state on the VDP ports); 5.37 MHz turbo of the Panasonic FS-A1FX, FS-A1WX and FS-A1WSX, 7.16 MHz turbo of the CIEL Expert Turbo; R800 mode of the turbo R, see [Known limitations](#known-limitations)
 - `MEM_MAPPER` – MSX2 memory mapper
 - `KANJI` – [Kanji ROM](https://www.msx.org/wiki/Kanji_ROM) (levels 1 and 2; Hangul variants)
 - `FDD` – Floppy Disk Drive emulation on raw `.DSK` images (720K, 640K, 360K, 320K; disk change supported)
@@ -139,6 +139,8 @@ The core includes the following hardware modules:
 - `MSX_MIDI` – [MSX-MIDI](https://www.msx.org/wiki/MSX-MIDI) (i8251 UART + i8254 timer, I/O ports E8h–EFh), MIDI IN and MIDI OUT via the MiSTer UART
 - `SFG01` – [Yamaha SFG-01](https://www.msx.org/wiki/Yamaha_SFG-01)
 - `SFG05` – [Yamaha SFG-05](https://www.msx.org/wiki/Yamaha_SFG-05)
+- Matsushita switched I/O (Panasonic, National and Sanyo MSX2 / MSX2+): turbo switch, firmware switch, 2 KB firmware SRAM
+- CIEL Expert Turbo: turbo switch
 - turbo R: `S1990` system controller (Z80/R800 and ROM/DRAM switch, firmware switch), PCM, Pause key with LEDs, system timer; see [MSX turbo R](https://www.msx.org/wiki/MSX_turbo_R)
 - [1chipMSX](https://www.msx.org/wiki/1chipMSX): IPL ROM, switched I/O ports 40-4F, ESE-RAM, MegaSD with SD card (VHD), turbo 3.58 / 5.37 / 10.74 MHz
 
@@ -205,14 +207,14 @@ The core integrates with MiSTerFPGA and supports the following features provided
 - `Cassette` – playback of `.CAS` files (the MSX motor must be on) or real tape through the MiSTer analog input (ADC); the tape is audible. There is no tape output.
 - `MIDI` – with the MiSTer UART set to MIDI (31250 Bd), MIDI IN and MIDI OUT of the YM2148 (Yamaha machines) and of the MSX-MIDI; MidiLink sends MIDI OUT to a USB MIDI device or a software synthesizer
 - `Video` – native MSX timing, PAL/NTSC per machine definition (TMS) or software (V99xx), scaling and scandoubler options
-- `LEDs` – SD/VHD activity, pause (machine paused or turbo R pause LED), turbo R turbo LED
+- `LEDs` – SD/VHD activity, pause (machine paused or turbo R pause LED), turbo LED (R800 of the turbo R, turbo of the Panasonic MSX2+ and of the CIEL Expert Turbo)
 - `SDRAM support` – optional; needed for the bigger machines and cartridges, see [Without the SDRAM module](#without-the-sdram-module)
 
 ## Known Limitations
-- **Nothing is persistent:** cartridge SRAM (FM-PAC, Game Master 2, KOEI, ASCII with SRAM), flash writes (MegaFlashROM, ASCII16-X) and the RTC CMOS are lost on reload. The **SRAM Save / SRAM Load** items do nothing. The FS-A1ST and FS-A1GT lack the SRAM of their Panasonic mapper (16 / 32 KB).
+- **Nothing is persistent:** cartridge SRAM (FM-PAC, Game Master 2, KOEI, ASCII with SRAM), flash writes (MegaFlashROM, ASCII16-X), the firmware SRAM of the Panasonic and National machines and the RTC CMOS are lost on reload. The **SRAM Save / SRAM Load** items do nothing. The FS-A1ST and FS-A1GT lack the SRAM of their Panasonic mapper (16 / 32 KB).
 - **Disks:** only raw `.DSK` images (720K, 640K, 360K, 320K); no 40-track, 1.44 MB, XSA, D88, HFE or DMK. WD279x Read Track is partial. The FDC cartridge works only in slot 1 and only in machines without an FDC; there is no TC8566AF cartridge.
 - **Tape:** playback only, no saving; the end of the file is not detected (garbage is played after the last block).
-- **R800:** the turbo R runs at about 2x the Z80 speed instead of the real 4x (R800 timings are not modelled); no turbo R microphone.
+- **R800:** the R800 of the turbo R runs the Z80 cycle counts at 10.7 MHz, about 3x the Z80 speed; the real one needs fewer cycles per instruction and is faster still. I/O, multiplication and the spacing of VDP accesses take their real time. No turbo R microphone.
 - **ROMs:** a ROM over 64 KB needs an entry in the database, there is no mapper detection from the ROM header. Konami SCC ROM mirrors are not done.
 - **V99x8:** sprites in the overscan and the FH window in text modes are not done. The VDP speed and volume settings of the 1chipMSX are stored without effect.
 - **1chipMSX:** no MoonSound, no special keys PrintScreen/ScrollLock (Pause is the general machine pause).

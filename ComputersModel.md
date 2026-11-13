@@ -50,7 +50,7 @@ Notes on the tables:
 ## CIEL (Brazil)
 | Model | Gen | Description | Key built-in hardware |
 |---|---|---|---|
-| Expert Turbo | MSX2+ | Brazilian homebrew MSX2+ motherboard for a Gradiente Expert case. | V9958, 1024 KB mapper, RTC, MSX-MUSIC, 3 cartridge slots (2 in the core), not emulated: 7.16 MHz turbo |
+| Expert Turbo | MSX2+ | Brazilian homebrew MSX2+ motherboard for a Gradiente Expert case. | V9958, 1024 KB mapper, RTC, MSX-MUSIC, 3 cartridge slots (2 in the core), 7.16 MHz turbo |
 
 ## Canon
 | Model | Gen | Description | Key built-in hardware |
@@ -168,9 +168,9 @@ Notes on the tables:
 | CF-3300 | MSX1 | Japanese desktop MSX1 with a built-in disk drive. | 64 KB RAM, FDC + 1 drive |
 | FS-1300 | MSX1 | Basic Japanese MSX1. | 64 KB RAM |
 | FS-4000 | MSX1 | Japanese word-processing MSX1 with built-in software (built-in printer not emulated). | 64 KB RAM, Kanji ROM, MSX Word ROM |
-| FS-4500 | MSX2 | Japanese word-processing MSX2 with built-in software (built-in printer not emulated). | 64 KB RAM, RTC, Kanji ROM, Word Font, MSX Jusho, MSX Word 1, MSX Word 2 ROM, not emulated: firmware SRAM, Bunsetsu |
+| FS-4500 | MSX2 | Japanese word-processing MSX2 with built-in software (built-in printer not emulated). | 64 KB RAM, RTC, Kanji ROM, Word Font, MSX Jusho, MSX Word 1, MSX Word 2 ROM, firmware SRAM (not saved), not emulated: Bunsetsu |
 | [FS-4600F](https://www.msx.org/wiki/National_FS-4600F) | MSX2 | Japanese word-processing MSX2 with built-in software, Kanji and a disk drive (built-in printer not emulated). | 128 KB mapper, RTC, Kanji ROM, MSX-Word, FDC + 1 drive |
-| FS-4700F | MSX2 | FS-4500 with a built-in disk drive (built-in printer not emulated). | 64 KB RAM, RTC, Kanji ROM, FDC + 1 drive, Word Font, MSX Jusho, MSX Word 1, MSX Word 2 ROM, not emulated: firmware SRAM, Bunsetsu |
+| FS-4700F | MSX2 | FS-4500 with a built-in disk drive (built-in printer not emulated). | 64 KB RAM, RTC, Kanji ROM, FDC + 1 drive, Word Font, MSX Jusho, MSX Word 1, MSX Word 2 ROM, firmware SRAM (not saved), not emulated: Bunsetsu |
 | FS-5000F2 | MSX2 | Japanese desktop MSX2 with two disk drives. | 128 KB mapper, RTC, Kanji ROM, FDC + 2 drives, Set-Up RTC ROM |
 | FS-5500F1 | MSX2 | Japanese desktop MSX2 with one drive (superimpose and digitizer not emulated). | 64 KB RAM, RTC, Kanji ROM, FDC + 1 drive, Super Impose ROM |
 | FS-5500F2 | MSX2 | National's flagship MSX2 with two drives (superimpose and digitizer not emulated). | 64 KB RAM, RTC, Kanji ROM, FDC + 2 drives, Super Impose ROM |
@@ -197,12 +197,12 @@ Notes on the tables:
 | CF-2700 (GB) | MSX1 | Basic British MSX1, one of the few European Panasonic MSX machines. | 64 KB RAM |
 | [FS-A1](https://www.msx.org/wiki/Panasonic_FS-A1) | MSX2 | Basic Japanese MSX2 with built-in DESKPAC software. | 64 KB mapper, RTC |
 | [FS-A1F](https://www.msx.org/wiki/Panasonic_FS-A1F) | MSX2 | FS-A1mkII with a built-in disk drive and software. | 64 KB mapper, RTC, Kanji ROM, TC8566AF FDC + 1 drive |
-| FS-A1FX | MSX2+ | Japanese MSX2+ with a disk drive and built-in software, no MSX-MUSIC. | V9958, 64 KB mapper, RTC, Kanji ROM, TC8566AF FDC + 1 drive, A1 Cockpit ROM, not emulated: 5.37 MHz turbo and firmware SRAM |
+| FS-A1FX | MSX2+ | Japanese MSX2+ with a disk drive and built-in software, no MSX-MUSIC. | V9958, 64 KB mapper, RTC, Kanji ROM, TC8566AF FDC + 1 drive, A1 Cockpit ROM, 5.37 MHz turbo, firmware SRAM (not saved) |
 | FS-A1MK2 | MSX2 | Basic Japanese MSX2, the FS-A1 with a numeric keypad. | 64 KB RAM, RTC, A1 Cockpit 1, A1 Cockpit 2, A1 Cockpit 3 ROM |
-| [FS-A1ST](https://www.msx.org/wiki/Panasonic_FS-A1ST) | turbo R | The first MSX turbo R: R800, MSX-MUSIC, PCM, MSX-DOS2, drive and software. R800 runs at about 2x Z80 speed (see [Readme](Readme.md#known-limitations)). | V9958, 256 KB RAM, R800/S1990, MSX-MUSIC, PCM, RTC, Kanji ROM, TC8566AF FDC + 1 drive |
-| [FS-A1GT](https://www.msx.org/wiki/Panasonic_FS-A1GT) | turbo R | The last MSX turbo R: the FS-A1ST with 512 KB RAM, MSX-MIDI and more built-in software (MSX-View). R800 runs at about 2x Z80 speed (see [Readme](Readme.md#known-limitations)). | V9958, 512 KB RAM, R800/S1990, MSX-MUSIC, PCM, MSX-MIDI, RTC, Kanji ROM, TC8566AF FDC + 1 drive, not emulated: SRAM of the firmware |
-| FS-A1WSX | MSX2+ | Successor of the FS-A1WX: MSX2+ with MSX-MUSIC, disk drive and built-in software. | V9958, 64 KB mapper, RTC, MSX-MUSIC, Kanji ROM, TC8566AF FDC + 1 drive, firmware ROM, not emulated: 5.37 MHz turbo and firmware SRAM |
-| FS-A1WX | MSX2+ | Japanese MSX2+ with MSX-MUSIC, disk drive and built-in software. | V9958, 64 KB mapper, RTC, MSX-MUSIC, Kanji ROM, TC8566AF FDC + 1 drive, firmware ROM, not emulated: 5.37 MHz turbo and firmware SRAM |
+| [FS-A1ST](https://www.msx.org/wiki/Panasonic_FS-A1ST) | turbo R | The first MSX turbo R: R800, MSX-MUSIC, PCM, MSX-DOS2, drive and software. R800 runs at about 3x Z80 speed (see [Readme](Readme.md#known-limitations)). | V9958, 256 KB RAM, R800/S1990, MSX-MUSIC, PCM, RTC, Kanji ROM, TC8566AF FDC + 1 drive |
+| [FS-A1GT](https://www.msx.org/wiki/Panasonic_FS-A1GT) | turbo R | The last MSX turbo R: the FS-A1ST with 512 KB RAM, MSX-MIDI and more built-in software (MSX-View). R800 runs at about 3x Z80 speed (see [Readme](Readme.md#known-limitations)). | V9958, 512 KB RAM, R800/S1990, MSX-MUSIC, PCM, MSX-MIDI, RTC, Kanji ROM, TC8566AF FDC + 1 drive, not emulated: SRAM of the firmware |
+| FS-A1WSX | MSX2+ | Successor of the FS-A1WX: MSX2+ with MSX-MUSIC, disk drive and built-in software. | V9958, 64 KB mapper, RTC, MSX-MUSIC, Kanji ROM, TC8566AF FDC + 1 drive, firmware ROM, 5.37 MHz turbo, firmware SRAM (not saved) |
+| FS-A1WX | MSX2+ | Japanese MSX2+ with MSX-MUSIC, disk drive and built-in software. | V9958, 64 KB mapper, RTC, MSX-MUSIC, Kanji ROM, TC8566AF FDC + 1 drive, firmware ROM, 5.37 MHz turbo, firmware SRAM (not saved) |
 
 ## Philips
 | Model | Gen | Description | Key built-in hardware |

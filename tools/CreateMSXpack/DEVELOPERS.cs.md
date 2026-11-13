@@ -44,7 +44,8 @@ Kořenový prvek `<msxConfig>`. Čísla mohou být desítková nebo hexadecimál
 |---|---|---|
 | `<cpu>` | `Z80` nebo `R800` | bity 7:6 hlavičky. Počítače turbo R stále uvádějí `Z80`; R800 se za běhu přepíná zařízením S1990 |
 | `<wait_count>` | 0-7 | čekací stavy M1 (bity 5:3 hlavičky). Všechny počítače používají `1` |
-| `<cpu_frequency>` | 0, 1, 2 | 0 = 3,58, 1 = 5,39, 2 = 10,7 MHz. Všechny počítače používají `0` |
+| `<cpu_frequency>` | 0, 1, 2, 3 | takt Z80 po resetu: 0 = 3,58, 1 = 5,37, 2 = 10,7, 3 = 7,16 MHz. Všechny počítače používají `0`; turbo se přepíná za běhu zařízením (`MATSUSHITA`, `CIEL_TURBO`, `OCM_BOOT`, `S1990`) |
+| `<engine>` | `S3527`, `S1985`, `T7775`, `T7937`, `T9763`, `T9769` | MSX-Engine počítače (nepovinné, atribut `subtype` je jen informativní), bajt 4 hlavičky. Obvody Toshiba obsahují CMOS Z80: `OUT (C),0` zapíše FFh a SCF / CCF nemění příznak Y (bit 0). `T9769` navíc přidá jeden čekací stav ke každému přístupu na porty VDP 98h-9Bh (bit 1). Obvody Yamaha nic nemění. Neznámý název zpracování počítače zastaví |
 | `<device>` | název zařízení | I/O zařízení nejvyšší úrovně, viz 2.2 |
 | `<kbd_layout>` | base64 | 512bajtová mapa kláves z [../CreateKeyMap/README.md](../CreateKeyMap/README.md), stane se záznamem KEYBOARD_LAYOUT. Každý současný počítač vkládá `key_map_eu.bin` |
 | `<primary slot="0..3">` | strom slotů | primární slot, viz 2.3 |
@@ -58,7 +59,7 @@ Text prvku je název z `device.json`; neznámý název vypíše `Device '<x>' ne
 | Atribut | Význam |
 |---|---|
 | `port`, `mask` | každý 8 bitů. Zařízení reaguje na přístup, když `(addr & mask) == port` |
-| pojmenované parametry | kódují se přes `deviceParams.json` (oddíl 2.6): `MODE` (TMS99xx: PAL/NTSC), `VDP_ID` (V99xx: V9938/V9958), `system` (PSG: true = PSG počítače s porty pro joystick/klávesnici), `OCM` (PPI), `inverted` (RESET_STATUS) |
+| pojmenované parametry | kódují se přes `deviceParams.json` (oddíl 2.6): `MODE` (TMS99xx: PAL/NTSC), `VDP_ID` (V99xx: V9938/V9958), `system` (PSG: true = PSG počítače s porty pro joystick/klávesnici), `OCM` (PPI), `inverted` (RESET_STATUS), `turbo` a `sram` (MATSUSHITA: počítač má přepínač turba 5,37 MHz a 2 kB SRAM) |
 | `param` | surový 8bitový parametr pro zařízení **bez** záznamu v `deviceParams.json` (například KANJI: bit 0 = hangul, bit 1 = lascom) |
 | `ROM_SHA1`, `rom_skip`, `rom_size` | vlastní ROM zařízení, připojená k záznamu (font KANJI). Když ROM chybí, celý počítač se přeskočí a jeho `.msx` se smaže |
 | `shared_slot`, `shared_subslot`, `shared_block`, `shared_size` (všechny povinné společně), `shared_offset` (výchozí 0) | paměť zařízení je okno do existujícího bloku (KANJI v 1chipMSX používá blok ESE-RAM) |
@@ -144,7 +145,7 @@ Odvozeno z `Computer/Philips/Philips_NMS_8245.xml`.
 <msxConfig>
   <cpu>Z80</cpu>                         <!-- Z80 | R800 -->
   <wait_count>1</wait_count>             <!-- M1 wait states -->
-  <cpu_frequency>0</cpu_frequency>       <!-- 0=3.58 1=5.39 2=10.7 MHz -->
+  <cpu_frequency>0</cpu_frequency>       <!-- 0=3.58 1=5.37 2=10.7 3=7.16 MHz -->
   <!-- I/O devices of the machine: decoded when (port & mask) == port -->
   <device mask="0xFC" port="0x98" VDP_ID="V9938">V99xx</device>   <!-- MSX1: <device mask="0xFE" port="0x98" MODE="PAL">TMS99xx</device> -->
   <device mask="0xF8" port="0xA0" system="true">PSG</device>
@@ -297,7 +298,7 @@ Hodnota položky OSD se převede na `cart_typ_t` v `rtl/msx_config.sv` a zavadě
 
 ### 5.1 Pack počítače (`MSx`)
 
-- Hlavička, 8 bajtů: `'M' 'S' 'x' conf 0 0 0 0`, kde `conf = cpu<<6 | (wait_count & 7)<<3 | (cpu_frequency & 7)`.
+- Hlavička, 8 bajtů: `'M' 'S' 'x' conf engine 0 0 0`, kde `conf = cpu<<6 | (wait_count & 7)<<3 | (cpu_frequency & 7)` a `engine` bit 0 = CMOS Z80, bit 1 = čekací stav na portech VDP (z `<engine>`).
 - Záznamy mají 8 bajtů, první bajt je typ záznamu. Pořadí: zařízení nejvyšší úrovně bez `shared_slot`, všechny sloty `<primary>` v pořadí v XML, zařízení nejvyšší úrovně se `shared_slot`, rozložení klávesnice. Záznam END neexistuje: pack končí koncem souboru.
 - Záznam BLOCK: `00 addr type p0 p1 p2 p3 p4`, kde `addr = slot<<6 | subslot<<4 | start_page<<2 | (count-1)`.
 - Záznam DEVICE (nejvyšší úroveň): `01 dev_id port mask param size16k shared_ref shared_off`. Pokud je `size16k` > 0 a není `shared_ref`, následují data ROM. `shared_ref = 0x80 | slot<<4 | subslot<<2 | block`.

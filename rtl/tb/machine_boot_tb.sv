@@ -257,7 +257,9 @@ wire  access = sys.MSX.cpu_bus.req && !req_q && !reset;
 // to the main RAM through main_cs (Panasonic RAM banks, DRAM mode)
 logic [15:0] last_m1 = '0;
 int          s1990_wr = 0, main_rd = 0, main_wr = 0, a7_wr = 0, m1_all = 0, vdp_wr = 0;
-logic        r800_q = 0, dram_q = 0;
+logic        r800_q = 0, dram_q = 0, hold_q = 0;
+logic  [1:0] sel_q = '0;
+int          sel_log = 0, io_holds = 0;
 always @(posedge clk_core) begin
     if (access && sys.MSX.cpu_bus.mreq && sys.MSX.cpu_bus.m1) begin last_m1 <= sys.MSX.cpu_bus.addr; m1_all++; end
     if (access && sys.MSX.cpu_bus.iorq && !sys.MSX.cpu_bus.m1 && sys.MSX.cpu_bus.wr && sys.MSX.cpu_bus.addr[7:2] == 6'b100110) vdp_wr++;
@@ -276,6 +278,14 @@ always @(posedge clk_core) begin
     end
     r800_q <= sys.MSX.turbor_r800;
     dram_q <= sys.MSX.turbor_dram;
+    // machine turbo (OCM, Matsushita, CIEL) and VDP accesses held back by msx_cpu
+    sel_q  <= sys.MSX.cpu_speed.clock_sel;
+    hold_q <= sys.MSX.io_hold;
+    if (!reset && sel_q != sys.MSX.cpu_speed.clock_sel && sel_log < 40) begin
+        sel_log++;
+        $display("%0t CPU clock select %0d (0 3.58, 1 10.7, 2 5.37, 3 7.16 MHz)", $time, sys.MSX.cpu_speed.clock_sel);
+    end
+    if (!reset && sys.MSX.io_hold && !hold_q) io_holds++;
     if (!reset && r800_q != sys.MSX.turbor_r800) $display("%0t S1990: %s", $time, sys.MSX.turbor_r800 ? "R800" : "Z80");
     if (!reset && dram_q != sys.MSX.turbor_dram) $display("%0t S1990: %s mode", $time, sys.MSX.turbor_dram ? "DRAM" : "ROM");
 end
@@ -564,7 +574,8 @@ initial begin
         @(posedge clk_core); ioctl_download = 0; ioctl_addr = ioctl_addr + 1'd1;   // hps_io: +1 at the end
         wait (sys.upload); wait (!sys.upload);
     end
-    $display("%0t pack loaded, error=%0d, msx_config.fdd=%b", $time, sys.error, msx_config.fdd);
+    $display("%0t pack loaded, error=%0d, msx_config.fdd=%b, CMOS Z80 %0d, VDP I/O wait %0d", $time, sys.error,
+             msx_config.fdd, msx_config.cmos_z80, msx_config.vdp_io_wait);
     if (want_err != 0) begin
         if (int'(sys.error) == want_err) $display("PASS machine_boot_tb: pack error %0d as expected", want_err);
         else                             $display("FAILED machine_boot_tb: pack error %0d, expected %0d", sys.error, want_err);
@@ -653,6 +664,7 @@ initial begin
     if ($value$plusargs("vram_dump=%s", dump)) dump_vram(dump);
     $display("disk ROM M1 %0d, FDC commands %0d, Read Data ok %0d / abnormal %0d, HPS reads %0d (LBA 0: %0d)",
              disk_m1, fdc_log, reads_ok, reads_bad, lba_reads, lba0_reads);
+    if (io_holds != 0) $display("VDP accesses held back: %0d", io_holds);
     if (sys.io_device[DEV_S1990][0].enable)
         $display("turbo R: S1990 E5 writes %0d, A7 writes %0d, main RAM via main_cs: %0d reads, %0d writes", s1990_wr, a7_wr, main_rd, main_wr);
 

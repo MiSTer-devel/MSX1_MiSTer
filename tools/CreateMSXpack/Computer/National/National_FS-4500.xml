@@ -1,15 +1,17 @@
 <?xml version="1.0" ?>
 <!-- National FS-4500 (MSX2), converted from openMSX share/machines.
-     Not in the core: Matsushita, S1985, PrinterPort, Bunsetsu. -->
+     Not in the core: PrinterPort, Bunsetsu. The SRAM of the Matsushita device is not saved. -->
 <msxConfig>
   <cpu>Z80</cpu>                   <!-- Z80 --> 
   <wait_count>1</wait_count>       <!-- 0 - 3 -->  
-  <cpu_frequency>0</cpu_frequency> <!-- 0-3.58, 1-5.39, 2-10.7-->  
+  <cpu_frequency>0</cpu_frequency> <!-- 0-3.58, 1-5.37, 2-10.7, 3-7.16 MHz -->  
+  <engine>S1985</engine>         <!-- MSX-Engine, NMOS Z80 outside -->
   <device mask="0xFC" port="0x98" VDP_ID="V9938">V99xx</device>
   <device mask="0xF8" port="0xA0" system="true">PSG</device>
   <device mask="0xF8" port="0xA8">PPI</device>
   <device mask="0xFE" port="0xB4">RTC</device>
   <device mask="0xFE" port="0xD8" ROM_SHA1="9ed3ab6d893632b9246e91b412cd5db519e7586b">KANJI</device>
+  <device mask="0xF0" port="0x40" sram="true">MATSUSHITA</device>   <!-- switched I/O 08h: firmware switch, 2 kB SRAM, no turbo -->
   <kbd_layout>/yX/cWdlZv//ZP//cHMh////YP9hRgH///9XUCZUAv//MFUxMgQD//+AUzNRRwX//0MnNTRWBv///0I3UgcQ//8iQDZEABH//yMkQRdFEv///yD/FRP//2Ngdxb/FP//////////df///////////////////3L/dv//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////Yv//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////hIH///+Cg4b/h4X///////90//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////8=</kbd_layout>
   <primary slot="0">
     <secondary slot="0">

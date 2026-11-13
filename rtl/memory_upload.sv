@@ -412,6 +412,8 @@ module memory_upload
                         msx_config.cpu           <= Z80;
                         msx_config.wait_count    <= 3'd1;
                         msx_config.cpu_clock_sel <= '0;
+                        msx_config.cmos_z80       <= 1'b0;
+                        msx_config.vdp_io_wait   <= 1'b0;
                         msx_config.fdd           <= '0;
                         if (ioctl_size[size_FW_PACK] > 0) begin
                             state      <= STATE_READ_CONF;
@@ -460,8 +462,11 @@ module memory_upload
                         ddr3_request             <= '1;
                         msx_config.cpu           <= cpu_t'(conf[3][7:6]);
                         msx_config.wait_count    <= conf[3][5:3];
-                        // XML cpu_frequency 0 3.58, 1 5.39, 2 10.7 MHz -> msx_cpu clock_sel (01 10.7, 10 5.39)
+                        // XML cpu_frequency 0 3.58, 1 5.37, 2 10.7, 3 7.16 MHz -> msx_cpu clock_sel
+                        // (01 10.7, 10 5.37, 11 7.16)
                         msx_config.cpu_clock_sel <= {conf[3][2], conf[3][0], conf[3][1]};
+                        msx_config.cmos_z80       <= conf[4][0];
+                        msx_config.vdp_io_wait   <= conf[4][1];
                     end else begin
                         error <= ERR_BAD_MSX_CONF;
                         state <= STATE_IDLE;

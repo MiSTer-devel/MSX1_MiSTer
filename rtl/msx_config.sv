@@ -91,7 +91,7 @@ assign msx_user_config.mouse_port            = HPS_status[14];
 // (Slot2Mode = {bit 4, bit 5}), 3 slot 1 option, 2:1 display (11), 0 turbo
 assign msx_user_config.ocm_dip  = {1'b1, HPS_status[11], HPS_status[24:23], HPS_status[22], 2'b11, HPS_status[15]};
 assign msx_user_config.ocm_r800 = ocmMode && HPS_status[16];
-assign msx_user_config.turbor_firmware = HPS_status[26];
+assign msx_user_config.firmware_sw = HPS_status[26];
 
 logic [1:0] osd_sync = '0;
 always_ff @(posedge clk) osd_sync <= {osd_sync[0], osd_status};

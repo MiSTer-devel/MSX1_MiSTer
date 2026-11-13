@@ -115,7 +115,7 @@ assign status_menumask[3]     = io_device[DEV_OCM_BOOT][0].enable;
 assign status_menumask[9:4]   = msx_config.fdd[5:0];
 assign status_menumask[10]    = lookup_SRAM[0].size + lookup_SRAM[1].size + lookup_SRAM[2].size + lookup_SRAM[3].size == 0;
 assign status_menumask[11]    = msx_user_config.cas_audio_src == CAS_AUDIO_ADC || io_device[DEV_OCM_BOOT][0].enable;   // no CAS file (OCM: no tape)
-assign status_menumask[12]    = io_device[DEV_S1990][0].enable;    // turbo R options (firmware switch)
+assign status_menumask[12]    = io_device[DEV_S1990][0].enable || io_device[DEV_MATSUSHITA][0].enable;    // firmware switch
 assign status_menumask[15:13] = '0;
 
 assign info_req = error != ERR_NONE;

@@ -44,7 +44,8 @@ Root element `<msxConfig>`. Numbers can be decimal or `0x` hex (machine XML only
 |---|---|---|
 | `<cpu>` | `Z80` or `R800` | header bits 7:6. Turbo R machines still declare `Z80`; the R800 is switched at run time by the S1990 device |
 | `<wait_count>` | 0-7 | M1 wait states (header bits 5:3). All machines use `1` |
-| `<cpu_frequency>` | 0, 1, 2 | 0 = 3.58, 1 = 5.39, 2 = 10.7 MHz. All machines use `0` |
+| `<cpu_frequency>` | 0, 1, 2, 3 | Z80 clock after reset: 0 = 3.58, 1 = 5.37, 2 = 10.7, 3 = 7.16 MHz. All machines use `0`; a turbo is switched at run time by a device (`MATSUSHITA`, `CIEL_TURBO`, `OCM_BOOT`, `S1990`) |
+| `<engine>` | `S3527`, `S1985`, `T7775`, `T7937`, `T9763`, `T9769` | MSX-Engine of the machine (optional, attribute `subtype` is informational), header byte 4. The Toshiba engines contain a CMOS Z80: `OUT (C),0` writes FFh and SCF / CCF keep the Y flag (bit 0). `T9769` also adds one wait state to every access to the VDP ports 98h-9Bh (bit 1). The Yamaha engines change nothing. An unknown name stops the machine |
 | `<device>` | device name | top-level I/O device, see 2.2 |
 | `<kbd_layout>` | base64 | 512-byte key map from [../CreateKeyMap/README.md](../CreateKeyMap/README.md), becomes the KEYBOARD_LAYOUT record. Every current machine embeds `key_map_eu.bin` |
 | `<primary slot="0..3">` | slot tree | primary slot, see 2.3 |
@@ -58,7 +59,7 @@ The element text is a name from `device.json`; an unknown name prints `Device '<
 | Attribute | Meaning |
 |---|---|
 | `port`, `mask` | 8 bit each. The device decodes an access when `(addr & mask) == port` |
-| named parameters | encoded through `deviceParams.json` (section 2.6): `MODE` (TMS99xx: PAL/NTSC), `VDP_ID` (V99xx: V9938/V9958), `system` (PSG: true = the machine PSG with the joystick/keyboard ports), `OCM` (PPI), `inverted` (RESET_STATUS) |
+| named parameters | encoded through `deviceParams.json` (section 2.6): `MODE` (TMS99xx: PAL/NTSC), `VDP_ID` (V99xx: V9938/V9958), `system` (PSG: true = the machine PSG with the joystick/keyboard ports), `OCM` (PPI), `inverted` (RESET_STATUS), `turbo` and `sram` (MATSUSHITA: the 5.37 MHz turbo switch and the 2 kB SRAM are present) |
 | `param` | raw 8-bit parameter for devices **without** an entry in `deviceParams.json` (for example KANJI: bit 0 = hangul, bit 1 = lascom) |
 | `ROM_SHA1`, `rom_skip`, `rom_size` | the device's own ROM, appended to the record (KANJI font). If the ROM is missing the whole machine is skipped and its `.msx` is deleted |
 | `shared_slot`, `shared_subslot`, `shared_block`, `shared_size` (all required together), `shared_offset` (default 0) | the device memory is a window into an existing block (1chipMSX KANJI uses the ESE-RAM block) |
@@ -144,7 +145,7 @@ Derived from `Computer/Philips/Philips_NMS_8245.xml`.
 <msxConfig>
   <cpu>Z80</cpu>                         <!-- Z80 | R800 -->
   <wait_count>1</wait_count>             <!-- M1 wait states -->
-  <cpu_frequency>0</cpu_frequency>       <!-- 0=3.58 1=5.39 2=10.7 MHz -->
+  <cpu_frequency>0</cpu_frequency>       <!-- 0=3.58 1=5.37 2=10.7 3=7.16 MHz -->
   <!-- I/O devices of the machine: decoded when (port & mask) == port -->
   <device mask="0xFC" port="0x98" VDP_ID="V9938">V99xx</device>   <!-- MSX1: <device mask="0xFE" port="0x98" MODE="PAL">TMS99xx</device> -->
   <device mask="0xF8" port="0xA0" system="true">PSG</device>
@@ -297,7 +298,7 @@ The OSD item value is converted to `cart_typ_t` in `rtl/msx_config.sv`, and the 
 
 ### 5.1 Machine pack (`MSx`)
 
-- Header, 8 bytes: `'M' 'S' 'x' conf 0 0 0 0`, where `conf = cpu<<6 | (wait_count & 7)<<3 | (cpu_frequency & 7)`.
+- Header, 8 bytes: `'M' 'S' 'x' conf engine 0 0 0`, where `conf = cpu<<6 | (wait_count & 7)<<3 | (cpu_frequency & 7)` and `engine` bit 0 = CMOS Z80, bit 1 = wait state on the VDP ports (from `<engine>`).
 - Records are 8 bytes, the first byte is the record type. Order: top-level devices without `shared_slot`, all `<primary>` slots in XML order, top-level devices with `shared_slot`, the keyboard layout. There is no END record: the end of the file ends the pack.
 - BLOCK record: `00 addr type p0 p1 p2 p3 p4` with `addr = slot<<6 | subslot<<4 | start_page<<2 | (count-1)`.
 - DEVICE record (top level): `01 dev_id port mask param size16k shared_ref shared_off`. If `size16k` > 0 and there is no `shared_ref`, the ROM data follows. `shared_ref = 0x80 | slot<<4 | subslot<<2 | block`.

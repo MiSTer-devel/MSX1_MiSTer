@@ -37,9 +37,11 @@ msx_cpu dut (
 `ifdef CPU_HAS_TURBOR
     .turbor    (1'b0),
 `else
-    .cmos      (1'b0),
+    .cmos_z80  (1'b0),
     .vdp_io_wait(1'b0),
-    .s1990     (1'b0),
+    .vdp_wr_hold(1'b0),
+    .vdp_wr_wait(1'b0),
+    .io_hold   (),
 `endif
     .cold_reset(cold_reset),
     .r800_active(),

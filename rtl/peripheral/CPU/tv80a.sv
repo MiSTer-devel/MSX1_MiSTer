@@ -75,6 +75,7 @@ module TV80a#(
 )(
     input           RESET_n,
     input           R800_mode,
+    input           CMOS,           // CMOS Z80: OUT (C),0 writes FFh, SCF / CCF keep Y
     input           CLK,
     input           CE_p,
     input           CE_n,
@@ -179,6 +180,7 @@ module TV80a#(
         .TS(TState),
         .IntCycle_n(IntCycle_n),
         .R800_mode(R800_mode),
+        .CMOS(CMOS),
         .REG(REG),
         .DIRSet(DIRSet),
         .DIR(DIR)

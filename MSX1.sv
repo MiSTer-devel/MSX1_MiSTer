@@ -81,7 +81,7 @@ reset_sync rst_sync_sdram (.clk(clk_sdram), .arst(~locked_sdram),          .rst(
 //  [22]     OCM slot 1 (internal ESE-SCC)
 //  [24:23]  OCM slot 2 (internal ESE-SCC / MegaRAM)
 //  [25]     vertical crop
-//  [26]     turbo R firmware switch
+//  [26]     firmware switch (turbo R, machines with the Matsushita switched I/O)
 //  [27]     pause when OSD open
 //  [32:29]  slot B cartridge type (not OCM)
 //  [38]     SRAM save
@@ -126,7 +126,7 @@ localparam CONF_STR = {
    "h3-;",
    "h3O[13],Joysticks Swap,No,Yes;",
    "h3O[14],Mouse,Port 1,Port 2;",
-   // turbo R (hC): machines with the S1990
+   // firmware switch (hC): machines with the S1990 or the Matsushita switched I/O
    "hC-;",
    "hCO[26],Firmware switch,Off,On;",
    "H3-;",

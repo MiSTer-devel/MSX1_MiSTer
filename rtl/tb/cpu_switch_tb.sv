@@ -50,7 +50,11 @@ msx_cpu dut (
     .r800      (1'b0),
 `ifndef OLD_CPU
     .r800_sel  (r800_sel),
-    .turbor    (1'b0),
+    .cmos_z80  (1'b0),
+    .vdp_io_wait(1'b0),
+    .vdp_wr_hold(1'b0),
+    .vdp_wr_wait(1'b0),
+    .io_hold   (),
     .cold_reset(cold_reset),
     .r800_active(r800_active),
 `endif

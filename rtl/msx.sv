@@ -108,7 +108,7 @@ wire                 reset_lock, reset_request;
 wire                 ocm_megaSD_enable, ocm_slot1_mode;
 wire           [1:0] ocm_slot2_mode;
 wire                 ocm_ipl_en, ocm_mmc_on, sd_wait, opll_wait, opl4_wait, ocm_slot0_mode;
-wire                 turbor_r800, turbor_dram;
+wire                 turbor_r800, turbor_dram, io_hold;
 MSX::cpu_speed_t     cpu_speed;
 wire signed   [15:0] device_sound_L, device_sound_R;
 
@@ -135,13 +135,14 @@ assign audio_R = device_sound_R;
 //  -- T80 CPU
 //  -----------------------------------------------------------------------------
 assign cpu_bus.mreq    = ~mreq_n;
-assign cpu_bus.iorq    = ~iorq_n;
+// io_hold: a VDP access that came too early (R800, Matsushita turbo) starts later
+assign cpu_bus.iorq    = ~iorq_n && ~io_hold;
 assign cpu_bus.m1      = ~m1_n;
-assign cpu_bus.rd      = ~rd_n;
-assign cpu_bus.wr      = ~wr_n;
+assign cpu_bus.rd      = ~rd_n && ~io_hold;
+assign cpu_bus.wr      = ~wr_n && ~io_hold;
 assign cpu_bus.rfsh    = ~rfsh_n;
 assign cpu_bus.int_rq  = cpu_interrupt;
-assign cpu_bus.req     = ~((iorq_n & mreq_n) | (wr_n & rd_n) | iack);
+assign cpu_bus.req     = ~((iorq_n & mreq_n) | (wr_n & rd_n) | iack | io_hold);
 
 always_ff @(posedge cpu_bus.clk) begin
    if (cpu_bus.reset)
@@ -166,7 +167,11 @@ msx_cpu cpu (
    .ext_wait  (sd_wait || opll_wait || opl4_wait || pause),
    .r800      (msx_config.cpu == R800 || msx_user_config.ocm_r800),
    .r800_sel  (turbor_r800),
-   .turbor    (io_device[DEV_S1990][0].enable),
+   .cmos_z80  (msx_config.cmos_z80),
+   .vdp_io_wait(msx_config.vdp_io_wait),
+   .vdp_wr_hold(cpu_speed.vdp_wr_hold),
+   .vdp_wr_wait(cpu_speed.vdp_wr_wait),
+   .io_hold   (io_hold),
    .cold_reset(core_hard_reset),
    .r800_active(),
    .bus_phase (cpu_phase),

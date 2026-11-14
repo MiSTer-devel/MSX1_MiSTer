@@ -218,6 +218,7 @@ module VDP_SPRITE (
 );
     // Signals declaration
     logic FF_SP_EN;
+    logic W_ACTIVE_NEXT;
     logic [8:0] FF_CUR_Y;
 
     logic FF_VDPS0RESETACK, FF_VDPS5RESETACK;
@@ -300,7 +301,7 @@ module VDP_SPRITE (
         if (RESET) begin
             FF_SP_EN <= 1'b0;
         end else if (DOTSTATE == 2'b01 && DOTCOUNTERX == 9'd256 + 9'd8) begin
-            FF_SP_EN <= ~REG_R8_SP_OFF & W_ACTIVE;
+            FF_SP_EN <= ~REG_R8_SP_OFF & W_ACTIVE_NEXT;     // for the line after: YP -2 (display line 0)
         end
     end
 
@@ -441,9 +442,11 @@ module VDP_SPRITE (
     // Only lines whose Y-test target (YP + 1) is a display line, YP = -2..190 / -2..210:
     // on border lines the 8-bit FF_CUR_Y aliases (sprites at Y = 230 hit YP -25..-18) and
     // the arbiter grants no VRAM, so they collided on stale data (ghost S#0 C)
-    assign W_ACTIVE = BWINDOW_Y && ((DOTCOUNTERYP[8] && DOTCOUNTERYP[7:0] >= 8'd254) ||
-                                    (!DOTCOUNTERYP[8] && !REG_R9_Y_DOTS && DOTCOUNTERYP[7:0] <= 8'd190) ||
-                                    (!DOTCOUNTERYP[8] &&  REG_R9_Y_DOTS && DOTCOUNTERYP[7:0] <= 8'd210));
+    function automatic logic active_line(input logic [8:0] yp, input logic y212);
+        return (yp[8] && yp[7:0] >= 8'd254) || (!yp[8] && yp[7:0] <= (y212 ? 8'd210 : 8'd190));
+    endfunction
+    assign W_ACTIVE      = BWINDOW_Y && active_line(DOTCOUNTERYP, REG_R9_Y_DOTS);
+    assign W_ACTIVE_NEXT = BWINDOW_Y && active_line(DOTCOUNTERYP + 9'd1, REG_R9_Y_DOTS);
 
     // [SPWINDOW_Y]
     always_ff @(posedge CLK21M or posedge RESET) begin

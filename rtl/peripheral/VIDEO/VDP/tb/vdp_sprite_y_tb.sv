@@ -3,6 +3,12 @@
 // the window (BORDER = 0) the tb notes whether white pixels are on it. Lilly's Saga masks the
 // right edge with such sprite columns, rewritten by a line interrupt every 64 lines.
 //
+// The chip tests the sprite Y attributes on line L - 1 for display line L (openMSX
+// SpriteChecker: "sprites are checked one line before they are displayed"), sprite n in its
+// own slot of the display period. A SAT write on line L - 2 (Lilly's Saga: line interrupt at
+// line 59, Y written on line 62 for line 64) must therefore show on line L; a write on line
+// L - 1 after the Y slot of that sprite must not.
+//
 //   wsl.exe -- bash rtl/peripheral/VIDEO/VDP/tb/run_vdp_sprite_y.sh
 
 `timescale 1ns/1ps
@@ -52,9 +58,26 @@ module vdp_sprite_y_tb;
         port_wr(2'd1, v); port_wr(2'd1, 8'h80 | 8'(n));
     endtask
 
-    task automatic vram_wr(input logic [13:0] a, input logic [7:0] d [$]);
+    task automatic vram_addr(input logic [13:0] a);     // write address
         port_wr(2'd1, a[7:0]); port_wr(2'd1, {2'b01, a[13:8]});
+    endtask
+
+    task automatic vram_wr(input logic [13:0] a, input logic [7:0] d [$]);
+        vram_addr(a);
         foreach (d[i]) port_wr(2'd0, d[i]);
+    endtask
+
+    logic [7:0] st;
+    task automatic status(input int n);
+        set_reg(15, 8'(n));
+        @(posedge clk); adr <= {14'h0026, 2'd1}; wrt <= 0; req <= 1;
+        @(posedge clk); req <= 0;
+        @(posedge clk); st = dbi;
+    endtask
+
+    // the VDP line counter (display line, 1FFh = the line before line 0) reaches (yp, x)
+    task automatic wait_pos(input logic [8:0] yp, input logic [8:0] x);
+        while (!(VDP_i.PREDOTCOUNTER_YP == yp && VDP_i.PREDOTCOUNTER_X == x)) @(posedge clk);
     endtask
 
     // lines of the window with white (sprite) pixels in the last whole frame
@@ -94,8 +117,13 @@ module vdp_sprite_y_tb;
             if (!w && s >= 0) begin got = {got, $sformatf(" %0d..%0d", s, i - 1)}; s = -1; end
         end
         for (int i = 0; i < f_rows; i++) if (f_white[i] != ((i >= a0 && i <= a1) || (i >= b0 && i <= b1))) ok = 0;
-        $display("  %-34s sprite lines%-16s expected %0d..%0d %0d..%0d  %s", what, got, a0, a1, b0, b1, ok ? "OK" : "FAIL");
+        $display("  %-44s sprite lines%-16s expected %0d..%0d %0d..%0d  %s", what, got, a0, a1, b0, b1, ok ? "OK" : "FAIL");
         if (!ok) errors++;
+    endtask
+
+    task automatic check_val(input string what, input int got, input int exp);
+        $display("  %-44s %0d, expected %0d  %s", what, got, exp, got == exp ? "OK" : "FAIL");
+        if (got != exp) errors++;
     endtask
 
     initial begin
@@ -129,6 +157,37 @@ module vdp_sprite_y_tb;
         check("PAL 192", 0, 15, 64, 79);
         set_reg(18, 8'h0C); wait_frames(2);
         check("PAL 192, R#18 = 0C", 0, 15, 64, 79);
+
+        // SAT writes timed to the line: sprite 1 hidden (Y = 200), its Y set to 63 during a frame
+        set_reg(18, 8'h00); set_reg(9, 8'h00);
+        vram_wr(14'h1E04, '{8'd200}); wait_frames(3);
+        check("NTSC 192, sprite 1 hidden", 0, 15, -1, -2);
+        vram_addr(14'h1E04); wait_pos(9'd62, 9'd64); port_wr(2'd0, 8'd63);
+        wait_frames(1);
+        check("Y = 63 written on line 62: from line 64", 0, 15, 64, 79);
+        vram_wr(14'h1E04, '{8'd200}); wait_frames(2);
+        vram_addr(14'h1E04); wait_pos(9'd63, 9'd128); port_wr(2'd0, 8'd63);
+        wait_frames(1);
+        check("Y = 63 written on line 63 (late): from 65", 0, 15, 65, 79);
+        vram_wr(14'h1E00, '{8'd200, 8'd100, 8'd0, 8'd0, 8'd200}); wait_frames(2);
+        check("both sprites hidden", -1, -2, -1, -2);
+        vram_addr(14'h1E04); wait_pos(9'h1FE, 9'd64); port_wr(2'd0, 8'd255);
+        wait_frames(1);
+        check("Y = 255 written on line -2: from line 0", 0, 15, -1, -2);
+
+        // collision of sprites 0 and 1 (X = 100 and 104, Y = 63): C, and S#3..S#6 hold the last
+        // collision of the frame: line 79 (+ 7), X = 115 (+ 12)
+        vram_wr(14'h1E00, '{8'd63, 8'd100, 8'd0, 8'd0, 8'd63, 8'd104, 8'd0, 8'd0, 8'd216});
+        wait_frames(2); status(0); status(5);
+        wait_frames(1); status(0); check_val("collision C after a frame", st[5], 1);
+        status(3); check_val("S#3 collision X", st, 127);
+        status(4); check_val("S#4 collision X bit 8", st, 0);
+        status(6); check_val("S#6 collision Y bit 8", st, 0);
+        status(5); check_val("S#5 collision Y", st, 86);
+        status(0); wait_frames(1); status(0); check_val("C again a frame later", st[5], 1);
+        vram_wr(14'h1E00, '{8'd63, 8'd100, 8'd0, 8'd0, 8'd63, 8'd116, 8'd0, 8'd0, 8'd216});
+        wait_frames(2); status(0); wait_frames(1); status(0);
+        check_val("C with the sprites 16 apart", st[5], 0);
 
         $display("%s vdp_sprite_y_tb (%0d errors)", errors ? "FAIL" : "PASS", errors);
         $finish;

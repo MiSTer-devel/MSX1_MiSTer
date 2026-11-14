@@ -59,3 +59,24 @@ module PALETE_RAM (
   assign DBI = blkram[iADR];
 
 endmodule
+// sprite line buffer: one read and one write port (a read of the address written in the
+// same clock returns the old content; the sprite module forwards the new one itself)
+module VDP_LINEBUF (
+  input  logic CLK,
+  input  logic [7:0] RADR,
+  output logic [7:0] Q,
+  input  logic WE,
+  input  logic [7:0] WADR,
+  input  logic [7:0] D
+);
+
+  logic [7:0] blkram [255:0];
+
+  always_ff @(posedge CLK) begin
+    if (WE) begin
+      blkram[WADR] <= D;
+    end
+    Q <= blkram[RADR];
+  end
+
+endmodule

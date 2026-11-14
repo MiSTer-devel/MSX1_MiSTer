@@ -94,6 +94,7 @@ MSX::kb_memory_t         kb_upload_memory;
 error_t                  error;
 
 logic        hard_reset = 1'b1;
+logic        sram_init  = 1'b0;     // pack load: the SRAMs of the devices to FFh
 wire         reload, ROM_A_load_hide, ROM_B_load_hide;
 wire         upload, upload_reset, load_sram;
 wire   [7:0] uart_rx_data;
@@ -141,6 +142,7 @@ user_config user_config
 initial reset = 1'b1;
 always_ff @(posedge clock_bus.clk) begin
    hard_reset <= rst_core_async || status[0] || upload_reset;
+   sram_init  <= upload_reset;
    reset      <= rst_core_async || status[0] || upload_reset || status[10] || status[21]
               || (status[12] && sd_img_mounted && io_device[DEV_OCM_BOOT][0].enable);   // OCM: reset after VHD mount
 end
@@ -150,6 +152,7 @@ msx #(.sysCLK(sysCLK)) MSX
 (
    .core_reset(reset),
    .core_hard_reset(hard_reset),
+   .core_sram_init(sram_init),
    .clock_bus(clock_bus),
    .video_bus(video_bus),
    .vram_bus(vram_bus),

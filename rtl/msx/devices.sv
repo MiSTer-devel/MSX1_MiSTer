@@ -20,6 +20,7 @@ module devices  #(parameter sysCLK)
 (
     clock_bus_if.base_mp    clock_bus,                              // Clock interface
     input                   hard_reset,                             // cold reset (cpu_bus.reset is any reset)
+    input                   sram_init,                              // pack load: SRAMs (RTC, Matsushita, S1985) to FFh
     cpu_bus_if.device_mp    cpu_bus,                                // CPU bus interface
     input  MSX::device_bus_t device_bus,                             // Device control bus interface
     FDD_if.FDC_mp           FDD_bus[MSX::N_FDC],
@@ -256,6 +257,7 @@ module devices  #(parameter sysCLK)
         .cpu_bus(cpu_bus),
         .io_device(io_device[DEV_MATSUSHITA]),
         .hard_reset(hard_reset),
+        .sram_init(sram_init),
         .firmware_sw(msx_user_config.firmware_sw),
         .data(matsushita_data),
         .cpu_speed(matsushita_speed)
@@ -303,6 +305,7 @@ module devices  #(parameter sysCLK)
         .clock_bus(clock_bus),
         .io_device(io_device[DEV_RTC]),
         .rtc_time(rtc_time),
+        .sram_init(sram_init),
         .data(rtc_data)
     );
 

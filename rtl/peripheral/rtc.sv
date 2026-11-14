@@ -44,7 +44,8 @@ module rtc (
     input  logic                 wrt,         // Write signal
     input  logic [15:0]          adr,         // Address bus
     output logic [7:0]           dbi,         // Data bus input
-    input  logic [7:0]           dbo          // Data bus output
+    input  logic [7:0]           dbo,         // Data bus output
+    input  logic                 mem_init     // fill the backup memory with FFh (pack load)
 );
 
     // Internal signals and registers
@@ -410,39 +411,39 @@ module rtc (
     end   
 
 
-    // Backup memory emulation
+    // Backup memory emulation: banks 0-3 x 16 nibbles, one per byte (banks 2 and 3 are read).
+    // Not saved; FFh after configuration and while mem_init is high (openMSX: new SRAM = FFh).
+    logic [5:0] init_cnt = '0;
+    always_ff @(posedge clk21m) init_cnt <= mem_init ? init_cnt + 1'd1 : '0;
+
     assign w_mem_addr = {2'b00, reg_mode[1:0], reg_ptr};
     assign w_mem_we = w_wrt && adr[0];
 
-    // Instance of the memory module (substitute "ram" with the actual module)
     ram_v u_mem (
-        .adr(w_mem_addr),
         .clk(clk21m),
-        .we(w_mem_we),
-        .dbo(dbo),
+        .adr(mem_init ? init_cnt : w_mem_addr[5:0]),
+        .we(mem_init || w_mem_we),
+        .dbo(mem_init ? 8'hFF : dbo),
         .dbi(w_mem_q)
     );
 
 endmodule
 
+// 64 x 8, registered read
 module ram_v (
-  input  logic [7:0] adr,
-  input  logic clk,
-  input  logic we,
+  input  logic       clk,
+  input  logic [5:0] adr,
+  input  logic       we,
   input  logic [7:0] dbo,
   output logic [7:0] dbi
 );
 
-    logic [7:0] blkram[255:0];
-    logic [7:0] iadr;
+    logic [7:0] blkram[0:63];
+    initial for (int i = 0; i < 64; i++) blkram[i] = 8'hFF;
 
     always_ff @(posedge clk) begin
-        if (we) begin
-            blkram[adr] <= dbo;
-        end
-        iadr <= adr;
+        if (we) blkram[adr] <= dbo;
+        dbi <= blkram[adr];
     end
-
-    assign dbi = blkram[iadr];
 
 endmodule

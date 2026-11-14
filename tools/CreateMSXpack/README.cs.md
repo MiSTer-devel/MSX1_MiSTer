@@ -26,7 +26,7 @@ Potřebujete pack počítače a prakticky vždy i FW pack (potřebuje ho i práz
 
 1. Dumpy ROM vložte do `tools/CreateMSXpack/ROM/`, nebo je mějte kdekoli jinde a složku předejte volbou `--rom-dir` (oba nástroje, viz [Sestavení packů](#sestavení-packů)). Podsložky jsou v pořádku, složka se prohledává rekurzivně.
 2. Názvy souborů ani přípony nejsou důležité. **ROM se rozpoznávají podle SHA1 celého souboru.** Potřebujete přesně ten dump, který nástroj očekává (stejné dumpy, jaké používá openMSX jako systémové ROM).
-3. Které ROM jsou potřeba pro který počítač, je v [příloze A](#appendix-a-rom-images-per-machine) a v [tabulce firmwarových ROM](#firmware-roms-for-the-fw-pack) níže. Chybějící ROM se jen oznámí, viz [Řešení potíží](#řešení-potíží).
+3. Které ROM jsou potřeba pro který počítač, je v [příloze A](#appendix-a-rom-images-per-machine) a v [tabulce firmwarových ROM](#firmware-roms-for-the-fw-pack) níže. Počítač s chybějící ROM pack nedostane, viz [Řešení potíží](#řešení-potíží).
 
 Už přiložené jsou: ROM C-BIOS (`ROM/cbios/`) a IPL ROM pro 1chipMSX (`ROM/ocm/`). Počítač 1chipMSX (OCM) načítá svůj BIOS (`OCM-BIOS.DAT`) za běhu z SD karty, ne z packu.
 
@@ -186,7 +186,7 @@ Oba nástroje vypíšou své volby s `--help`.
 
 ```
 usage: createComp.py [-h] [--rom-dir ROM_DIR] [--xml-dir XML_DIR]
-                     [--output-dir OUTPUT_DIR] [--debug]
+                     [--output-dir OUTPUT_DIR] [--report REPORT] [--debug]
 
 Process ROM and XML files
 
@@ -196,6 +196,8 @@ options:
   --xml-dir XML_DIR     Path to the XML files directory (default: Computer)
   --output-dir OUTPUT_DIR
                         Path to the output directory (default: MSX)
+  --report REPORT       Text report of created and skipped packs (default:
+                        OUTPUT_DIR/createComp_report.txt)
   --debug               Debug output
 ```
 
@@ -238,15 +240,17 @@ Načtěte FW pack a pack počítače (a DB, pokud používáte velké ROM cartri
 
 ## Řešení potíží
 
-**Pack se zapíše i při chybějících ROM a takový pack nenabootuje.** Vždy čtěte výpis nástrojů v konzoli.
+**createComp zapíše pack počítače, jen když našel všechny jeho ROM.** Počítač s chybějící ROM pack nedostane a jeho pack z dřívějšího běhu se smaže. Report `MSX/createComp_report.txt` vypíše vytvořené packy a u každého počítače bez packu chybějící ROM (název souboru a SHA1). createDev FW pack bez chybějící firmwarové ROM pořád zapíše, viz níže.
 
 ### Zprávy v konzoli
 
 | Zpráva | Význam a oprava |
 |---|---|
-| `<machine name>` (samostatný řádek) | XML bylo přečteno a pack se zapisuje. Následující řádky patří tomuto počítači. |
-| `ROM SHA1 not found: <sha1> (ROM name: <file>) in slot s/ss` | Ve složce ROM není soubor s tímto SHA1. Pack se přesto zapíše, ale bez této ROM a nenabootuje. Doplňte správný dump (viz příloha A). |
-| `ROM missing! SHA1 <sha1> not find. Computer SKIP` | Chybí ROM s fontem KANJI, pack tohoto počítače se **nezapíše** (je smazán). Týká se Daewoo_CPC-400S, National_FS-4600F, Panasonic_FS-A1F, Panasonic_FS-A1ST. |
+| `<machine name>` (samostatný řádek) | XML bylo přečteno a pack se sestavuje. Následující řádky patří tomuto počítači. |
+| `ROM SHA1 not found: <sha1> (ROM name: <file>) in slot s/ss` | Ve složce ROM není soubor s tímto SHA1. Doplňte správný dump (viz příloha A). |
+| `ROM SHA1 not found: <sha1> (device KANJI)` | Chybí ROM s fontem KANJI. Týká se Daewoo_CPC-400S, National_FS-4600F, Panasonic_FS-A1F, Panasonic_FS-A1ST. |
+| `<machine name>: pack NOT written` | Některá ROM počítače chybí (řádky nad tím) nebo je jeho XML chybné. Pack se nezapíše, starý se smaže. |
+| `Created N, not created M. Report: <soubor>` | Konec běhu. V reportu je seznam chybějících ROM po počítačích. |
 | `WARNING:__main__:Missing ROM '<soubor>' for cartridge <NAME>. SHA1: ...` (createDev) | Firmwarová ROM rozšíření nenalezena (název souboru a cartridge podle `Extension/*.xml`, viz [Firmwarové ROM](#firmwarové-rom-pro-fw-pack)). Cartridge se vygeneruje bez své ROM: FM-PAC, GM2 a FDC cartridge nemají firmware, MoonSound v jádře skončí chybou `NOT FW CONF`. |
 | `INFO:__main__:NAME: KONAMI index: 34` (createDev) | Běžná informační zpráva. Index je v šestnáctkové soustavě. |
 | `Error: unknown ...`, `Unknown block elements`, `FW name: X SKIP. Not in cart_device.json`, `Device '<x>' nenalezeno` | Problém v XML nebo v tabulkách JSON (jen když jste je upravovali). Viz [DEVELOPERS.cs.md](DEVELOPERS.cs.md). |

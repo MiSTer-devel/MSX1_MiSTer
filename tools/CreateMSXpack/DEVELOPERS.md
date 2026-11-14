@@ -61,7 +61,7 @@ The element text is a name from `device.json`; an unknown name prints `Device '<
 | `port`, `mask` | 8 bit each. The device decodes an access when `(addr & mask) == port` |
 | named parameters | encoded through `deviceParams.json` (section 2.6): `MODE` (TMS99xx: PAL/NTSC), `VDP_ID` (V99xx: V9938/V9958), `system` (PSG: true = the machine PSG with the joystick/keyboard ports), `OCM` (PPI), `inverted` (RESET_STATUS), `turbo` and `sram` (MATSUSHITA: the 5.37 MHz turbo switch and the 2 kB SRAM are present) |
 | `param` | raw 8-bit parameter for devices **without** an entry in `deviceParams.json` (for example KANJI: bit 0 = hangul, bit 1 = lascom) |
-| `ROM_SHA1`, `rom_skip`, `rom_size` | the device's own ROM, appended to the record (KANJI font). If the ROM is missing the whole machine is skipped and its `.msx` is deleted |
+| `ROM_SHA1`, `rom_skip`, `rom_size` | the device's own ROM, appended to the record (KANJI font) |
 | `shared_slot`, `shared_subslot`, `shared_block`, `shared_size` (all required together), `shared_offset` (default 0) | the device memory is a window into an existing block (1chipMSX KANJI uses the ESE-RAM block) |
 
 Top-level devices without `shared_slot` are written first, devices with `shared_slot` after the slot tree. A device with `shared_slot` must therefore only reference blocks created by the slot tree.
@@ -334,7 +334,7 @@ The OSD item value is converted to `cart_typ_t` in `rtl/msx_config.sv`, and the 
 4. Hex numbers work in the machine XML but **not in the extension XML**.
 5. Do not mix `<block>` and `<secondary>` in one `<primary>`.
 6. SHA1 values in XML must be lowercase hex.
-7. A pack is written even when ROMs are missing; only a missing top-level device `ROM_SHA1` deletes it. Check the console.
+7. createComp builds a pack in memory and writes it only when no ROM is missing and no exception occurred; otherwise an existing `.msx` of that machine is deleted. Missing ROMs (block `SHA1` / `exactFilename`, device `ROM_SHA1`) are collected for the whole machine, so the report lists all of them. Other errors are only warnings in the report. Test: `py -m unittest discover tests`.
 8. `<sram>` works only in FW configurations; a machine XML cannot declare SRAM.
 9. `expander_wo` is stored but ignored by the RTL.
 10. Run the tools from inside `tools/CreateMSXpack` (JSON tables by relative name). The ROM folder can be elsewhere: `--rom-dir` in both tools.

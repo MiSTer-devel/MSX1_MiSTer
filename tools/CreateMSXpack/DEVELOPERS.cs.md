@@ -61,7 +61,7 @@ Text prvku je název z `device.json`; neznámý název vypíše `Device '<x>' ne
 | `port`, `mask` | každý 8 bitů. Zařízení reaguje na přístup, když `(addr & mask) == port` |
 | pojmenované parametry | kódují se přes `deviceParams.json` (oddíl 2.6): `MODE` (TMS99xx: PAL/NTSC), `VDP_ID` (V99xx: V9938/V9958), `system` (PSG: true = PSG počítače s porty pro joystick/klávesnici), `OCM` (PPI), `inverted` (RESET_STATUS), `turbo` a `sram` (MATSUSHITA: počítač má přepínač turba 5,37 MHz a 2 kB SRAM) |
 | `param` | surový 8bitový parametr pro zařízení **bez** záznamu v `deviceParams.json` (například KANJI: bit 0 = hangul, bit 1 = lascom) |
-| `ROM_SHA1`, `rom_skip`, `rom_size` | vlastní ROM zařízení, připojená k záznamu (font KANJI). Když ROM chybí, celý počítač se přeskočí a jeho `.msx` se smaže |
+| `ROM_SHA1`, `rom_skip`, `rom_size` | vlastní ROM zařízení, připojená k záznamu (font KANJI) |
 | `shared_slot`, `shared_subslot`, `shared_block`, `shared_size` (všechny povinné společně), `shared_offset` (výchozí 0) | paměť zařízení je okno do existujícího bloku (KANJI v 1chipMSX používá blok ESE-RAM) |
 
 Zařízení nejvyšší úrovně bez `shared_slot` se zapisují první, zařízení se `shared_slot` až za strom slotů. Zařízení se `shared_slot` proto smí odkazovat jen na bloky vytvořené stromem slotů.
@@ -334,7 +334,7 @@ Hodnota položky OSD se převede na `cart_typ_t` v `rtl/msx_config.sv` a zavadě
 4. Hexadecimální čísla fungují v XML počítače, ale **ne v XML rozšíření**.
 5. Nemíchejte `<block>` a `<secondary>` v jednom `<primary>`.
 6. SHA1 v XML musí být malými hexadecimálními písmeny.
-7. Pack se zapíše i při chybějících ROM; smaže se jen při chybějící ROM `ROM_SHA1` zařízení nejvyšší úrovně. Kontrolujte konzoli.
+7. createComp sestaví pack v paměti a zapíše ho, jen když nechybí žádná ROM a nenastala výjimka; jinak existující `.msx` toho počítače smaže. Chybějící ROM (`SHA1` / `exactFilename` bloku, `ROM_SHA1` zařízení) se sbírají za celý počítač, takže report vypíše všechny. Ostatní chyby jsou v reportu jen varování. Test: `py -m unittest discover tests`.
 8. `<sram>` funguje jen ve FW konfiguracích; XML počítače nemůže deklarovat SRAM.
 9. `expander_wo` se uloží, ale RTL ho ignoruje.
 10. Nástroje spouštějte zevnitř `tools/CreateMSXpack` (tabulky JSON podle relativního názvu). Složka s ROM může být jinde: `--rom-dir` v obou nástrojích.

@@ -26,7 +26,7 @@ You need a machine pack and, practically always, a FW pack (even an empty cartri
 
 1. Put your ROM dumps into `tools/CreateMSXpack/ROM/`, or keep them anywhere else and pass the folder with `--rom-dir` (both tools, see [Build the packs](#build-the-packs)). Sub-folders are fine, the folder is searched recursively.
 2. File names and extensions do not matter. **ROMs are recognised by the SHA1 of the whole file.** You need exactly the dump the tool expects (the same dumps openMSX uses as system ROMs).
-3. Which ROMs are needed for which machine is listed in [Appendix A](#appendix-a-rom-images-per-machine) and in the [firmware ROM table](#firmware-roms-for-the-fw-pack) below. Missing ROMs are only reported, see [Troubleshooting](#troubleshooting).
+3. Which ROMs are needed for which machine is listed in [Appendix A](#appendix-a-rom-images-per-machine) and in the [firmware ROM table](#firmware-roms-for-the-fw-pack) below. A machine with a missing ROM gets no pack, see [Troubleshooting](#troubleshooting).
 
 Already included: the C-BIOS ROMs (`ROM/cbios/`) and the 1chipMSX IPL ROM (`ROM/ocm/`). The 1chipMSX (OCM) machine loads its BIOS (`OCM-BIOS.DAT`) at run time from the SD card, not from the pack.
 
@@ -186,7 +186,7 @@ Both tools print their options with `--help`.
 
 ```
 usage: createComp.py [-h] [--rom-dir ROM_DIR] [--xml-dir XML_DIR]
-                     [--output-dir OUTPUT_DIR] [--debug]
+                     [--output-dir OUTPUT_DIR] [--report REPORT] [--debug]
 
 Process ROM and XML files
 
@@ -196,6 +196,8 @@ options:
   --xml-dir XML_DIR     Path to the XML files directory (default: Computer)
   --output-dir OUTPUT_DIR
                         Path to the output directory (default: MSX)
+  --report REPORT       Text report of created and skipped packs (default:
+                        OUTPUT_DIR/createComp_report.txt)
   --debug               Debug output
 ```
 
@@ -238,15 +240,17 @@ Load the FW pack and the machine pack (and the DB if you use big ROM cartridges)
 
 ## Troubleshooting
 
-**A pack is written even when ROMs are missing, and such a pack will not boot.** Always read the console output of the tools.
+**createComp writes a machine pack only when all its ROMs were found.** A machine with a missing ROM gets no pack, and a pack of it left from an earlier run is deleted. The report `MSX/createComp_report.txt` lists the created packs and, for each machine without a pack, the missing ROMs (file name and SHA1). createDev still writes the FW pack without a missing firmware ROM, see below.
 
 ### Console messages
 
 | Message | Meaning and fix |
 |---|---|
-| `<machine name>` (plain line) | The XML was read and the pack is being written. The following lines belong to this machine. |
-| `ROM SHA1 not found: <sha1> (ROM name: <file>) in slot s/ss` | No file with that SHA1 in the ROM folder. The pack is still written but without this ROM and will not boot. Add the right dump (see Appendix A). |
-| `ROM missing! SHA1 <sha1> not find. Computer SKIP` | A KANJI font ROM is missing, the pack of this machine is **not** written (it is deleted). Affects Daewoo_CPC-400S, National_FS-4600F, Panasonic_FS-A1F, Panasonic_FS-A1ST. |
+| `<machine name>` (plain line) | The XML was read and the pack is being built. The following lines belong to this machine. |
+| `ROM SHA1 not found: <sha1> (ROM name: <file>) in slot s/ss` | No file with that SHA1 in the ROM folder. Add the right dump (see Appendix A). |
+| `ROM SHA1 not found: <sha1> (device KANJI)` | The KANJI font ROM is missing. Affects Daewoo_CPC-400S, National_FS-4600F, Panasonic_FS-A1F, Panasonic_FS-A1ST. |
+| `<machine name>: pack NOT written` | Some ROM of this machine is missing (lines above) or its XML is broken. The pack is not written; an old one is deleted. |
+| `Created N, not created M. Report: <file>` | End of the run. The report has the list of missing ROMs per machine. |
 | `WARNING:__main__:Missing ROM '<file>' for cartridge <NAME>. SHA1: ...` (createDev) | Firmware ROM of an extension not found (file name and cartridge as in `Extension/*.xml`, see [Firmware ROMs](#firmware-roms-for-the-fw-pack)). The cartridge is generated without its ROM: FM-PAC, GM2 and the FDC cartridge lack firmware, MoonSound ends with `NOT FW CONF` in the core. |
 | `INFO:__main__:NAME: KONAMI index: 34` (createDev) | Normal progress message. The index is in hex. |
 | `Error: unknown ...`, `Unknown block elements`, `FW name: X SKIP. Not in cart_device.json`, `Device '<x>' nenalezeno` | Problem in the XML or JSON tables (only when you edited them). See [DEVELOPERS.md](DEVELOPERS.md). |

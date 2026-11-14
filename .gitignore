@@ -53,7 +53,7 @@ tools/private/
 tools/CreateMSXpack/Computer_*/
 tools/CreateMSXpack/*.bat
 tools/CreateMSXpack/Extension_*/
-tools/CreateMSXpack/__pycache__/
+tools/CreateMSXpack/**/__pycache__/
 tools/CreateMSXpack/ToImport/
 tools/CreateCRC/mappers.db/
 tools/debugger/

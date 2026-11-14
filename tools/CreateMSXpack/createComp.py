@@ -1,4 +1,6 @@
 import os
+import io
+import datetime
 import xml.etree.ElementTree as ET
 import struct
 import base64
@@ -21,6 +23,21 @@ ENGINE_FLAGS = {
     'T9763': 0x01,
     'T9769': 0x03,
 }
+
+REPORT_NAME = 'createComp_report.txt'
+
+# Problems of the pack being built; a missing ROM means the pack is not written
+pack_log = {'missing': [], 'warnings': []}
+
+def warn(msg):
+    print(msg)
+    pack_log['warnings'].append(msg)
+
+def missing_rom(msg, rom):
+    """rom: short name for the report, the same ROM in several slots is listed once"""
+    print(msg)
+    if rom not in pack_log['missing']:
+        pack_log['missing'].append(rom)
 
 def parse_msx_block(root):
     """
@@ -47,7 +64,7 @@ def parse_msx_block(root):
     # Adjust the count to not exceed the limit
     if 'count' in  result :
         if count is not None:
-            print("Error, block contain multiple count")
+            warn("Error, block contain multiple count")
         else :
             count = result['count']
     else :
@@ -89,7 +106,7 @@ def parse_msx_primary(root):
         elif element.tag == 'block':
             results.setdefault('block', []).append(parse_msx_block(element))
         else:
-            print(f"Processing unknown element: {element.tag}")
+            warn(f"Processing unknown element: {element.tag}")
     
     if root.tag == 'primary':
         expander_en = convert_to_int(root.attrib.get("expander",'0'))
@@ -211,12 +228,17 @@ def create_msx_config_block(slot, subslot, blocks, outfile, files_with_sha1, con
             (typ, attributes) = block.pop('memory', (None, None)) 
             if typ == 'ROM' :
                 filename = None	
-                if 'exactFilename' in attributes: 
+                if 'exactFilename' in attributes:
                     filename = attributes['exactFilename']
+                    if not os.path.isfile(filename):
+                        missing_rom(f"ROM file not found: {filename} in slot {slot}/{subslot}", filename)
+                        filename = None
                 elif 'SHA1' not in attributes:
-                    print(f"Missing SHA1 for ROM in slot {slot}/{subslot}")               
+                    missing_rom(f"Missing SHA1 for ROM in slot {slot}/{subslot}", f"no SHA1 in XML (slot {slot}/{subslot})")
                 elif attributes['SHA1'] not in files_with_sha1:
-                    print(f"ROM SHA1 not found: {attributes['SHA1']} (ROM name: {attributes['filename']}) in slot {slot}/{subslot}")
+                    rom_name = attributes.get('filename', '?')
+                    missing_rom(f"ROM SHA1 not found: {attributes['SHA1']} (ROM name: {rom_name}) in slot {slot}/{subslot}",
+                                f"{rom_name}  SHA1 {attributes['SHA1']}")
                 else :
                     filename = files_with_sha1[attributes['SHA1']]
                 
@@ -251,13 +273,13 @@ def create_msx_config_block(slot, subslot, blocks, outfile, files_with_sha1, con
                     if value == 8192 :
                         # 8 kB in the upper half of a one-page block (Casio PV-7: E000-FFFF)
                         if block['block_count'] != 1 :
-                            print(f"RAM size 8192 needs a one-page block in slot {slot}/{subslot}")
+                            warn(f"RAM size 8192 needs a one-page block in slot {slot}/{subslot}")
                         params[0] = 1
                         params[2] = 1
                     elif value :
                         params[0] = (value // 16384) & 0xFF
                     else :
-                        print(f"RAM size not integer : {attributes['size']} in slot {slot}/{subslot}")
+                        warn(f"RAM size not integer : {attributes['size']} in slot {slot}/{subslot}")
                 else :
                     params[0] = block['block_count']
 
@@ -270,7 +292,7 @@ def create_msx_config_block(slot, subslot, blocks, outfile, files_with_sha1, con
                 params[1] = pattern
                 add_block_type_to_file(address, typ, params, outfile, constants)
             else :
-                print(f"memory type {typ} unknown in slot {slot}/{subslot}") 
+                warn(f"memory type {typ} unknown in slot {slot}/{subslot}") 
         
         if 'shared_memory' in block:
             (typ, attributes) = block.pop('shared_memory', (None, None))
@@ -287,7 +309,7 @@ def create_msx_config_block(slot, subslot, blocks, outfile, files_with_sha1, con
             if "size" in attributes :
                 size = convert_to_int(attributes["size"])
             else :
-                print(f"Error: missing attribut 'size' in shared_memory '{typ}' in slot {slot}/{subslot}") 
+                warn(f"Error: missing attribut 'size' in shared_memory '{typ}' in slot {slot}/{subslot}") 
                 return
             
             ref = 0
@@ -295,19 +317,19 @@ def create_msx_config_block(slot, subslot, blocks, outfile, files_with_sha1, con
             if "slot" in attributes :
                 ref = (convert_to_int(attributes["slot"]) & 3) << 4
             else :
-                print(f"Error: missing attribut 'slot' in shared_memory '{typ}' in slot {slot}/{subslot}") 
+                warn(f"Error: missing attribut 'slot' in shared_memory '{typ}' in slot {slot}/{subslot}") 
                 return
             
             if "subslot" in attributes :
                 ref = ref | ((convert_to_int(attributes["subslot"]) & 3) << 2)
             else :
-                print(f"Error: missing attribut 'subslot' in shared_memory '{typ}' in slot {slot}/{subslot}") 
+                warn(f"Error: missing attribut 'subslot' in shared_memory '{typ}' in slot {slot}/{subslot}") 
                 return
             
             if "block" in attributes :
                 ref = ref | (convert_to_int(attributes["block"]) & 3)
             else :
-                print(f"Error: missing attribut 'block' in shared_memory  '{typ}' in slot {slot}/{subslot}") 
+                warn(f"Error: missing attribut 'block' in shared_memory  '{typ}' in slot {slot}/{subslot}") 
                 return
 
             params[0] = ref
@@ -325,7 +347,7 @@ def create_msx_config_block(slot, subslot, blocks, outfile, files_with_sha1, con
                     params[1] = (convert_to_int(attributes['param']) & 3) << 2
                 add_block_type_to_file(address, "MAPPER", params, outfile, constants)
             else :
-                print(f"Error: unknown mapper '{typ}' in slot {slot}/{subslot}")  
+                warn(f"Error: unknown mapper '{typ}' in slot {slot}/{subslot}")  
         
         if 'cart' in block:
             (typ, attributes) = block.pop('cart', (None, None))
@@ -335,7 +357,7 @@ def create_msx_config_block(slot, subslot, blocks, outfile, files_with_sha1, con
             elif typ == 'B' or typ == 'b' or typ == '1' :
                 value = 1
             else :
-                print(f"Error: unknown identify CART '{typ}' in slot {slot}/{subslot}")
+                warn(f"Error: unknown identify CART '{typ}' in slot {slot}/{subslot}")
 
             if value is not None:
                 params[0] = value
@@ -368,7 +390,7 @@ def create_msx_config_block(slot, subslot, blocks, outfile, files_with_sha1, con
                         params[2] = device_param
                         add_block_type_to_file(address, "IO_DEVICE", params, outfile, constants)
                 else :
-                    print(f"Error: unknown device '{typ}' in slot {slot}/{subslot}") 
+                    warn(f"Error: unknown device '{typ}' in slot {slot}/{subslot}") 
         
         if 'ref' in block:
             (typ, attributes) = block.pop('ref', (None, None))
@@ -379,9 +401,9 @@ def create_msx_config_block(slot, subslot, blocks, outfile, files_with_sha1, con
                         params[0] = value & 3
                         add_block_type_to_file(address, "REF_DEV", params, outfile, constants)
                     else :
-                        print(f"Error: reference type '{typ}' value to_block is not integger in slot {slot}/{subslot}") 
+                        warn(f"Error: reference type '{typ}' value to_block is not integger in slot {slot}/{subslot}") 
                 else :
-                    print(f"Error: reference type '{typ}' missing value to_block in slot {slot}/{subslot}") 
+                    warn(f"Error: reference type '{typ}' missing value to_block in slot {slot}/{subslot}") 
             elif typ == "MEMORY" :
                 if "to_block" in attributes :
                     value = convert_to_int(attributes["to_block"])
@@ -389,18 +411,18 @@ def create_msx_config_block(slot, subslot, blocks, outfile, files_with_sha1, con
                         params[0] = value & 3
                         add_block_type_to_file(address, "REF_MEM", params, outfile, constants)
                     else :
-                        print(f"Error: reference type '{typ}' value to_block is not integger in slot {slot}/{subslot}") 
+                        warn(f"Error: reference type '{typ}' value to_block is not integger in slot {slot}/{subslot}") 
                 else :
-                    print(f"Error: reference type '{typ}' missing value to_block in slot {slot}/{subslot}") 
+                    warn(f"Error: reference type '{typ}' missing value to_block in slot {slot}/{subslot}") 
 
             else :
-                print(f"Error: unknown reference type '{typ}' in slot {slot}/{subslot}") 
+                warn(f"Error: unknown reference type '{typ}' in slot {slot}/{subslot}") 
         
         
         del block['block_start']
         del block['block_count']
         if block:
-            print (f"Unknown block elements {block}")
+            warn(f"Unknown block elements {block}")
         
         
  
@@ -478,11 +500,12 @@ def create_msx_config_device(device, outfile, files_with_sha1, constants):
         param = 0
         filename = None
         
-        if 'ROM_SHA1' in parameters : 
+        if 'ROM_SHA1' in parameters :
             if parameters['ROM_SHA1'] not in files_with_sha1 :
-                raise Exception(f"ROM missing! SHA1 {parameters['ROM_SHA1']} not find. Computer SKIP")
-
-            filename = files_with_sha1[parameters['ROM_SHA1']]
+                missing_rom(f"ROM SHA1 not found: {parameters['ROM_SHA1']} (device {device})",
+                            f"{device} ROM  SHA1 {parameters['ROM_SHA1']}")
+            else :
+                filename = files_with_sha1[parameters['ROM_SHA1']]
             if filename:
                 if 'rom_skip' in parameters : rom_skip  = convert_to_int(parameters['rom_skip'])
                 rom_size = os.path.getsize(filename) - rom_skip
@@ -511,7 +534,7 @@ def create_msx_config_device(device, outfile, files_with_sha1, constants):
         size = (rom_size + 16383) // 16384
         
         if device not in constants['device'] :
-            print(f"Device '{device}' nenalezeno. Zkontroluj device.json")
+            warn(f"Device '{device}' nenalezeno. Zkontroluj device.json")
             continue       
         
         data = struct.pack('BBBBBBBB', constants['conf']['DEVICE'], constants['device'][device], port, port_mask, param, size, shared_ref, shared_offset & 0xFF)
@@ -532,35 +555,47 @@ def create_msx_config_device(device, outfile, files_with_sha1, constants):
                     outfile.write(b'\xff' * padding_needed)
         
 
+
 def create_msx_config(config, file_name, path, files_with_sha1, constants, outpt_dir):
     """
     Creates the MSX configuration file based on the parsed configuration data.
+    The pack is built in memory and written only when nothing is missing.
 
     :param config: Parsed MSX configuration.
     :param file_name: Output file name.
     :param path: Output file path.
     :param files_with_sha1: Dictionary of files with their SHA1 hashes.
     :param constants: Dictionary with configuration constants.
+    :return: Path of the written pack, None if it was not written.
     """
-    file_path = os.path.join(outpt_dir, path)
-    os.makedirs(file_path, exist_ok=True)
-    file_path = os.path.join(file_path, file_name + '.msx')
-    
+    file_path = os.path.join(outpt_dir, path, file_name + '.msx')
+    outfile = io.BytesIO()
+
     try:
-        with open(file_path, "wb") as outfile:
-            #create_msx_config_header(config.get('type', ('MSX1',{})), config.get('video_standard', ('PAL',{})), outfile)
-            create_msx_config_header(config, outfile)
-            # Devices with memory in a shared block go after the slots: the block must exist first
-            devices = config.get('devices', [])
-            create_msx_config_device([d for d in devices if 'shared_slot' not in d[1]], outfile, files_with_sha1, constants)
-            create_msx_config_primary(config.get('primary', {}), outfile, files_with_sha1, constants)
-            create_msx_config_device([d for d in devices if 'shared_slot' in d[1]], outfile, files_with_sha1, constants)
-            create_msx_config_kbd_layout(config.get('kbd_layout', None), outfile, constants) 
+        create_msx_config_header(config, outfile)
+        # Devices with memory in a shared block go after the slots: the block must exist first
+        devices = config.get('devices', [])
+        create_msx_config_device([d for d in devices if 'shared_slot' not in d[1]], outfile, files_with_sha1, constants)
+        create_msx_config_primary(config.get('primary', {}), outfile, files_with_sha1, constants)
+        create_msx_config_device([d for d in devices if 'shared_slot' in d[1]], outfile, files_with_sha1, constants)
+        create_msx_config_kbd_layout(config.get('kbd_layout', None), outfile, constants)
     except Exception as e:
+        pack_log['error'] = str(e)
         print(e)
-        os.remove(file_path)
-    
-             
+
+    if pack_log['missing'] or 'error' in pack_log:
+        # A pack from an earlier run must not stay behind
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        print(f"{file_name}: pack NOT written")
+        return None
+
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+    with open(file_path, 'wb') as f:
+        f.write(outfile.getvalue())
+    return file_path
+
+
 def create_msx_conf(file_name, path, files_with_sha1, constants, outpt_dir, root_dir):
     """
     Parses the XML configuration file and creates the corresponding MSX configuration file.
@@ -569,26 +604,73 @@ def create_msx_conf(file_name, path, files_with_sha1, constants, outpt_dir, root
     :param path: Relative path to the XML file.
     :param files_with_sha1: Dictionary of files with their SHA1 hashes.
     :param constants: Dictionary with configuration constants.
+    :return: Result of this machine for the report.
     """
+    global pack_log
+    pack_log = {'missing': [], 'warnings': []}
+    name = os.path.normpath(os.path.join(path, file_name)).replace('\\', '/')
     file_path = os.path.join(root_dir, path, file_name + '.xml')
+    written = None
     try:
         tree = ET.parse(file_path)
         root = tree.getroot()
         if root.tag != "msxConfig":
             print(f"File {file_path} is not a valid msxConfig XML. Skipping.")
-            return
-        
-        config = parse_msx_config(root)
-        print(file_name)
-        create_msx_config(config, file_name, path, files_with_sha1, constants, outpt_dir)
+            pack_log['error'] = 'not an msxConfig XML'
+        else:
+            config = parse_msx_config(root)
+            print(file_name)
+            written = create_msx_config(config, file_name, path, files_with_sha1, constants, outpt_dir)
 
     except (ET.ParseError, FileNotFoundError) as e:
         print(f"Error processing file {file_path}: {e}")
+        pack_log['error'] = str(e)
+
+    return {'name': name, 'written': written, **pack_log}
+
+
+def write_report(results, report_path, args):
+    """
+    Writes a plain text report: which packs were created and which were not, and why.
+    """
+    ok = [r for r in results if r['written']]
+    bad = [r for r in results if not r['written']]
+
+    lines = [
+        f"createComp report  {datetime.datetime.now():%Y-%m-%d %H:%M}",
+        f"XML:    {args.xml_dir}",
+        f"ROM:    {args.rom_dir}",
+        f"Output: {args.output_dir}",
+        '',
+        f"Created: {len(ok)}",
+        f"Not created: {len(bad)}",
+        '',
+        f"NOT CREATED ({len(bad)})",
+        '',
+    ]
+    for r in bad:
+        lines.append(f"  {r['name']}")
+        lines += [f"      missing ROM: {m}" for m in r['missing']]
+        if 'error' in r:
+            lines.append(f"      error: {r['error']}")
+    if not bad:
+        lines.append('  none')
+
+    lines += ['', f"CREATED ({len(ok)})", '']
+    for r in ok:
+        lines.append(f"  {r['name']}")
+        lines += [f"      warning: {w}" for w in r['warnings']]
+    if not ok:
+        lines.append('  none')
+
+    os.makedirs(os.path.dirname(os.path.abspath(report_path)), exist_ok=True)
+    with open(report_path, 'w', encoding='utf-8') as f:
+        f.write('\n'.join(lines) + '\n')
 
 
 debug_output = False
 
-if __name__ == '__main__':   
+if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Process ROM and XML files")
     parser.add_argument('--rom-dir', type=str, default=ROM_DIR,
                         help='Path to the ROM files directory (default: %(default)s)')
@@ -596,19 +678,27 @@ if __name__ == '__main__':
                         help='Path to the XML files directory (default: %(default)s)')
     parser.add_argument('--output-dir', type=str, default=DIR_SAVE,
                         help='Path to the output directory (default: %(default)s)')
+    parser.add_argument('--report', type=str, default=None,
+                        help=f'Text report of created and skipped packs (default: OUTPUT_DIR/{REPORT_NAME})')
     parser.add_argument('--debug', action='store_true', help='Debug output')
 
     args = parser.parse_args()
-    
+
     if args.debug:
         debug_output = True
-        
+
     files_with_sha1 = find_files_with_sha1(args.rom_dir)
     constants = load_constants()
 
     xml_files = find_xml_files(args.xml_dir)
-    
+
     outpt_dir = args.output_dir
 
+    results = []
     for file_name, path in xml_files:
-        create_msx_conf(file_name, path, files_with_sha1, constants, outpt_dir, args.xml_dir)
+        results.append(create_msx_conf(file_name, path, files_with_sha1, constants, outpt_dir, args.xml_dir))
+
+    report_path = args.report or os.path.join(outpt_dir, REPORT_NAME)
+    write_report(results, report_path, args)
+    created = sum(1 for r in results if r['written'])
+    print(f"Created {created}, not created {len(results) - created}. Report: {report_path}")

@@ -540,8 +540,8 @@ end
 bit satlog_on = 0, satwe_q = 1;
 int satlog_ms = -1, satlog_n = 0;
 always @(posedge clk_core) begin
-    satwe_q <= sys.MSX.devices.v99.VDP_i.PRAMWE_N;
-    if (satlog_on && satlog_n < 300 && !sys.MSX.devices.v99.VDP_i.PRAMWE_N && satwe_q && sys.MSX.devices.v99.VDP_i.PRAMADR[16:7] == 10'h03C) begin
+    satwe_q <= sys.MSX.devices.v99.VDP_i.VDPVRAMWRACK;     // toggles with every CPU write, address and data set with it
+    if (satlog_on && satlog_n < 300 && sys.MSX.devices.v99.VDP_i.VDPVRAMWRACK != satwe_q && sys.MSX.devices.v99.VDP_i.PRAMADR[16:7] == 10'h03C) begin
         $display("%0t SAT %04h <= %02h  line %0d H_CNT %0d", $time, sys.MSX.devices.v99.VDP_i.PRAMADR[15:0], sys.MSX.devices.v99.VDP_i.PRAMDBO,
                  $signed(sys.MSX.devices.v99.VDP_i.U_SSG.FF_MONITOR_LINE), sys.MSX.devices.v99.VDP_i.H_CNT);
         satlog_n++;

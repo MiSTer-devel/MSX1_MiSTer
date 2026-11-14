@@ -1,6 +1,6 @@
 <?xml version="1.0" ?>
 <!-- Panasonic FS-A1FX (MSX2+), converted from openMSX share/machines.
-     Not in the core: PrinterPort. The SRAM of the Matsushita device is not saved. -->
+     Not in the core: PrinterPort. The SRAMs are emulated but not saved. -->
 <msxConfig>
   <cpu>Z80</cpu>                   <!-- Z80 --> 
   <wait_count>1</wait_count>       <!-- 0 - 3 -->  

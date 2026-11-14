@@ -73,7 +73,7 @@ module devices  #(parameter sysCLK)
     vram_bus_if             vram_bus_v99();
 
     // Výstupy kombinující jednotlivé zařízení
-    assign data = scc_data & fdc_data & msx2_ram_data & tms_data & v99_data & rtc_data & psg_data & ppi_data & ocm_data & reset_status_data & opm_data & ym2148_data & msx_midi_data & systimer_data & s1990_data & turbor_pcm_data & turbor_pause_data & opl4_data & matsushita_data & ciel_turbo_data;
+    assign data = scc_data & fdc_data & msx2_ram_data & tms_data & v99_data & rtc_data & psg_data & ppi_data & ocm_data & reset_status_data & opm_data & ym2148_data & msx_midi_data & systimer_data & s1990_data & turbor_pcm_data & turbor_pause_data & opl4_data & matsushita_data & ciel_turbo_data & s1985_data;
     assign data_oe_rq = fdc_data_oe_rq;// | TC8566AF_data_oe_rq;
     assign data_to_mapper = msx2_ram_data_to_mapper & latch_port_data_to_mapper;
 
@@ -252,7 +252,7 @@ module devices  #(parameter sysCLK)
 
     // Turbo of the machine: OCM, Matsushita switched I/O (5.37 MHz) or CIEL (7.16 MHz)
     MSX::cpu_speed_t ocm_speed, matsushita_speed, ciel_speed;
-    wire  [7:0] matsushita_data, ciel_turbo_data;
+    wire  [7:0] matsushita_data, ciel_turbo_data, s1985_data;
     dev_matsushita dev_matsushita (
         .cpu_bus(cpu_bus),
         .io_device(io_device[DEV_MATSUSHITA]),
@@ -267,6 +267,12 @@ module devices  #(parameter sysCLK)
         .io_device(io_device[DEV_CIEL_TURBO]),
         .data(ciel_turbo_data),
         .cpu_speed(ciel_speed)
+    );
+    dev_s1985 dev_s1985 (
+        .cpu_bus(cpu_bus),
+        .io_device(io_device[DEV_S1985]),
+        .sram_init(sram_init),
+        .data(s1985_data)
     );
     assign cpu_speed = ocm_speed.en        ? ocm_speed        :
                        matsushita_speed.en ? matsushita_speed : ciel_speed;

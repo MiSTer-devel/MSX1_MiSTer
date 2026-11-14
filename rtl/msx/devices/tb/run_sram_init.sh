@@ -5,7 +5,7 @@
 set -e
 cd "$(dirname "$0")"
 OUT=$(mktemp -d)
-SRC="../../../peripheral/rtc.sv ../rtc.sv ../matsushita.sv"; DEF=""
+SRC="../../../peripheral/rtc.sv ../rtc.sv ../matsushita.sv ../s1985.sv"; DEF=""
 if [ -n "$OLD" ]; then SRC="$OLD/peripheral_rtc.sv $OLD/rtc.sv $OLD/matsushita.sv"; DEF="+define+OLD"; fi
 verilator --binary --timing -Wno-fatal -Wno-lint -Wno-style $DEF \
     --top-module sram_init_tb -Mdir "$OUT" \

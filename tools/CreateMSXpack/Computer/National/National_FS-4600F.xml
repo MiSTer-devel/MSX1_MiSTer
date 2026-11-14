@@ -41,6 +41,7 @@
       <block>  <!-- MSX Word -->
         <memory SHA1="005794c10a4237de3907ba4a44d436078d3c06c2" filename="fs-4600f_msxword.rom" size="65536">ROM</memory>
         <mapper>NATIONAL</mapper>
+        <sram>4096</sram>               <!-- National mapper SRAM (MSX Word), not saved -->
       </block>
     </secondary>
     <secondary slot="2">

@@ -255,7 +255,8 @@ task automatic check_ascii16x(input string what);
     $display("ok   %s", what);
 endtask
 
-// Machine pack with an SRAM block (FS-A1ST: 16 kB on the Panasonic mapper in slot 3-3): its
+// Machine pack with an SRAM block (FS-A1ST: 16 kB on the Panasonic mapper in slot 3-3, FS-4600F:
+// 4 kB on the National mapper): its
 // blocks point to entry 3, filled with FF, outside every other memory; no other block sees it
 task automatic check_machine_sram(input string what, input string name);
     int fd, c, err0 = errors, n3 = 0;
@@ -273,7 +274,7 @@ task automatic check_machine_sram(input string what, input string name);
         if (q.mapper == MAPPER_NONE) continue;
         if (q.ref_sram == 2'd3) begin
             n3++;
-            if (q.mapper != MAPPER_PANASONIC) begin errors++; $display("FAIL %s: block %0d (mapper %0d) sees the machine SRAM", what, i, q.mapper); end
+            if (q.mapper != MAPPER_PANASONIC && q.mapper != MAPPER_NATIONAL) begin errors++; $display("FAIL %s: block %0d (mapper %0d) sees the machine SRAM", what, i, q.mapper); end
         end
         if (lookup_RAM[q.ref_ram].size != 0) begin
             int unsigned ra = lookup_RAM[q.ref_ram].addr, rs = 32'(lookup_RAM[q.ref_ram].size) * 8192;

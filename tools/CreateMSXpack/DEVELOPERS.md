@@ -28,8 +28,8 @@ CreateCRC: vampier.db (CRC32 -> FW ID)                                          
 | `conf.json` | `conf_t` | record types (BLOCK 0, DEVICE 1, KEYBOARD_LAYOUT 2, CARTRIGE 3, END 7) |
 | `block.json` | `block_t` | block types 0-11 |
 | `device.json` | `device_t` (5 bit) | device names 0-22 (MEM_MAPPER = `DEV_MSX2_RAM`, TMS99xx = `DEV_VDP_TMS`, V99xx = `DEV_VDP_V99xx`) |
-| `mapper.json` | `mapper_typ_t` (6 bit) | mapper names 0-40 (the spellings `GENRIC_16KB`/`GENRIC_8KB` are as in the RTL) |
-| `cart_device.json` | `cart_typ_t` | FW IDs: 0-13 menu cartridges, 20-59 ROM mappers selected by the DB |
+| `mapper.json` | `mapper_typ_t` (6 bit) | mapper names 0-43 (the spellings `GENRIC_16KB`/`GENRIC_8KB` are as in the RTL) |
+| `cart_device.json` | `cart_typ_t` | FW IDs: 0-13 menu cartridges, 20-60 ROM mappers selected by the DB |
 | `deviceParams.json` | `io_device.param` use of each device module | named device parameters, see section 2.6 |
 
 Run all tools from inside `tools/CreateMSXpack`: the JSON tables and `ROM` (unless `--rom-dir`), `Extension`, `MSX` are opened by relative name (`createDev.py` also uses a temporary `ROM.bin` in the current directory).
@@ -93,7 +93,7 @@ Children, each at most once per block (except `<device>`, which may repeat, e.g.
 | `<memory>ROM</memory>` | `SHA1` (lowercase hex, required), `filename` (informational, printed in the "not found" message), `skip` and `size` (bytes, decimal or hex, cut a slice from the dump), `exactFilename` (path, bypasses the SHA1 lookup; supported, unused) | ROM block. Stored in the pack padded with FF to a multiple of 16 kB |
 | `<memory>RAM</memory>` | `size` (bytes, default = pages x 16 kB), `pattern` (fill, default 1) | RAM block. 4 MB is encoded as 0. `size="8192"` in a one-page block: 8 kB in the upper half of the page, the lower half unmapped (Casio PV-7: E000-FFFF). Fill patterns: 1 = FF, 2 = 00, 3/4/5 = DRAM power-on stripes (0 = "data from DDR", do not use for RAM). Machines use 1, 2, 3, 4 |
 | `<shared_memory>` | text `ROM` = read-only, anything else read/write; `slot`, `subslot`, `block` (source), `offset`, `size` (bytes) | a window into another block's memory. The source block must already exist in the pack. See the `offset` pitfall in section 6 |
-| `<mapper>NAME</mapper>` | name from `mapper.json`; optional `param` 0-3 | MAPPER record. `param` is used only by `DRAM` (which 16 kB page of the top 64 kB RAM). A ROM block without a mapper is linear (`MAPPER_OFFSET`) in the core |
+| `<mapper>NAME</mapper>` | name from `mapper.json`; optional `param` 0-3 | MAPPER record. `param` is used by `DRAM` (which 16 kB page of the top 64 kB RAM) and `MSXDOS2` (bank register: 0 6000-6FFF, 1 7FF0, 2 7FFE). A ROM block without a mapper is linear (`MAPPER_OFFSET`) in the core |
 | `<cart>A</cart>` | `A`/`a`/`0` or `B`/`b`/`1` | marks this block as the cartridge slot A or B (SLOT record). Normally `<block start="0">` (all 4 pages) |
 | `<device>NAME</device>` | `port` + `mask` (adds an IO_DEVICE record; mask defaults to FF if only `port` is given), named parameters or raw `param` | device bound to this block (memory-mapped device or device with a mapper): `MEM_MAPPER`, `WD2793`, `TC8566AF`, `OPM`, `YM2148`, `SCC`, ... |
 | `<ref to_block="n">DEVICE</ref>` or `MEMORY` | `to_block` 0-3 | `DEVICE`: this block also selects the device of block `n` (FDC registers visible in page 2 too). `MEMORY`: copy memory, mapper, mapper param and offset of block `n` |
@@ -253,7 +253,7 @@ The OSD item value is converted to `cart_typ_t` in `rtl/msx_config.sv`, and the 
 
 - `CART_TYP_ROM` (11) is special: the loader computes the CRC32 of the loaded ROM and asks the DB. The DB record gives the FW ID (20-59). A ROM of at most 64 kB that is not in the DB runs as a plain ROM, with FW ID 20/21/22 chosen from the `AB` header.
 - `CART_TYP_EMPTY` (12) has no `<fw>` entry; its table slot points to the empty configuration. That is why an empty slot also needs a FW pack.
-- **Free FW IDs**: 10, 14 and 15 for new menu cartridges (`cart_typ_t` and the status fields are 4 bits). For DB mappers: 24, 37-48 except 40-42, and 60 and up.
+- **Free FW IDs**: 10, 14 and 15 for new menu cartridges (`cart_typ_t` and the status fields are 4 bits). For DB mappers: 24, 37-48 except 40-42, and 61 and up.
 - Menu text: `CONF_STR_SLOT_A` / `CONF_STR_SLOT_B` in `rtl/msx_config.sv`.
 
 ## 4. Recipes

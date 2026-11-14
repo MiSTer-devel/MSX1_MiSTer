@@ -28,8 +28,8 @@ CreateCRC: vampier.db (CRC32 -> FW ID)                                          
 | `conf.json` | `conf_t` | typy záznamů (BLOCK 0, DEVICE 1, KEYBOARD_LAYOUT 2, CARTRIGE 3, END 7) |
 | `block.json` | `block_t` | typy bloků 0-11 |
 | `device.json` | `device_t` (5 bitů) | názvy zařízení 0-22 (MEM_MAPPER = `DEV_MSX2_RAM`, TMS99xx = `DEV_VDP_TMS`, V99xx = `DEV_VDP_V99xx`) |
-| `mapper.json` | `mapper_typ_t` (6 bitů) | názvy mapperů 0-40 (psaní `GENRIC_16KB`/`GENRIC_8KB` je shodné s RTL) |
-| `cart_device.json` | `cart_typ_t` | FW ID: 0-13 cartridge z nabídky, 20-59 mappery ROM vybírané podle DB |
+| `mapper.json` | `mapper_typ_t` (6 bitů) | názvy mapperů 0-43 (psaní `GENRIC_16KB`/`GENRIC_8KB` je shodné s RTL) |
+| `cart_device.json` | `cart_typ_t` | FW ID: 0-13 cartridge z nabídky, 20-60 mappery ROM vybírané podle DB |
 | `deviceParams.json` | použití `io_device.param` v modulu každého zařízení | pojmenované parametry zařízení, viz oddíl 2.6 |
 
 Všechny nástroje spouštějte zevnitř `tools/CreateMSXpack`: tabulky JSON a `ROM` (není-li `--rom-dir`), `Extension`, `MSX` se otevírají relativním názvem (`createDev.py` navíc používá dočasný `ROM.bin` v aktuální složce).
@@ -93,7 +93,7 @@ Potomci, každý nejvýše jednou na blok (kromě `<device>`, který se smí opa
 | `<memory>ROM</memory>` | `SHA1` (malá hexadecimální písmena, povinný), `filename` (informativní, vypíše se ve zprávě „not found“), `skip` a `size` (bajty, desítkově nebo hexadecimálně, vyříznou úsek z dumpu), `exactFilename` (cesta, obchází hledání podle SHA1; podporováno, nepoužito) | blok ROM. V packu je doplněn FF na násobek 16 kB |
 | `<memory>RAM</memory>` | `size` (bajty, výchozí = stránky x 16 kB), `pattern` (výplň, výchozí 1) | blok RAM. 4 MB se kóduje jako 0. `size="8192"` v bloku o jedné stránce: 8 kB v horní polovině stránky, dolní polovina nezapojená (Casio PV-7: E000-FFFF). Vzory výplně: 1 = FF, 2 = 00, 3/4/5 = pruhy jako po zapnutí DRAM (0 = „data z DDR“, pro RAM nepoužívat). Počítače používají 1, 2, 3, 4 |
 | `<shared_memory>` | text `ROM` = jen pro čtení, cokoli jiného čtení/zápis; `slot`, `subslot`, `block` (zdroj), `offset`, `size` (bajty) | okno do paměti jiného bloku. Zdrojový blok už musí v packu existovat. K `offset` viz úskalí v oddíle 6 |
-| `<mapper>NAME</mapper>` | název z `mapper.json`; volitelný `param` 0-3 | záznam MAPPER. `param` používá jen `DRAM` (která 16kB stránka horních 64 kB RAM). Blok ROM bez mapperu je v jádře lineární (`MAPPER_OFFSET`) |
+| `<mapper>NAME</mapper>` | název z `mapper.json`; volitelný `param` 0-3 | záznam MAPPER. `param` používá `DRAM` (která 16kB stránka horních 64 kB RAM) a `MSXDOS2` (registr banky: 0 6000-6FFF, 1 7FF0, 2 7FFE). Blok ROM bez mapperu je v jádře lineární (`MAPPER_OFFSET`) |
 | `<cart>A</cart>` | `A`/`a`/`0` nebo `B`/`b`/`1` | označí blok jako slot cartridge A nebo B (záznam SLOT). Obvykle `<block start="0">` (všechny 4 stránky) |
 | `<device>NAME</device>` | `port` + `mask` (přidá záznam IO_DEVICE; maska je FF, když je zadán jen `port`), pojmenované parametry nebo surový `param` | zařízení vázané na tento blok (zařízení mapované do paměti nebo zařízení s mapperem): `MEM_MAPPER`, `WD2793`, `TC8566AF`, `OPM`, `YM2148`, `SCC`, ... |
 | `<ref to_block="n">DEVICE</ref>` nebo `MEMORY` | `to_block` 0-3 | `DEVICE`: tento blok také vybírá zařízení bloku `n` (registry FDC viditelné i ve stránce 2). `MEMORY`: zkopíruje paměť, mapper, parametr mapperu a offset bloku `n` |
@@ -253,7 +253,7 @@ Hodnota položky OSD se převede na `cart_typ_t` v `rtl/msx_config.sv` a zavadě
 
 - `CART_TYP_ROM` (11) je zvláštní: zavaděč spočítá CRC32 načtené ROM a zeptá se DB. Záznam DB dá FW ID (20-59). ROM o velikosti nejvýše 64 kB, která v DB není, běží jako prostá ROM s FW ID 20/21/22 zvoleným podle hlavičky `AB`.
 - `CART_TYP_EMPTY` (12) nemá záznam `<fw>`; jeho položka v tabulce míří na prázdnou konfiguraci. Proto i prázdný slot potřebuje FW pack.
-- **Volná FW ID**: 10, 14 a 15 pro nové cartridge z nabídky (`cart_typ_t` i pole stavu mají 4 bity). Pro mappery z DB: 24, 37-48 kromě 40-42 a 60 výše.
+- **Volná FW ID**: 10, 14 a 15 pro nové cartridge z nabídky (`cart_typ_t` i pole stavu mají 4 bity). Pro mappery z DB: 24, 37-48 kromě 40-42 a 61 výše.
 - Text nabídky: `CONF_STR_SLOT_A` / `CONF_STR_SLOT_B` v `rtl/msx_config.sv`.
 
 ## 4. Postupy

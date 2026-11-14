@@ -41,5 +41,6 @@
   "ASCII16X" : 39,
   "HIDDEN" : 40,
   "NEO8" : 41,
-  "NEO16" : 42
+  "NEO16" : 42,
+  "MSXDOS2" : 43
 }

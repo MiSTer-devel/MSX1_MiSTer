@@ -86,6 +86,11 @@
       <mapper>NEO16</mapper>
     </block>
   </fw>
+  <fw name="MSXDOS2">                 <!-- MSX-DOS2 cartridge: 16 KB bank in 4000-7FFF, register 6000-6FFF -->
+    <block>
+      <mapper>MSXDOS2</mapper>
+    </block>
+  </fw>
   <fw name="RTYPE">
     <block>
       <mapper>RTYPE</mapper>   

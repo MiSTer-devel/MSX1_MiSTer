@@ -40,5 +40,6 @@
   "KonamiSCC": 56,
   "ASCII16X": 57,
   "NEO8": 58,
-  "NEO16": 59
+  "NEO16": 59,
+  "MSXDOS2": 60
 }

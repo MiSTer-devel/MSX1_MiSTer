@@ -59,7 +59,7 @@ Text prvku je název z `device.json`; neznámý název vypíše `Device '<x>' ne
 | Atribut | Význam |
 |---|---|
 | `port`, `mask` | každý 8 bitů. Zařízení reaguje na přístup, když `(addr & mask) == port` |
-| pojmenované parametry | kódují se přes `deviceParams.json` (oddíl 2.6): `MODE` (TMS99xx: PAL/NTSC), `VDP_ID` (V99xx: V9938/V9958), `system` (PSG: true = PSG počítače s porty pro joystick/klávesnici), `OCM` (PPI), `inverted` (RESET_STATUS), `turbo` a `sram` (MATSUSHITA: počítač má přepínač turba 5,37 MHz a 2 kB SRAM) |
+| pojmenované parametry | kódují se přes `deviceParams.json` (oddíl 2.6): `MODE` (TMS99xx: PAL/NTSC), `VDP_ID` (V99xx: V9938/V9958), `system` (PSG: true = PSG počítače s porty pro joystick/klávesnici), `OCM` (PPI), `inverted` (RESET_STATUS), `turbo` a `sram` (MATSUSHITA: počítač má přepínač turba 5,37 MHz a 2 kB SRAM). `S1985` (přepínané I/O FEh, port 40h maska F0h) parametr nemá; uvádí ho každý počítač s `<engine>S1985</engine>` |
 | `param` | surový 8bitový parametr pro zařízení **bez** záznamu v `deviceParams.json` (například KANJI: bit 0 = hangul, bit 1 = lascom) |
 | `ROM_SHA1`, `rom_skip`, `rom_size` | vlastní ROM zařízení, připojená k záznamu (font KANJI) |
 | `shared_slot`, `shared_subslot`, `shared_block`, `shared_size` (všechny povinné společně), `shared_offset` (výchozí 0) | paměť zařízení je okno do existujícího bloku (KANJI v 1chipMSX používá blok ESE-RAM) |
@@ -86,21 +86,22 @@ Zařízení nejvyšší úrovně bez `shared_slot` se zapisují první, zaříze
 
 Atributy: `start` (první 16kB stránka 0-3, výchozí 0) a `count` (počet stránek, výchozí 4, ořízne se na `4 - start`). Přijímá se i potomek `<count>`, ale žádný soubor ho nepoužívá; neuvádějte obojí.
 
-Potomci, každý nejvýše jednou na blok (kromě `<device>`, který se smí opakovat, např. OPM + YM2148 v jednom bloku). Zapisují se v tomto pořadí: memory, shared_memory, mapper, cart, device, ref.
+Potomci, každý nejvýše jednou na blok (kromě `<device>`, který se smí opakovat, např. OPM + YM2148 v jednom bloku). Zapisují se v tomto pořadí: memory, shared_memory, mapper, sram, cart, device, ref.
 
 | Potomek | Atributy a obsah | Účinek |
 |---|---|---|
 | `<memory>ROM</memory>` | `SHA1` (malá hexadecimální písmena, povinný), `filename` (informativní, vypíše se ve zprávě „not found“), `skip` a `size` (bajty, desítkově nebo hexadecimálně, vyříznou úsek z dumpu), `exactFilename` (cesta, obchází hledání podle SHA1; podporováno, nepoužito) | blok ROM. V packu je doplněn FF na násobek 16 kB |
 | `<memory>RAM</memory>` | `size` (bajty, výchozí = stránky x 16 kB), `pattern` (výplň, výchozí 1) | blok RAM. 4 MB se kóduje jako 0. `size="8192"` v bloku o jedné stránce: 8 kB v horní polovině stránky, dolní polovina nezapojená (Casio PV-7: E000-FFFF). Vzory výplně: 1 = FF, 2 = 00, 3/4/5 = pruhy jako po zapnutí DRAM (0 = „data z DDR“, pro RAM nepoužívat). Počítače používají 1, 2, 3, 4 |
 | `<shared_memory>` | text `ROM` = jen pro čtení, cokoli jiného čtení/zápis; `slot`, `subslot`, `block` (zdroj), `offset`, `size` (bajty) | okno do paměti jiného bloku. Zdrojový blok už musí v packu existovat. K `offset` viz úskalí v oddíle 6 |
-| `<mapper>NAME</mapper>` | název z `mapper.json`; volitelný `param` 0-3 | záznam MAPPER. `param` používá `DRAM` (která 16kB stránka horních 64 kB RAM) a `MSXDOS2` (registr banky: 0 6000-6FFF, 1 7FF0, 2 7FFE). Blok ROM bez mapperu je v jádře lineární (`MAPPER_OFFSET`) |
+| `<mapper>NAME</mapper>` | název z `mapper.json`; volitelný `param` 0-3 | záznam MAPPER. `param` používá `DRAM` (která 16kB stránka horních 64 kB RAM), `MSXDOS2` (registr banky: 0 6000-6FFF, 1 7FF0, 2 7FFE) a `PANASONIC` (1 = SRAM zrcadlená přes banky 80h-87h, FS-A1WX / WSX). Blok ROM bez mapperu je v jádře lineární (`MAPPER_OFFSET`) |
+| `<sram>SIZE</sram>` | bajty, násobek 1024, pod 256 kB | SRAM s baterií mapperu bloku: Panasonic (FS-A1ST 16384, FS-A1GT 32768, FS-A1WX / WSX 16384) a National (FS-4600F 4096). Při každém nahrání packu se vyplní FFh, neukládá se |
 | `<cart>A</cart>` | `A`/`a`/`0` nebo `B`/`b`/`1` | označí blok jako slot cartridge A nebo B (záznam SLOT). Obvykle `<block start="0">` (všechny 4 stránky) |
 | `<device>NAME</device>` | `port` + `mask` (přidá záznam IO_DEVICE; maska je FF, když je zadán jen `port`), pojmenované parametry nebo surový `param` | zařízení vázané na tento blok (zařízení mapované do paměti nebo zařízení s mapperem): `MEM_MAPPER`, `WD2793`, `TC8566AF`, `OPM`, `YM2148`, `SCC`, ... |
 | `<ref to_block="n">DEVICE</ref>` nebo `MEMORY` | `to_block` 0-3 | `DEVICE`: tento blok také vybírá zařízení bloku `n` (registry FDC viditelné i ve stránce 2). `MEMORY`: zkopíruje paměť, mapper, parametr mapperu a offset bloku `n` |
 
 `REF_*` odkazují na blok ve **stejném slotu a podslotu** a odkazovaný blok musí být první.
 
-XML počítače nemůže deklarovat SRAM s baterií; `<sram>` se respektuje jen ve FW packu.
+Počítač má nejvýše jedno `<sram>` (položka 3 lookup_SRAM). Paměť RTC, 2 kB SRAM zařízení `MATSUSHITA` a 16 bajtů `S1985` žádné `<sram>` nepotřebují, jsou v zařízení. Žádná z nich se neukládá; po nahrání packu mají všechny FFh.
 
 ### 2.5 Pravidla pro FDC
 
@@ -308,7 +309,7 @@ Hodnota položky OSD se převede na `cart_typ_t` v `rtl/msx_config.sv` a zavadě
 |---|---|---|
 | 0 | RAM | p0 = velikost/16 kB (0 = 256 = 4 MB), p1 = vzor výplně, p2 bit 0 = 8 kB v horní polovině stránky (p0 = 1) |
 | 1 | ROM | p0, p1 = ceil(velikost/16 kB), dolní a horní bajt; následují data |
-| 2 | SRAM | jen FW pack |
+| 2 | SRAM | p0 = velikost/1 kB. FW pack: SRAM cartridge (lookup_SRAM 1 / 2), pack počítače: SRAM počítače (3) |
 | 3 | DEVICE | p0 = id zařízení, p1 = param |
 | 4 | MAPPER | p0 = id mapperu, p1 = (param&3)<<2 |
 | 5 | SLOT (cartridge) | p0 = 0 (A) / 1 (B) |
@@ -335,7 +336,7 @@ Hodnota položky OSD se převede na `cart_typ_t` v `rtl/msx_config.sv` a zavadě
 5. Nemíchejte `<block>` a `<secondary>` v jednom `<primary>`.
 6. SHA1 v XML musí být malými hexadecimálními písmeny.
 7. createComp sestaví pack v paměti a zapíše ho, jen když nechybí žádná ROM a nenastala výjimka; jinak existující `.msx` toho počítače smaže. Chybějící ROM (`SHA1` / `exactFilename` bloku, `ROM_SHA1` zařízení) se sbírají za celý počítač, takže report vypíše všechny. Ostatní chyby jsou v reportu jen varování. Test: `py -m unittest discover tests`.
-8. `<sram>` funguje jen ve FW konfiguracích; XML počítače nemůže deklarovat SRAM.
+8. Počítač má jedno `<sram>` (položka 3 lookup_SRAM); druhé by přepsalo první.
 9. `expander_wo` se uloží, ale RTL ho ignoruje.
 10. Nástroje spouštějte zevnitř `tools/CreateMSXpack` (tabulky JSON podle relativního názvu). Složka s ROM může být jinde: `--rom-dir` v obou nástrojích.
 11. Obě XML rozšíření se musí upravovat společně.

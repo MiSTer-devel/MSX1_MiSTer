@@ -141,6 +141,7 @@ The core includes the following hardware modules:
 - `SFG01` – [Yamaha SFG-01](https://www.msx.org/wiki/Yamaha_SFG-01)
 - `SFG05` – [Yamaha SFG-05](https://www.msx.org/wiki/Yamaha_SFG-05)
 - Matsushita switched I/O (Panasonic, National and Sanyo MSX2 / MSX2+): turbo switch, firmware switch, 2 KB firmware SRAM
+- S1985 MSX-Engine switched I/O: 16-byte backup RAM, colour / pattern register
 - CIEL Expert Turbo: turbo switch
 - turbo R: `S1990` system controller (Z80/R800 and ROM/DRAM switch, firmware switch), PCM, Pause key with LEDs, system timer; see [MSX turbo R](https://www.msx.org/wiki/MSX_turbo_R)
 - [1chipMSX](https://www.msx.org/wiki/1chipMSX): IPL ROM, switched I/O ports 40-4F, ESE-RAM, MegaSD with SD card (VHD), turbo 3.58 / 5.37 / 10.74 MHz
@@ -217,7 +218,7 @@ The core integrates with MiSTerFPGA and supports the following features provided
 - `SDRAM support` – optional; needed for the bigger machines and cartridges, see [Without the SDRAM module](#without-the-sdram-module)
 
 ## Known Limitations
-- **Nothing is persistent:** cartridge SRAM (FM-PAC, Game Master 2, KOEI, ASCII with SRAM), flash writes (MegaFlashROM, ASCII16-X), the firmware SRAM of the Panasonic and National machines and the RTC CMOS are lost on reload. The **SRAM Save / SRAM Load** items do nothing. The FS-A1ST and FS-A1GT lack the SRAM of their Panasonic mapper (16 / 32 KB).
+- **Nothing is persistent:** cartridge SRAM (FM-PAC, Game Master 2, KOEI, ASCII with SRAM), flash writes (MegaFlashROM, ASCII16-X), the SRAM of the machines (Panasonic and National mapper SRAM, Matsushita and S1985 SRAM) and the RTC CMOS start as FFh on every load. The **SRAM Save / SRAM Load** items do nothing.
 - **Disks:** only raw `.DSK` images (720K, 640K, 360K, 320K); no 40-track, 1.44 MB, XSA, D88, HFE or DMK. The FDC cartridge works only in slot 1 and only in machines without an FDC; there is no TC8566AF cartridge.
 - **Tape:** playback only, no saving; the end of the file is not detected (garbage is played after the last block).
 - **R800:** the R800 of the turbo R runs the Z80 cycle counts at 10.7 MHz, about 3x the Z80 speed; the real one needs fewer cycles per instruction and is faster still. I/O, multiplication and the spacing of VDP accesses take their real time. No turbo R microphone.

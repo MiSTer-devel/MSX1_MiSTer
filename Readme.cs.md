@@ -141,6 +141,7 @@ Jádro obsahuje tyto hardwarové moduly:
 - `SFG01` – [Yamaha SFG-01](https://www.msx.org/wiki/Yamaha_SFG-01)
 - `SFG05` – [Yamaha SFG-05](https://www.msx.org/wiki/Yamaha_SFG-05)
 - Matsushita switched I/O (MSX2 / MSX2+ Panasonic, National a Sanyo): přepínač turba, přepínač firmware, 2 KB SRAM firmwaru
+- S1985 MSX-Engine switched I/O: 16 bajtů zálohované paměti, registr barvy / vzoru
 - CIEL Expert Turbo: přepínač turba
 - turbo R: řadič systému `S1990` (přepínání Z80/R800 a ROM/DRAM, přepínač firmware), PCM, klávesa Pause s LED, systémový časovač; viz [MSX turbo R](https://www.msx.org/wiki/MSX_turbo_R)
 - [1chipMSX](https://www.msx.org/wiki/1chipMSX): IPL ROM, přepínané I/O porty 40-4F, ESE-RAM, MegaSD s SD kartou (VHD), turbo 3,58 / 5,37 / 10,74 MHz
@@ -217,7 +218,7 @@ Jádro se integruje s MiSTerFPGA a podporuje tyto funkce platformy:
 - `Podpora SDRAM` – volitelná; potřebují ji větší stroje a cartridge, viz [Bez modulu SDRAM](#bez-modulu-sdram)
 
 ## Známá omezení
-- **Nic se neukládá trvale:** SRAM cartridge (FM-PAC, Game Master 2, KOEI, ASCII se SRAM), zápisy do flash (MegaFlashROM, ASCII16-X), SRAM firmwaru strojů Panasonic a National a CMOS RTC se při novém načtení ztratí. Položky **SRAM Save / SRAM Load** nic nedělají. FS-A1ST a FS-A1GT nemají SRAM svého mapperu Panasonic (16 / 32 KB).
+- **Nic se neukládá trvale:** SRAM cartridge (FM-PAC, Game Master 2, KOEI, ASCII se SRAM), zápisy do flash (MegaFlashROM, ASCII16-X), SRAM strojů (SRAM mapperů Panasonic a National, SRAM zařízení Matsushita a S1985) a CMOS RTC začínají při každém načtení s hodnotou FFh. Položky **SRAM Save / SRAM Load** nic nedělají.
 - **Disky:** jen surové obrazy `.DSK` (720K, 640K, 360K, 320K); žádné 40stopé, 1,44 MB, XSA, D88, HFE ani DMK. Cartridge FDC funguje jen ve slotu 1 a jen na strojích bez FDC; cartridge s TC8566AF neexistuje.
 - **Páska:** jen přehrávání, žádné ukládání; konec souboru se nedetekuje (po posledním bloku se přehrávají nesmyslná data).
 - **R800:** R800 u turbo R vykonává počty taktů Z80 na 10,7 MHz, tedy asi 3x rychleji než Z80; skutečný potřebuje na instrukci méně taktů a je ještě rychlejší. I/O, násobení a odstup přístupů k VDP trvají jako na skutečném stroji. Chybí mikrofon turbo R.

@@ -1,7 +1,7 @@
 <?xml version="1.0" ?>
 <!-- Panasonic FS-A1ST (MSX turbo R), layout as openMSX share/machines/Panasonic_FS-A1ST.xml.
      The firmware is one 4 MB file of 8 KB blocks; each ROM below is a cut of it (skip = block x 8 KB).
-     Left out: the 16 KB SRAM of the Panasonic mapper (machine blocks have no SRAM), printer. -->
+     Left out: printer. -->
 <msxConfig>
   <cpu>Z80</cpu>                   <!-- Z80 at reset, R800 switched by the S1990 -->
   <wait_count>1</wait_count>       <!-- 0 - 3 -->
@@ -72,6 +72,7 @@
       <block start="0" count="4"> <!-- Panasonic mapper over blocks 0-255 -->
         <memory SHA1="c212b11fda13f83dafed688c54d098e7e47ab225" filename="fs-a1st_firmware.rom" size="2097152">ROM</memory>
         <mapper>PANASONIC</mapper>
+        <sram>16384</sram>              <!-- Panasonic mapper SRAM, banks 80h-81h -->
       </block>
     </secondary>
   </primary>

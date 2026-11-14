@@ -349,6 +349,16 @@ def create_msx_config_block(slot, subslot, blocks, outfile, files_with_sha1, con
             else :
                 warn(f"Error: unknown mapper '{typ}' in slot {slot}/{subslot}")  
         
+        if 'sram' in block:
+            # battery-backed SRAM of the block's mapper (lookup_SRAM entry 3, saved with the machine)
+            (value, attributes) = block.pop('sram', (None, None))
+            size = convert_to_int(value)
+            if size and size % 1024 == 0 and size // 1024 < 256:
+                params[0] = size // 1024
+                add_block_type_to_file(address, "SRAM", params, outfile, constants)
+            else :
+                print(f"Error: SRAM size '{value}' (1 kB units, below 256 kB) in slot {slot}/{subslot}")
+
         if 'cart' in block:
             (typ, attributes) = block.pop('cart', (None, None))
             value = None

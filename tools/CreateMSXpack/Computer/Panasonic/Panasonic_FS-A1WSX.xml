@@ -1,6 +1,6 @@
 <?xml version="1.0" ?>
 <!-- Panasonic FS-A1WSX (MSX2+), converted from openMSX share/machines.
-     Not in the core: PrinterPort. The SRAM of the Matsushita device is not saved. -->
+     Not in the core: PrinterPort. The SRAMs are emulated but not saved. -->
 <msxConfig>
   <cpu>Z80</cpu>                   <!-- Z80 --> 
   <wait_count>1</wait_count>       <!-- 0 - 3 -->  
@@ -55,7 +55,8 @@
     <secondary slot="3">
       <block start="0">  <!-- FS-A1WSX -->
         <memory SHA1="3330d9b6b76e3c4ccb7cf252496ed15d08b95d3f" filename="fs-a1wsx_firmware.rom">ROM</memory>
-        <mapper>PANASONIC</mapper>
+        <mapper param="1">PANASONIC</mapper>  <!-- param 1: SRAM mirrored over banks 80h-87h -->
+        <sram>16384</sram>              <!-- Panasonic mapper SRAM -->
       </block>
     </secondary>
   </primary>

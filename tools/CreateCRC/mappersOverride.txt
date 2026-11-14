@@ -54,3 +54,6 @@ CE0BC0BB	0x0000
 39DA7B9F	0x0000
 F80DD186	0x4000
 988D0550	0x0000
+# MSX-DOS2: the dump has no MSX-DOS2 ROMs. A cartridge ROM goes in as "CRC32<tab>MSXDOS2"
+# (bank register 6000h); MSX-DOS 2.20 patched for the ASCII8 mapper (msxdos2-asc8-mapper.rom):
+FCC4EACF	ASCII8

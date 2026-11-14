@@ -148,7 +148,7 @@ The core includes the following hardware modules:
 Not implemented: MSX-AUDIO, V9990 / GFX9000, printer, paddles, light gun, RS-232.
 
 ## Supported ROM Mappers
-Cartridge ROMs are assigned to a mapper by the CRC32 database (`vampier.db`, 8096 entries, built by [tools/CreateCRC](tools/CreateCRC/README.md) from the [romdb.vampier.net](https://romdb.vampier.net/) dump). ROMs not in the database and up to 64 KB are placed as plain ROM (see the first rows).
+Cartridge ROMs are assigned to a mapper by the CRC32 database (`vampier.db`, 8124 entries, built by [tools/CreateCRC](tools/CreateCRC/README.md) from the [romdb.vampier.net](https://romdb.vampier.net/) dump). ROMs not in the database and up to 64 KB are placed as plain ROM (see the first rows).
 
 | Mapper (name in the DB) | Description |
 |---|---|
@@ -173,8 +173,9 @@ Cartridge ROMs are assigned to a mapper by the CRC32 database (`vampier.db`, 809
 | `Zemina90in1` | Zemina 90-in-1 multicart mapper (uses port 77h) |
 | `SuperSwangi`, `MSXWrite` | special ASCII 16 KB variants |
 | `Synthesizer` | plain ROM with the Konami Synthesizer DAC |
+| `MSXDOS2` | MSX-DOS2 cartridge: 16 KB bank in 4000-7FFF switched at 6000h. The online database has no MSX-DOS2 ROMs: add its CRC32 to [tools/CreateCRC/mappersOverride.txt](tools/CreateCRC/mappersOverride.txt) and rebuild the database. MSX-DOS 2.20 patched for the ASCII8 mapper is already there. Needs a disk drive: a machine with an FDC, or the FDC cartridge in slot 1 and MSX-DOS2 in slot 2 |
 
-ROM types of the database without a configuration in the core are not written into `vampier.db` (27 types, 71 ROMs, e.g. Yamanooto, MatraCompilation, Namco, Manbow2). Such a ROM up to 64 KB runs as plain ROM, a bigger one stops with *Not find CRC32 in DB*. The full list with counts is in [tools/CreateCRC/report.md](tools/CreateCRC/report.md). Also not supported: MSX-DOS2, MU-PACK.
+ROM types of the database without a configuration in the core are not written into `vampier.db` (27 types, 71 ROMs, e.g. Yamanooto, MatraCompilation, Namco, Manbow2). Such a ROM up to 64 KB runs as plain ROM, a bigger one stops with *Not find CRC32 in DB*. The full list with counts is in [tools/CreateCRC/report.md](tools/CreateCRC/report.md). Also not supported: MU-PACK.
 
 Machine-internal mappers (National FS-4600F, Yamaha SFG, Panasonic turbo R, memory mapper, ESE RAM) come from the machine definition and are not selectable.
 

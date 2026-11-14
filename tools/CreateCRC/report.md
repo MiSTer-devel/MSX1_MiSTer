@@ -1,21 +1,21 @@
 # Mapper database report
 
 Source: `https://romdb.vampier.net/Archive/sql-msxromdb.zip`  
-Records in `vampier.db`: **8096** (previous file: 8074; added 22, removed 0, changed 0)  
-Mirrored/Normal start address: 3765 from the header, 480 guessed (no header at 0, placed at 0000h like the core does without a record)  
-Overrides: 53 lines, 0 give the same as the dump (`--prune` removes them)
+Records in `vampier.db`: **8129** (previous file: 8129; added 0, removed 0, changed 0)  
+Mirrored/Normal start address: 3771 from the header, 480 guessed (no header at 0, placed at 0000h like the core does without a record)  
+Overrides: 54 lines, 0 give the same as the dump (`--prune` removes them)
 
 ## Supported
 
 | FW configuration | ID | ROMs | of them override | DB types |
 |---|---|---|---|---|
-| Mirror_0x4000 | 27 | 3259 | 13 | Mirrored, Mirrored4000 |
-| KonamiSCC | 56 | 1349 |  | KonamiSCC |
-| ASCII8 | 50 | 767 |  | ASCII8 |
-| ASCII16 | 51 | 691 |  | ASCII16 |
+| Mirror_0x4000 | 27 | 3265 | 13 | Mirrored, Mirrored4000 |
+| KonamiSCC | 56 | 1355 |  | KonamiSCC |
+| ASCII8 | 50 | 783 | 1 | ASCII8 |
+| ASCII16 | 51 | 695 |  | ASCII16 |
 | Mirror_0x0000 | 26 | 487 | 1 | Mirrored |
 | Mirror_0x8000 | 28 | 461 | 4 | Mirrored, Normal |
-| KONAMI | 52 | 402 |  | Konami, konami |
+| KONAMI | 52 | 403 |  | Konami, konami |
 | 0x8000 | 22 | 302 |  | 0x8000, Normal, Page2 |
 | 0x4000 | 21 | 91 | 13 | 0x4000, Mirrored, Normal, Page12 |
 | Generic8kB | 25 | 67 |  | 8kB |
@@ -78,7 +78,7 @@ ROM types of the dump without a FW configuration. They are not in the database: 
 
 | Reason | ROMs |
 |---|---|
-| platform ColecoVision | 1341 |
+| platform ColecoVision | 1342 |
 | type System | 1234 |
 | platform SG-1000 | 341 |
 | type auto | 33 |

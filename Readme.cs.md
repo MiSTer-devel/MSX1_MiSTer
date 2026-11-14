@@ -148,7 +148,7 @@ Jádro obsahuje tyto hardwarové moduly:
 Neimplementováno: MSX-AUDIO, V9990 / GFX9000, tiskárna, pádla, světelná pistole, RS-232.
 
 ## Podporované ROM mappery
-ROM cartridge se k mapperu přiřazují podle databáze CRC32 (`vampier.db`, 8096 záznamů, vytvořená nástrojem [tools/CreateCRC](tools/CreateCRC/README.cs.md) z dumpu [romdb.vampier.net](https://romdb.vampier.net/)). ROM, které v databázi nejsou a mají do 64 KB, se umístí jako obyčejná ROM (první řádky tabulky).
+ROM cartridge se k mapperu přiřazují podle databáze CRC32 (`vampier.db`, 8124 záznamů, vytvořená nástrojem [tools/CreateCRC](tools/CreateCRC/README.cs.md) z dumpu [romdb.vampier.net](https://romdb.vampier.net/)). ROM, které v databázi nejsou a mají do 64 KB, se umístí jako obyčejná ROM (první řádky tabulky).
 
 | Mapper (název v DB) | Popis |
 |---|---|
@@ -173,8 +173,9 @@ ROM cartridge se k mapperu přiřazují podle databáze CRC32 (`vampier.db`, 809
 | `Zemina90in1` | mapper multicartridge Zemina 90-in-1 (používá port 77h) |
 | `SuperSwangi`, `MSXWrite` | speciální varianty ASCII 16 KB |
 | `Synthesizer` | obyčejná ROM s DAC Konami Synthesizer |
+| `MSXDOS2` | cartridge MSX-DOS2: banka 16 KB v 4000-7FFF přepínaná na 6000h. Online databáze ROM MSX-DOS2 nemá: CRC32 ROM doplňte do [tools/CreateCRC/mappersOverride.txt](tools/CreateCRC/mappersOverride.txt) a databázi znovu sestavte. MSX-DOS 2.20 upravený pro mapper ASCII8 tam už je. Potřebuje disketovou mechaniku: počítač s řadičem, nebo FDC cartridge ve slotu 1 a MSX-DOS2 ve slotu 2 |
 
-Typy ROM z databáze, pro které jádro nemá konfiguraci, se do `vampier.db` nezapisují (27 typů, 71 ROM, např. Yamanooto, MatraCompilation, Namco, Manbow2). Taková ROM do 64 KB poběží jako obyčejná ROM, větší skončí hláškou *Not find CRC32 in DB*. Úplný seznam s počty je v [tools/CreateCRC/report.md](tools/CreateCRC/report.md). Nepodporováno je také MSX-DOS2 a MU-PACK.
+Typy ROM z databáze, pro které jádro nemá konfiguraci, se do `vampier.db` nezapisují (27 typů, 71 ROM, např. Yamanooto, MatraCompilation, Namco, Manbow2). Taková ROM do 64 KB poběží jako obyčejná ROM, větší skončí hláškou *Not find CRC32 in DB*. Úplný seznam s počty je v [tools/CreateCRC/report.md](tools/CreateCRC/report.md). Nepodporován je také MU-PACK.
 
 Mappery uvnitř stroje (National FS-4600F, Yamaha SFG, Panasonic turbo R, paměťový mapper, ESE RAM) vycházejí z definice stroje a nelze je volit.
 

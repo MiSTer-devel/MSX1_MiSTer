@@ -10,6 +10,7 @@
 // = extended, e.g. 171 = Delete (Panasonic FS-A1F: skips the A1 Cockpit firmware).
 // +key_from=<ms>: the key goes down only at that time (e.g. +key=29 Space to start a game);
 // +key2_from=<ms>: pressed once more (200 ms); +key2_every=<ms> +key2_until=<ms> repeat it.
+// +key3=<hex> +key3_from=<ms> +key3_ms=<ms>: a second key held in that time (e.g. 174 = cursor right).
 // +reglog=<ms>: V99x8 register writes (R#, value, V_CNT, H_CNT) from that time, 400 lines.
 // +m1trace=<n>: after +reset_ms the first n instruction fetches (address, opcode, slot state).
 // +satlog=<ms>: VRAM writes to 1E00h..1E7Fh (sprite attributes of Graphic 3) with the VDP line, 300.
@@ -576,7 +577,8 @@ initial begin
     string pack_name, dsk_name, expect_txt = "", last = "", now, dump, fname;
     int frame_ms = 0, frame_every = 0, frame_n = 10;
     int fd, c, errors = 0, run_ms = 15000, found_ms = -1, key_ms = 8000, pause_ms = -1, fw = 0, m1_paused = 0;
-    int slota = 0, slotb = 0, want_err = 0, osd_ms = -1, reset_ms = -1, key_from = 0, key2_from = -1, key2_every = 0, key2_until = 0, k2 = 0, reglog_ms = -1;
+    int slota = 0, slotb = 0, want_err = 0, osd_ms = -1, reset_ms = -1, key_from = 0, key2_from = -1, key2_every = 0, key2_until = 0, k2 = 0, key3_from = -1, key3_ms = 0, reglog_ms = -1;
+    logic [8:0] key3 = 9'h174;
     logic [8:0] key = '0;
     bit         use_key, no_disk, tc_used, turbor_pause, expect_armed = 1;
 
@@ -590,6 +592,9 @@ initial begin
     void'($value$plusargs("key2_from=%d", key2_from));
     void'($value$plusargs("key2_every=%d", key2_every));
     void'($value$plusargs("key2_until=%d", key2_until));
+    void'($value$plusargs("key3=%h", key3));
+    void'($value$plusargs("key3_from=%d", key3_from));
+    void'($value$plusargs("key3_ms=%d", key3_ms));
     void'($value$plusargs("reglog=%d", reglog_ms));
     void'($value$plusargs("m1trace=%d", m1trace_n));
     void'($value$plusargs("satlog=%d", satlog_ms));
@@ -691,10 +696,14 @@ initial begin
             top.sort() with (-m1_hist[item]);
             foreach (top[i]) if (i < 40) $display("  %04h: %0d", top[i], m1_hist[top[i]]);
         end
-        k2 = (key2_every > 0 && ms >= key2_from && ms <= key2_until) ? key2_from + (ms - key2_from) / key2_every * key2_every : key2_from;
+        k2 = (key2_every > 0 && ms >= key2_from && ms <= key2_until + 200) ? key2_from + (ms - key2_from) / key2_every * key2_every : key2_from;
         if (key2_from >= 0 && (ms == k2 || ms == k2 + 200)) begin
             ps2_key = {~ps2_key[10], ms == k2, key};
             $display("%0t %0d ms: key %03h %s", $time, ms, key, ms == k2 ? "down" : "up  ");
+        end
+        if (key3_from >= 0 && (ms == key3_from || ms == key3_ms)) begin
+            ps2_key = {~ps2_key[10], ms == key3_from, key3};
+            $display("%0t %0d ms: key %03h %s", $time, ms, key3, ms == key3_from ? "down" : "up  ");
         end
         if (use_key && key_from > 0 && ms == key_from) begin
             ps2_key = {~ps2_key[10], 1'b1, key};

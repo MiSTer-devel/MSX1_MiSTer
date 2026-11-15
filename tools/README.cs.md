@@ -10,6 +10,7 @@ Pomocné nástroje jádra MSX pro MiSTer. Zpět na [hlavní Readme](../Readme.md
 | [CreateCRC](CreateCRC/README.cs.md) | Vyrobí databázi mapperů pro ROM cartridge | vývojáři (uživatelé si vezmou hotový `vampier.db`) |
 | [CreateKeyMap](CreateKeyMap/README.cs.md) | Vyrobí tabulky PS/2 → klávesnicová matice MSX | vývojáři |
 | [vdptest](vdptest/README.cs.md) | Testovací ROM pro časování VDP | vývojáři a testeři |
+| [miditest](miditest/README.cs.md) | Testovací ROM pro výstup MIDI (MT32-pi, MidiLink) | testeři |
 
 ## Rychlý start pro uživatele
 
@@ -70,6 +71,15 @@ a leží v repozitáři, stačí je nahrát jako ROM hry do slotu A.
 Spuštění: `sh tools/vdptest/build.sh` (jen pro nový překlad).
 Dokumentace: [README](vdptest/README.cs.md) | [README (EN)](vdptest/README.md).
 
+### miditest
+
+Testovací ROM (`miditest.rom`) pro MSX-MIDI: demo píseň na kanálech 2–10, procházení nástrojů
+a bicích, hra z klávesnice a SysEx pro mt32-pi. Na obrazovce ukazuje, co na kterém kanálu zní.
+ROM je přeložená v repozitáři; nahraje se jako ROM hry do slotu A, nejlépe na FS-A1GT.
+
+Spuštění: `sh tools/miditest/build.sh` (jen pro nový překlad).
+Dokumentace: [README](miditest/README.cs.md) | [README (EN)](miditest/README.md).
+
 ## Pro vývojáře
 
 - **Nový model stroje nebo rozšiřující cartridge:** viz
@@ -78,6 +88,7 @@ Dokumentace: [README](vdptest/README.cs.md) | [README (EN)](vdptest/README.md).
 - **Nové rozložení klávesnice:** [CreateKeyMap](CreateKeyMap/README.cs.md).
 - **Mapper konkrétní ROM (přepis) nebo nové jméno mapperu:** [CreateCRC](CreateCRC/README.cs.md).
 - **Kontrola časování VDP:** [vdptest](vdptest/README.cs.md).
+- **Kontrola výstupu MIDI:** [miditest](miditest/README.cs.md).
 
 Pythonové skripty používají jen standardní knihovnu, kromě ladicí pomůcky
 `CreateKeyMap/scancode_debugger.py` (potřebuje balíček `keyboard`). Skripty se musí spouštět

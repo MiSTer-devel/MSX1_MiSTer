@@ -21,6 +21,7 @@
 // +audio_min=<n>: the left output must swing by at least n.
 // +slota=<n>: OSD slot A item (CONF_STR_SLOT_A, 1 = FDC; needs +fw). +error=<n>: the pack load
 // must stop with this error_t (e.g. 11 = ERR_FDC_PRESENT), then PASS.
+// +midilog=<file>: bytes on the MIDI OUT line (uart_txd, 31250 Bd 8N1), one hex byte per line.
 // +frames=<prefix> +frame_ms=<ms> +frame_n=<n>: n frames of the video output (DE area) from
 // frame_ms on as <prefix>_NNN.ppm; +frame_every=<ms> repeats the n frames every so many ms. +border=1: OSD Border on (status[41]).
 // Turbo R: +firmware=1 turns the firmware switch on (OSD status[26]); +pause_ms=<ms> presses the
@@ -38,6 +39,7 @@
 // screen has been without it after the reset.
 // Run: wsl.exe -- bash rtl/tb/run_machine_boot.sh <machine.msx> <image.dsk> [expected text]
 module machine_boot_tb;
+wire            uart_txd;
 localparam int unsigned FW_BASE = MSX::DDR3_FW_PACK, DB_BASE = MSX::DDR3_DB;   // DDR3 areas
 
 // clk_sdram = 4x clk_core, phase aligned (as the PLL)
@@ -88,7 +90,7 @@ msx_system sys (
     .ioctl_addr(ioctl_addr), .rtc(65'd0), .sdram_sz(16'h8002), .uart_speed(32'd115200),
     .img_readonly(1'b0), .img_size(64'd0), .sd_img_mounted(1'b0),
     .block_device_FDD(block_device_FDD), .msx_config(msx_config),
-    .video_bus(video_bus), .audio_L(audio_L), .audio_R(audio_R), .uart_rxd(1'b1), .tape_adc(1'b0),
+    .video_bus(video_bus), .audio_L(audio_L), .audio_R(audio_R), .uart_rxd(1'b1), .uart_txd(uart_txd), .tape_adc(1'b0),
     .led_pause(led_pause), .pause(pause), .osd_status(osd_status),
     .ext_SD_card_bus(ext_SD_card_bus),
     .memory_bus_sdram_ch1(sd_ch1), .memory_bus_sdram_ch2(sd_ch2), .memory_bus_sdram_ch3(sd_ch3),
@@ -566,6 +568,26 @@ final if (fr_on) begin
     for (int y = fr_h; y < FR_H; y++) for (int i = 0; i < FR_W; i++) $fwrite(frame_fd, "0 0 0\n");
     $fclose(frame_fd);
 end
+
+// +midilog: UART receiver on uart_txd
+localparam int MIDI_BIT = MSX::CLK_CORE_HZ / 31250;
+int         midi_fd = 0, midi_cnt = 0, midi_n = 0;
+bit         midi_busy = 0;
+logic [7:0] midi_sh;
+initial begin string f; if ($value$plusargs("midilog=%s", f)) midi_fd = $fopen(f, "w"); end
+always @(posedge clk_core) if (midi_fd != 0) begin
+    if (!midi_busy) begin
+        if (!uart_txd) begin midi_busy = 1; midi_cnt = MIDI_BIT * 3 / 2; midi_n = 0; end   // middle of bit 0
+    end else if (--midi_cnt == 0) begin
+        if (midi_n < 8) begin midi_sh = {uart_txd, midi_sh[7:1]}; midi_n++; midi_cnt = MIDI_BIT; end
+        else begin
+            if (uart_txd) $fdisplay(midi_fd, "%02x", midi_sh);
+            else          $display("%0t MIDI framing error", $time);
+            midi_busy = 0;
+        end
+    end
+end
+final if (midi_fd != 0) $fclose(midi_fd);
 
 // V99x8 register writes with the beam position
 bit reglog_on = 0, regwr_q;

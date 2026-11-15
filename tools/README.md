@@ -10,6 +10,7 @@ Helper tools of the MSX core for MiSTer. Back to the [main Readme](../Readme.md)
 | [CreateCRC](CreateCRC/README.md) | Builds the mapper database for ROM cartridges | developers (users take the ready-made `vampier.db`) |
 | [CreateKeyMap](CreateKeyMap/README.md) | Builds the PS/2 to MSX keyboard tables | developers |
 | [vdptest](vdptest/README.md) | VDP timing test ROMs | developers and testers |
+| [miditest](miditest/README.md) | MIDI output test ROM (MT32-pi, MidiLink) | testers |
 
 ## Quick start for users
 
@@ -72,6 +73,15 @@ and in the repository, you just load them as a game ROM into slot A.
 Start: `sh tools/vdptest/build.sh` (rebuild only).
 Documentation: [README](vdptest/README.md) | [README.cs](vdptest/README.cs.md).
 
+### miditest
+
+A test ROM (`miditest.rom`) for MSX-MIDI: a demo song on channels 2–10, instrument and drum
+sweeps, playing from the keyboard and mt32-pi SysEx. The screen shows what sounds on each channel.
+The ROM is built and in the repository; load it as a game ROM into slot A, best on the FS-A1GT.
+
+Start: `sh tools/miditest/build.sh` (rebuild only).
+Documentation: [README](miditest/README.md) | [README.cs](miditest/README.cs.md).
+
 ## For developers
 
 - **New machine model or extension cartridge:** see
@@ -80,6 +90,7 @@ Documentation: [README](vdptest/README.md) | [README.cs](vdptest/README.cs.md).
 - **New keyboard layout:** [CreateKeyMap](CreateKeyMap/README.md).
 - **Mapper of a specific ROM (override) or a new mapper name:** [CreateCRC](CreateCRC/README.md).
 - **VDP timing checks:** [vdptest](vdptest/README.md).
+- **MIDI output checks:** [miditest](miditest/README.md).
 
 The Python scripts use only the standard library, except the debugging helper
 `CreateKeyMap/scancode_debugger.py` (needs the `keyboard` package). The scripts must be run from

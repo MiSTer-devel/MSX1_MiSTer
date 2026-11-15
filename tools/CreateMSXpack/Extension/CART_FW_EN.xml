@@ -76,6 +76,24 @@
       <mapper>ASCII16X</mapper>
     </block>
   </fw>
+  <fw name="KUC">                     <!-- Konami Ultimate Collection: 8 MB flash (M29W640GB), SCC/SCC+,
+                                           DAC written by the mapper (7FFF bit 3) -->
+    <block>
+      <flash>8388608</flash>
+      <mapper>KUC</mapper>
+      <device>SCC</device>
+      <device mapper="true">DAC</device>
+    </block>
+  </fw>
+  <fw name="YAMANOOTO">               <!-- Yamanooto: 8 MB flash (S29GL064N), SCC/SCC+, PSG at 10h-11h
+                                           (write only; ECHO also on A0h-A1h) -->
+    <block>
+      <flash>8388608</flash>
+      <mapper>YAMANOOTO</mapper>
+      <device>SCC</device>
+      <device port="0x10" mask="0xFE">PSG</device>
+    </block>
+  </fw>
   <fw name="NEO8">
     <block>
       <mapper>NEO8</mapper>

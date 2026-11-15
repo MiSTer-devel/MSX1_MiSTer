@@ -17,7 +17,8 @@
 //
 
 // Behaviour as openMSX src/memory/RomPanasonic.cc. Eight 8 KB banks over 0000-FFFF, 9-bit bank
-// numbers: below 80h a ROM block, 80h .. 80h + SRAM/8K the SRAM, from 180h a block of the main RAM,
+// numbers: below 80h a ROM block, 80h .. 80h + SRAM/8K the SRAM (80h-87h with mapper_param[0],
+// the SRAM mirrored), from 180h a block of the main RAM,
 // any other value a ROM block (masked by the number of blocks). Without a main RAM the banks from
 // 180h are ROM too.
 //   write 6000-7FEF: low 8 bits of the bank of region (A & 1C00h) >> 10, regions 5 and 6 swapped
@@ -69,7 +70,9 @@ module mapper_panasonic (
     // memory of the region
     wire [8:0] sel       = bank[cpu_bus.addr[15:13]];
     wire [7:0] sram_bnks = 8'(block_info.sram_size[10:3]);           // 8 KB SRAM banks
-    wire       is_sram   = sram_bnks != 8'd0 && sel >= 9'h080 && sel < 9'h080 + {1'b0, sram_bnks};
+    // mapper_param[0]: SRAM mirrored over banks 80h-87h (openMSX sram-mirrored, FS-A1WX/WSX)
+    wire [8:0] sram_end  = block_info.mapper_param[0] ? 9'h088 : 9'h080 + {1'b0, sram_bnks};
+    wire       is_sram   = sram_bnks != 8'd0 && sel >= 9'h080 && sel < sram_end;
     wire       is_ram    = block_info.main_ram_size != 17'd0 && sel >= 9'h180;
     wire [7:0] ram_block = 8'(sel - 9'h180) & 8'(block_info.main_ram_size - 1'b1);
     wire [9:0] nr_blocks = 10'(block_info.rom_size[24:13]);          // 8 KB ROM blocks (ST 256, GT 512)

@@ -9,6 +9,7 @@
 #   EXTRA="+realrom=<file> +realdb=<vampier.db>": report how a real ROM is found and mapped
 #   DDRAM=<file>: alternative ddram.sv; EXTRA="+busy": DDR3 randomly busy
 #   TOP=<git rev>: OSD load addresses from MSX1.sv of that revision (default: working tree)
+#   EXTRA="+pack2=<Panasonic_FS-A1ST.msx>": machine pack with an SRAM block (lookup_SRAM 3)
 set -e
 PACK=$(realpath "$1"); FW=$(realpath "$2")
 [ -f "$OLD" ] && OLD=$(realpath "$OLD")

@@ -22,7 +22,7 @@ Stroje, které potřebují hardware, jaký jádro nemá, jsou na konci.
 Poznámky k tabulkám:
 - Modely jsou odkazovány na [msx.org](https://www.msx.org/). Odkaz označený **†** vede na stránku, která model pokrývá jako variantu (stránka celé rodiny). Starší modely bez odkazu stránku na msx.org nemají; modely převzaté z openMSX zatím odkaz nemají.
 - Disky: *FDC* = vestavěný řadič disket. FDC stroje má vždy přednost před cartridge FDC.
-- *chybí* uvádí vestavěný hardware, který jádro vynechává. U všech strojů chybí port tiskárny a klávesnice má evropské rozložení; stroje s MSX-engine S1985 nemají jeho 16bajtovou zálohovanou paměť.
+- *chybí* uvádí vestavěný hardware, který jádro vynechává. U všech strojů chybí port tiskárny a klávesnice má evropské rozložení.
 
 ## AVT
 | Model | Gen. | Popis | Klíčový vestavěný hardware |
@@ -169,7 +169,7 @@ Poznámky k tabulkám:
 | FS-1300 | MSX1 | Základní japonský MSX1. | 64 KB RAM |
 | FS-4000 | MSX1 | Japonský MSX1 pro psaní textů s vestavěným softwarem (vestavěná tiskárna se neemuluje). | 64 KB RAM, Kanji ROM, ROM MSX Word |
 | FS-4500 | MSX2 | Japonský MSX2 pro psaní textů s vestavěným softwarem (vestavěná tiskárna se neemuluje). | 64 KB RAM, RTC, Kanji ROM, ROM Word Font, MSX Jusho, MSX Word 1, MSX Word 2, SRAM firmwaru (neukládá se), chybí: Bunsetsu |
-| [FS-4600F](https://www.msx.org/wiki/National_FS-4600F) | MSX2 | Japonský MSX2 pro zpracování textu s vestavěným softwarem, kanji a disketovou mechanikou (vestavěná tiskárna není emulována). | mapper 128 KB, RTC, Kanji ROM, MSX-Word, FDC + 1 mechanika |
+| [FS-4600F](https://www.msx.org/wiki/National_FS-4600F) | MSX2 | Japonský MSX2 pro zpracování textu s vestavěným softwarem, kanji a disketovou mechanikou (vestavěná tiskárna není emulována). | mapper 128 KB, RTC, Kanji ROM, MSX-Word, SRAM MSX-Word (neukládá se), FDC + 1 mechanika |
 | FS-4700F | MSX2 | FS-4500 s vestavěnou disketovou mechanikou (vestavěná tiskárna se neemuluje). | 64 KB RAM, RTC, Kanji ROM, FDC + 1 mechanika, ROM Word Font, MSX Jusho, MSX Word 1, MSX Word 2, SRAM firmwaru (neukládá se), chybí: Bunsetsu |
 | FS-5000F2 | MSX2 | Japonský stolní MSX2 se dvěma mechanikami. | mapper 128 KB, RTC, Kanji ROM, FDC + 2 mechaniky, ROM Set-Up RTC |
 | FS-5500F1 | MSX2 | Japonský stolní MSX2 s jednou mechanikou (superimpose a digitalizace se neemulují). | 64 KB RAM, RTC, Kanji ROM, FDC + 1 mechanika, ROM Super Impose |
@@ -199,8 +199,8 @@ Poznámky k tabulkám:
 | [FS-A1F](https://www.msx.org/wiki/Panasonic_FS-A1F) | MSX2 | FS-A1mkII s vestavěnou disketovou mechanikou a softwarem. | mapper 64 KB, RTC, Kanji ROM, FDC TC8566AF + 1 mechanika |
 | FS-A1FX | MSX2+ | Japonský MSX2+ s disketovou mechanikou a vestavěným softwarem, bez MSX-MUSIC. | V9958, mapper 64 KB, RTC, Kanji ROM, FDC TC8566AF + 1 mechanika, ROM A1 Cockpit, turbo 5,37 MHz, SRAM firmwaru (neukládá se) |
 | FS-A1MK2 | MSX2 | Základní japonský MSX2, FS-A1 s numerickou klávesnicí. | 64 KB RAM, RTC, ROM A1 Cockpit 1, A1 Cockpit 2, A1 Cockpit 3 |
-| [FS-A1ST](https://www.msx.org/wiki/Panasonic_FS-A1ST) | turbo R | První MSX turbo R: R800, MSX-MUSIC, PCM, MSX-DOS2, mechanika a software. R800 běží zhruba 3x rychleji než Z80 (viz [Readme](Readme.cs.md#známá-omezení)). | V9958, 256 KB RAM, R800/S1990, MSX-MUSIC, PCM, RTC, Kanji ROM, FDC TC8566AF + 1 mechanika |
-| [FS-A1GT](https://www.msx.org/wiki/Panasonic_FS-A1GT) | turbo R | Poslední MSX turbo R: FS-A1ST s 512 KB RAM, MSX-MIDI a dalším vestavěným softwarem (MSX-View). R800 běží zhruba 3x rychleji než Z80 (viz [Readme](Readme.cs.md#známá-omezení)). | V9958, 512 KB RAM, R800/S1990, MSX-MUSIC, PCM, MSX-MIDI, RTC, Kanji ROM, FDC TC8566AF + 1 mechanika, neemulováno: SRAM firmwaru |
+| [FS-A1ST](https://www.msx.org/wiki/Panasonic_FS-A1ST) | turbo R | První MSX turbo R: R800, MSX-MUSIC, PCM, MSX-DOS2, mechanika a software. R800 běží zhruba 3x rychleji než Z80 (viz [Readme](Readme.cs.md#známá-omezení)). | V9958, 256 KB RAM, R800/S1990, MSX-MUSIC, PCM, RTC, Kanji ROM, FDC TC8566AF + 1 mechanika, SRAM firmwaru (neukládá se) |
+| [FS-A1GT](https://www.msx.org/wiki/Panasonic_FS-A1GT) | turbo R | Poslední MSX turbo R: FS-A1ST s 512 KB RAM, MSX-MIDI a dalším vestavěným softwarem (MSX-View). R800 běží zhruba 3x rychleji než Z80 (viz [Readme](Readme.cs.md#známá-omezení)). | V9958, 512 KB RAM, R800/S1990, MSX-MUSIC, PCM, MSX-MIDI, RTC, Kanji ROM, FDC TC8566AF + 1 mechanika, SRAM firmwaru (neukládá se) |
 | FS-A1WSX | MSX2+ | Nástupce FS-A1WX: MSX2+ s MSX-MUSIC, disketovou mechanikou a vestavěným softwarem. | V9958, mapper 64 KB, RTC, MSX-MUSIC, Kanji ROM, FDC TC8566AF + 1 mechanika, ROM firmware, turbo 5,37 MHz, SRAM firmwaru (neukládá se) |
 | FS-A1WX | MSX2+ | Japonský MSX2+ s MSX-MUSIC, disketovou mechanikou a vestavěným softwarem. | V9958, mapper 64 KB, RTC, MSX-MUSIC, Kanji ROM, FDC TC8566AF + 1 mechanika, ROM firmware, turbo 5,37 MHz, SRAM firmwaru (neukládá se) |
 

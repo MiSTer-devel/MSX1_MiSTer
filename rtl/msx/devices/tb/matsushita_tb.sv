@@ -15,7 +15,7 @@ wire  [7:0] data_m, data_c;
 wire  [7:0] data = data_m & data_c;
 MSX::cpu_speed_t speed, speed_c;
 
-dev_matsushita dut (.cpu_bus(cpu_bus), .io_device(io), .hard_reset(hard_reset),
+dev_matsushita dut (.cpu_bus(cpu_bus), .io_device(io), .hard_reset(hard_reset), .sram_init(1'b0),
                     .firmware_sw(firmware_sw), .data(data_m), .cpu_speed(speed));
 dev_ciel_turbo ciel (.cpu_bus(cpu_bus), .io_device(io_ciel), .data(data_c), .cpu_speed(speed_c));
 

@@ -255,6 +255,38 @@ task automatic check_ascii16x(input string what);
     $display("ok   %s", what);
 endtask
 
+// Machine pack with an SRAM block (FS-A1ST: 16 kB on the Panasonic mapper in slot 3-3, FS-4600F:
+// 4 kB on the National mapper): its
+// blocks point to entry 3, filled with FF, outside every other memory; no other block sees it
+task automatic check_machine_sram(input string what, input string name);
+    int fd, c, err0 = errors, n3 = 0;
+    int unsigned a, sz;
+    pack = {};
+    fd = $fopen(name, "rb"); while ((c = $fgetc(fd)) != -1) pack.push_back(8'(c)); $fclose(fd);
+    ram.delete();
+    download(1, pack.size(), 1);
+    snapshot();
+    if (error !== ERR_NONE) begin errors++; $display("FAIL %s: error %0d", what, error); return; end
+    a = lookup_SRAM[3].addr; sz = 32'(lookup_SRAM[3].size) * 1024;
+    if (sz == 0) begin errors++; $display("FAIL %s: lookup_SRAM[3] empty", what); return; end
+    for (int i = 0; i < 64; i++) begin
+        MSX::block_t q = slot_layout[i];
+        if (q.mapper == MAPPER_NONE) continue;
+        if (q.ref_sram == 2'd3) begin
+            n3++;
+            if (q.mapper != MAPPER_PANASONIC && q.mapper != MAPPER_NATIONAL) begin errors++; $display("FAIL %s: block %0d (mapper %0d) sees the machine SRAM", what, i, q.mapper); end
+        end
+        if (lookup_RAM[q.ref_ram].size != 0) begin
+            int unsigned ra = lookup_RAM[q.ref_ram].addr, rs = 32'(lookup_RAM[q.ref_ram].size) * 8192;
+            if (ra < a + sz && a < ra + rs) begin errors++; $display("FAIL %s: block %0d memory %07h+%0d overlaps the SRAM", what, i, ra, rs); end
+        end
+    end
+    if (n3 == 0) begin errors++; $display("FAIL %s: no block points to entry 3", what); end
+    for (int unsigned k = 0; k < sz; k += 97)
+        if (!ram.exists(a + k) || ram[a + k] !== 8'hFF) begin errors++; $display("FAIL %s: SRAM byte %0d not FF", what, k); break; end
+    if (errors == err0) $display("ok   %s: %0d kB at %07h, %0d blocks", what, sz / 1024, a, n3);
+endtask
+
 // ROM A and ROM B in the database as ASCII8 with 8 kB SRAM (cart_device.json 36): slot 1 and
 // slot 2 blocks of the mapper point to two different SRAM entries of 8 kB, the other blocks to an
 // entry without SRAM
@@ -458,6 +490,12 @@ initial begin
     check_rom_areas("ROM A of 5.25 MB beside ROM B, ROM A of 17 MB");
 
     check_msx_midi("MSX-MIDI cartridge in slot A, not in both");
+
+    // --- SRAM in the machine definition (+pack2=<pack with an SRAM block>, e.g. FS-A1ST)
+    begin
+        string p2;
+        if ($value$plusargs("pack2=%s", p2)) check_machine_sram("SRAM of the machine (lookup_SRAM 3)", p2);
+    end
 
     if (errors == 0) $display("PASS cart_rom_tb");
     else             $display("FAILED cart_rom_tb: %0d errors", errors);

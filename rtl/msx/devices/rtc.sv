@@ -21,6 +21,7 @@ module dev_rtc (
     clock_bus_if.base_mp    clock_bus,
     input  MSX::io_device_t io_device[3],
     input            [64:0] rtc_time,
+    input                   sram_init,          // backup memory to FFh (pack load)
     output            [7:0] data
 );
 
@@ -44,7 +45,8 @@ module dev_rtc (
         .wrt(cpu_bus.wr),
         .adr(cpu_bus.addr),
         .dbi(q),
-        .dbo(cpu_bus.data)
+        .dbo(cpu_bus.data),
+        .mem_init(sram_init)
     );
 
 endmodule

@@ -59,7 +59,7 @@ The element text is a name from `device.json`; an unknown name prints `Device '<
 | Attribute | Meaning |
 |---|---|
 | `port`, `mask` | 8 bit each. The device decodes an access when `(addr & mask) == port` |
-| named parameters | encoded through `deviceParams.json` (section 2.6): `MODE` (TMS99xx: PAL/NTSC), `VDP_ID` (V99xx: V9938/V9958), `system` (PSG: true = the machine PSG with the joystick/keyboard ports), `OCM` (PPI), `inverted` (RESET_STATUS), `turbo` and `sram` (MATSUSHITA: the 5.37 MHz turbo switch and the 2 kB SRAM are present) |
+| named parameters | encoded through `deviceParams.json` (section 2.6): `MODE` (TMS99xx: PAL/NTSC), `VDP_ID` (V99xx: V9938/V9958), `system` (PSG: true = the machine PSG with the joystick/keyboard ports), `OCM` (PPI), `inverted` (RESET_STATUS), `turbo` and `sram` (MATSUSHITA: the 5.37 MHz turbo switch and the 2 kB SRAM are present). `S1985` (switched I/O FEh, port 40h mask F0h) has no parameter; every machine with `<engine>S1985</engine>` declares it |
 | `param` | raw 8-bit parameter for devices **without** an entry in `deviceParams.json` (for example KANJI: bit 0 = hangul, bit 1 = lascom) |
 | `ROM_SHA1`, `rom_skip`, `rom_size` | the device's own ROM, appended to the record (KANJI font) |
 | `shared_slot`, `shared_subslot`, `shared_block`, `shared_size` (all required together), `shared_offset` (default 0) | the device memory is a window into an existing block (1chipMSX KANJI uses the ESE-RAM block) |
@@ -86,21 +86,22 @@ Top-level devices without `shared_slot` are written first, devices with `shared_
 
 Attributes: `start` (first 16 kB page 0-3, default 0) and `count` (pages, default 4, clipped to `4 - start`). A `<count>` child is also accepted but not used by any file; do not give both.
 
-Children, each at most once per block (except `<device>`, which may repeat, e.g. OPM + YM2148 in one block). They are written in this order: memory, shared_memory, mapper, cart, device(s), ref.
+Children, each at most once per block (except `<device>`, which may repeat, e.g. OPM + YM2148 in one block). They are written in this order: memory, shared_memory, mapper, sram, cart, device(s), ref.
 
 | Child | Attributes and content | Effect |
 |---|---|---|
 | `<memory>ROM</memory>` | `SHA1` (lowercase hex, required), `filename` (informational, printed in the "not found" message), `skip` and `size` (bytes, decimal or hex, cut a slice from the dump), `exactFilename` (path, bypasses the SHA1 lookup; supported, unused) | ROM block. Stored in the pack padded with FF to a multiple of 16 kB |
 | `<memory>RAM</memory>` | `size` (bytes, default = pages x 16 kB), `pattern` (fill, default 1) | RAM block. 4 MB is encoded as 0. `size="8192"` in a one-page block: 8 kB in the upper half of the page, the lower half unmapped (Casio PV-7: E000-FFFF). Fill patterns: 1 = FF, 2 = 00, 3/4/5 = DRAM power-on stripes (0 = "data from DDR", do not use for RAM). Machines use 1, 2, 3, 4 |
 | `<shared_memory>` | text `ROM` = read-only, anything else read/write; `slot`, `subslot`, `block` (source), `offset`, `size` (bytes) | a window into another block's memory. The source block must already exist in the pack. See the `offset` pitfall in section 6 |
-| `<mapper>NAME</mapper>` | name from `mapper.json`; optional `param` 0-3 | MAPPER record. `param` is used by `DRAM` (which 16 kB page of the top 64 kB RAM) and `MSXDOS2` (bank register: 0 6000-6FFF, 1 7FF0, 2 7FFE). A ROM block without a mapper is linear (`MAPPER_OFFSET`) in the core |
+| `<mapper>NAME</mapper>` | name from `mapper.json`; optional `param` 0-3 | MAPPER record. `param` is used by `DRAM` (which 16 kB page of the top 64 kB RAM), `MSXDOS2` (bank register: 0 6000-6FFF, 1 7FF0, 2 7FFE) and `PANASONIC` (1 = the SRAM mirrored over banks 80h-87h, FS-A1WX / WSX). A ROM block without a mapper is linear (`MAPPER_OFFSET`) in the core |
+| `<sram>SIZE</sram>` | bytes, a multiple of 1024, below 256 kB | battery SRAM of the block's mapper: Panasonic (FS-A1ST 16384, FS-A1GT 32768, FS-A1WX / WSX 16384) and National (FS-4600F 4096). Filled with FFh on every pack load, not saved |
 | `<cart>A</cart>` | `A`/`a`/`0` or `B`/`b`/`1` | marks this block as the cartridge slot A or B (SLOT record). Normally `<block start="0">` (all 4 pages) |
 | `<device>NAME</device>` | `port` + `mask` (adds an IO_DEVICE record; mask defaults to FF if only `port` is given), named parameters or raw `param` | device bound to this block (memory-mapped device or device with a mapper): `MEM_MAPPER`, `WD2793`, `TC8566AF`, `OPM`, `YM2148`, `SCC`, ... |
 | `<ref to_block="n">DEVICE</ref>` or `MEMORY` | `to_block` 0-3 | `DEVICE`: this block also selects the device of block `n` (FDC registers visible in page 2 too). `MEMORY`: copy memory, mapper, mapper param and offset of block `n` |
 
 `REF_*` refer to a block in the **same slot and subslot**, and the referenced block must come first.
 
-Machine XML cannot declare battery SRAM; `<sram>` is honoured only in the FW pack.
+A machine has at most one `<sram>` (lookup_SRAM entry 3). The RTC memory, the 2 kB SRAM of `MATSUSHITA` and the 16 bytes of `S1985` need no `<sram>`: they live in the device. None of them is saved; all are FFh after a pack load.
 
 ### 2.5 FDC rules
 
@@ -308,7 +309,7 @@ The OSD item value is converted to `cart_typ_t` in `rtl/msx_config.sv`, and the 
 |---|---|---|
 | 0 | RAM | p0 = size/16 kB (0 = 256 = 4 MB), p1 = fill pattern, p2 bit 0 = 8 kB in the upper half of the page (p0 = 1) |
 | 1 | ROM | p0, p1 = ceil(size/16 kB) low and high byte; data follows |
-| 2 | SRAM | FW pack only |
+| 2 | SRAM | p0 = size/1 kB. FW pack: the SRAM of the cartridge (lookup_SRAM 1 / 2), machine pack: of the machine (3) |
 | 3 | DEVICE | p0 = device id, p1 = param |
 | 4 | MAPPER | p0 = mapper id, p1 = (param&3)<<2 |
 | 5 | SLOT (cartridge) | p0 = 0 (A) / 1 (B) |
@@ -335,7 +336,7 @@ The OSD item value is converted to `cart_typ_t` in `rtl/msx_config.sv`, and the 
 5. Do not mix `<block>` and `<secondary>` in one `<primary>`.
 6. SHA1 values in XML must be lowercase hex.
 7. createComp builds a pack in memory and writes it only when no ROM is missing and no exception occurred; otherwise an existing `.msx` of that machine is deleted. Missing ROMs (block `SHA1` / `exactFilename`, device `ROM_SHA1`) are collected for the whole machine, so the report lists all of them. Other errors are only warnings in the report. Test: `py -m unittest discover tests`.
-8. `<sram>` works only in FW configurations; a machine XML cannot declare SRAM.
+8. A machine has one `<sram>` (lookup_SRAM entry 3); a second one would replace the first.
 9. `expander_wo` is stored but ignored by the RTL.
 10. Run the tools from inside `tools/CreateMSXpack` (JSON tables by relative name). The ROM folder can be elsewhere: `--rom-dir` in both tools.
 11. Both extension XMLs must be edited together.

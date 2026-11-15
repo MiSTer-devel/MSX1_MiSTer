@@ -26,11 +26,12 @@
 //   47h, 48h  write: SRAM address low / high (13 bits)
 //   49h  SRAM data (2 kB, address below 800h), the address increments
 // param[0] = turbo available, param[1] = SRAM present. The turbo flag is cleared only by
-// a cold reset. The SRAM is not saved.
+// a cold reset. The SRAM is not saved; it is FFh after a pack load (sram_init).
 module dev_matsushita (
     cpu_bus_if.device_mp    cpu_bus,
     input  MSX::io_device_t io_device[3],       // single instance: [0]
     input                   hard_reset,
+    input                   sram_init,          // SRAM to FFh (pack load)
     input                   firmware_sw,        // firmware switch (OSD)
     output            [7:0] data,
     output MSX::cpu_speed_t cpu_speed
@@ -100,10 +101,13 @@ module dev_matsushita (
     logic [7:0] sram_q;
     initial for (int i = 0; i < 2048; i++) sram[i] = 8'hFF;
     wire sram_sel = has_sram && address[12:11] == 2'b00;
+    logic [10:0] init_cnt = '0;
+    always_ff @(posedge cpu_bus.clk) init_cnt <= sram_init ? init_cnt + 1'd1 : '0;
+    wire [10:0] sram_a  = sram_init ? init_cnt : address[10:0];
+    wire        sram_we = sram_init || (wr && active && cpu_bus.addr[3:0] == 4'd9 && sram_sel);
     always_ff @(posedge cpu_bus.clk) begin
-        if (wr && active && cpu_bus.addr[3:0] == 4'd9 && sram_sel)
-            sram[address[10:0]] <= cpu_bus.data;
-        sram_q <= sram[address[10:0]];
+        if (sram_we) sram[sram_a] <= sram_init ? 8'hFF : cpu_bus.data;
+        sram_q <= sram[sram_a];
     end
 
     logic [7:0] reg_data;

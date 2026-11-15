@@ -19,6 +19,7 @@ module msx #(parameter sysCLK)
 (
    input                    core_reset,
    input                    core_hard_reset,
+   input                    core_sram_init,    // pack load: SRAMs of the devices to FFh
    //Clock
    clock_bus_if.base_mp     clock_bus,
    //Video
@@ -224,6 +225,7 @@ devices #(.sysCLK(sysCLK)) devices
 (
    .clock_bus(clock_bus),
    .hard_reset(core_hard_reset),
+   .sram_init(core_sram_init),
    .cpu_bus(cpu_bus),
    .device_bus(device_bus),
    .FDD_bus(FDD_bus),

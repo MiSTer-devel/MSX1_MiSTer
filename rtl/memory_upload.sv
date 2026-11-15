@@ -594,21 +594,20 @@ module memory_upload
                         end
                         BLOCK_SRAM: begin
                             // lookup_SRAM entry: 0 - none (default of every block), 1 - cartridge
-                            // slot A, 2 - slot B (ROM or FW pack), 3 - computer CMOS (not yet)
+                            // slot A, 2 - slot B (ROM or FW pack), 3 - the machine
                             next_state <= STATE_LOAD_CONF;   // Defaultně neděláme nic
                             state <= STATE_READ_CONF;
 
-                            if (fw_space) begin   // Zatím umíme pouze CART SRAM
-                                if (ref_sram != 2'd0) begin
-                                    $display("BLOCK SRAM ref_SRAM:%x addr:%x size %d", ref_sram, ram_addr, {conf[3],10'd0});
-                                    lookup_SRAM[ref_sram].addr <= ram_addr;               // Uložíme adresu RAM
-                                    lookup_SRAM[ref_sram].size <= {8'd0, conf[3]};        // Uložíme velikost RAM
-                                    ref_sram_add               <= '1;                     // Signalizujeme potřebu přiřadit SRAM
-                                    data_size                  <= {7'b0, conf[3],10'd0};  // Velikost nahrávaných dat
-                                    pattern                    <= PATTERN_FF;
-                                    next_state                 <= STATE_READ_CONF;
-                                    state                      <= STATE_FILL_RAM;
-                                end
+                            if (!fw_space || ref_sram != 2'd0) begin
+                                $display("BLOCK SRAM ref_SRAM:%x addr:%x size %d", fw_space ? ref_sram : 2'd3, ram_addr, {conf[3],10'd0});
+                                if (!fw_space) ref_sram <= 2'd3;
+                                lookup_SRAM[fw_space ? ref_sram : 2'd3].addr <= ram_addr;          // Uložíme adresu RAM
+                                lookup_SRAM[fw_space ? ref_sram : 2'd3].size <= {8'd0, conf[3]};   // Uložíme velikost RAM
+                                ref_sram_add               <= '1;                     // Signalizujeme potřebu přiřadit SRAM
+                                data_size                  <= {7'b0, conf[3],10'd0};  // Velikost nahrávaných dat
+                                pattern                    <= PATTERN_FF;
+                                next_state                 <= STATE_READ_CONF;
+                                state                      <= STATE_FILL_RAM;
                             end
                         end
                         BLOCK_ROM: begin

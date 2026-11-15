@@ -129,10 +129,14 @@ module msx_slots (
     assign data       = subslot_output_rq ? subslot_data : mapper_data;
     assign data_oe_rq = subslot_output_rq;
 
-    assign memory_bus.addr    = (memory_bus_mappers.sram_cs ? 27'(base_sram) : main_cs ? main_RAM.addr : base_ram) + memory_bus_mappers.addr;
+    wire mem_cs = ~subslot_cs && (memory_bus_mappers.ram_cs || memory_bus_mappers.sram_cs || main_cs);
+
+    // All ones without an access: msx.sv merges the address with the device memory (Kanji) by AND
+    assign memory_bus.addr    = !mem_cs ? '1 :
+                                (memory_bus_mappers.sram_cs ? 27'(base_sram) : main_cs ? main_RAM.addr : base_ram) + memory_bus_mappers.addr;
     assign memory_bus.rnw     = memory_bus_mappers.rnw | (memory_bus_mappers.ram_cs & ram_ro);
     assign memory_bus.data    = cpu_bus.data;
-    assign memory_bus.ram_cs  = ~subslot_cs && (memory_bus_mappers.ram_cs || memory_bus_mappers.sram_cs || main_cs);
+    assign memory_bus.ram_cs  = mem_cs;
     assign memory_bus.sram_cs = '0;
 
     assign memory_bus_mappers.q = memory_bus.q;

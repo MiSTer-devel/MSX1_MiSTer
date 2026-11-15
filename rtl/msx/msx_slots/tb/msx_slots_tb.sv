@@ -2,6 +2,8 @@
 // "confirmed on turboR GT"): no write to the memory below, no write to the mapper.
 // MFRSD with its slot expander off: every access to its slot uses subslot 1 (openMSX
 // MegaFlashRomSCCPlusSD::getSubSlot), also the memory of that block (C12).
+// No memory access (I/O cycle, e.g. IN A,(D9h) with A<<8 on the address bus, or no request):
+// the memory address is all ones, as msx.sv merges it with the device memory (Kanji) by AND.
 // Run: wsl.exe -- bash rtl/msx/msx_slots/tb/run_msx_slots.sh [git-ref for the reference DUT]
 module msx_slots_tb;
 
@@ -27,12 +29,12 @@ assign mem.sdram_done  = 1'b1;
 
 logic [15:0] addr = 0;
 logic  [7:0] dout = 0;
-logic        mreq = 0, rd = 0, wr = 0;
+logic        mreq = 0, iorq = 0, rd = 0, wr = 0;
 logic  [1:0] slot = 0;
 assign cpu_bus.addr   = addr;
 assign cpu_bus.data   = dout;
 assign cpu_bus.mreq   = mreq;
-assign cpu_bus.iorq   = 1'b0;
+assign cpu_bus.iorq   = iorq;
 assign cpu_bus.rd     = rd;
 assign cpu_bus.wr     = wr;
 assign cpu_bus.m1     = 1'b0;
@@ -187,6 +189,20 @@ initial begin
     if (!s_cs || s_oe) fail("Slot0Mode 0: FFFF is not the RAM");
     slot0_mode = 1'b1;
     expander[0].en = 1'b0;
+
+    // I/O read at C0D9h (IN A,(D9h) with A = C0h): page 3 of slot 0 is RAM, but no memory access
+    slot = 0; addr = 16'hC0D9; iorq = 1; rd = 1;
+    #0.5;
+    if (mem.ram_cs || mem.addr !== '1) begin
+        errors++; $display("FAIL I/O cycle: ram_cs=%0b addr=%07h, expected all ones", mem.ram_cs, mem.addr);
+    end
+    @(posedge clk); #0.1; iorq = 0; rd = 0;
+    // no request at all, address C000h in slot 0
+    addr = 16'hC000; #0.5;
+    if (mem.ram_cs || mem.addr !== '1) begin
+        errors++; $display("FAIL idle bus: ram_cs=%0b addr=%07h, expected all ones", mem.ram_cs, mem.addr);
+    end
+    addr = 0;
 
     if (errors == 0) $display("PASS msx_slots_tb");
     else             $display("FAILED msx_slots_tb: %0d errors", errors);

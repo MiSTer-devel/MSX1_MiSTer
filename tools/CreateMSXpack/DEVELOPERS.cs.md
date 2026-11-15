@@ -59,8 +59,8 @@ Text prvku je název z `device.json`; neznámý název vypíše `Device '<x>' ne
 | Atribut | Význam |
 |---|---|
 | `port`, `mask` | každý 8 bitů. Zařízení reaguje na přístup, když `(addr & mask) == port` |
-| pojmenované parametry | kódují se přes `deviceParams.json` (oddíl 2.6): `MODE` (TMS99xx: PAL/NTSC), `VDP_ID` (V99xx: V9938/V9958), `system` (PSG: true = PSG počítače s porty pro joystick/klávesnici), `OCM` (PPI), `inverted` (RESET_STATUS), `turbo` a `sram` (MATSUSHITA: počítač má přepínač turba 5,37 MHz a 2 kB SRAM). `S1985` (přepínané I/O FEh, port 40h maska F0h) parametr nemá; uvádí ho každý počítač s `<engine>S1985</engine>` |
-| `param` | surový 8bitový parametr pro zařízení **bez** záznamu v `deviceParams.json` (například KANJI: bit 0 = hangul, bit 1 = lascom) |
+| pojmenované parametry | kódují se přes `deviceParams.json` (oddíl 2.6): `MODE` (TMS99xx: PAL/NTSC), `VDP_ID` (V99xx: V9938/V9958), `system` (PSG: true = PSG počítače s porty pro joystick/klávesnici), `OCM` (PPI), `inverted` (RESET_STATUS), `turbo` a `sram` (MATSUSHITA: počítač má přepínač turba 5,37 MHz a 2 kB SRAM), `hangul` a `level_2_via` (KANJI, jako openMSX: `hangul="true"` 7bitový řádek; `level_2_via` `read` (výchozí), `write` (FS-A1ST / GT), `interlocked_write_read` (FS-A1WX / WSX, Sanyo PHC-35J / 70FD), `only_level_1` (DAh / DBh se chovají jako D8h / D9h, maska 0xFC)). `S1985` (přepínané I/O FEh, port 40h maska F0h) parametr nemá; uvádí ho každý počítač s `<engine>S1985</engine>` |
+| `param` | surový 8bitový parametr pro zařízení **bez** záznamu v `deviceParams.json` |
 | `ROM_SHA1`, `rom_skip`, `rom_size` | vlastní ROM zařízení, připojená k záznamu (font KANJI) |
 | `shared_slot`, `shared_subslot`, `shared_block`, `shared_size` (všechny povinné společně), `shared_offset` (výchozí 0) | paměť zařízení je okno do existujícího bloku (KANJI v 1chipMSX používá blok ESE-RAM) |
 

@@ -73,6 +73,10 @@ set_global_assignment -name SEED 1
 # Disable YC / Composite output to save some resources
 #set_global_assignment -name VERILOG_MACRO "MISTER_DISABLE_YC=1"
 
+# Developer build: configuration report in DDR3 for Main_MiSTer (Help -> Configuration.txt).
+# Needs a Main with support/msx/msx_cfg.cpp. Do not enable in release!
+#set_global_assignment -name VERILOG_MACRO "MSX_CFG_REPORT=1"
+
 source sys/sys.tcl
 source sys/sys_analog.tcl
 source files.qip

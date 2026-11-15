@@ -246,7 +246,9 @@ memory_upload memory_upload(
    .cart_report(cart_report)
 );
 
-// Result of each configuration run for the HPS (DDR3 at MSX::DDR3_INFO)
+// Result of each configuration run for the HPS (DDR3 at MSX::DDR3_INFO). Developer build only
+// (MSX1.qsf: MSX_CFG_REPORT); without it the captures in memory_upload are unused and removed.
+`ifdef MSX_CFG_REPORT
 cfg_report cfg_report
 (
    .clk(clock_bus.clk),
@@ -260,6 +262,12 @@ cfg_report cfg_report
    .ddr3_din(ddr3_din),
    .ddr3_we(ddr3_we_report)
 );
+`else
+assign ddr3_request_report = 1'b0;
+assign ddr3_we_report      = 1'b0;
+assign ddr3_addr_report    = '0;
+assign ddr3_din            = '0;
+`endif
 
 // DDR3: the report (only while the upload is idle) before the configuration upload, both
 // before the cassette player

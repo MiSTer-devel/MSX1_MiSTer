@@ -326,7 +326,7 @@ Hodnota položky OSD se převede na `cart_typ_t` v `rtl/msx_config.sv` a zavadě
 - Na 0x10: 256 x uint32 LE offset konfigurace N v souboru (N = FW ID). Nepoužitá ID míří na prázdnou konfiguraci (jediný záznam END).
 - Konfigurace je seznam 6bajtových záznamů `type addr block_type p1 p2 p3` zakončený `07 00 00 00 00 00`. Bity slotu v `addr` jsou 0, slot cartridge doplní jádro operací OR.
 - Tabulka ROM je uint32 LE offset pro každou odlišnou ROM (deduplikace podle skip, size a SHA1), následují obrazy ROM doplněné FF na 16 kB.
-- Za obrazy ROM následuje tabulka jmen. Je pro Main_MiSTer (`docs/MSX1/Configuration.txt`), ne pro jádro: `'N' 'A' 'M' '1'`, pak tři seznamy, mappery (`mapper.json`), zařízení (`device.json`) a FW konfigurace (`cart_device.json`, 256 položek). Každý seznam je uint16 LE počet a tolik ASCII jmen zakončených NUL, indexovaných číslem; nepoužité číslo má prázdné jméno.
+- Za obrazy ROM následuje tabulka jmen. Je pro Main_MiSTer (`docs/MSX1/Configuration.txt`, oddíl 9), ne pro jádro: `'N' 'A' 'M' '1'`, pak tři seznamy, mappery (`mapper.json`), zařízení (`device.json`) a FW konfigurace (`cart_device.json`, 256 položek). Každý seznam je uint16 LE počet a tolik ASCII jmen zakončených NUL, indexovaných číslem; nepoužité číslo má prázdné jméno.
 
 ## 6. Úskalí
 
@@ -364,3 +364,21 @@ Hodnota položky OSD se převede na `cart_typ_t` v `rtl/msx_config.sv` a zavadě
    - Regrese zavaděče: `rtl/tb/run_mu_equiv.sh <packs dir> <CART_FW.msx> <ROM set dir>`, `run_memory_upload.sh` (OCM), `run_cart_rom.sh <VG_8020 pack> <CART_FW_EN.msx>`, `run_mu_restart.sh`, `run_ocm_boot.sh`.
    - `run_mu_equiv.sh` porovnává zavaděč s referenční revizí; spusťte ho po každé změně `memory_upload.sv` nebo formátu packu.
 4. Syntéza v Quartusu se spouští zvlášť; její výsledek nebyl součástí těchto nástrojů.
+
+## 9. Zpráva o konfiguraci (vývojářské sestavení)
+
+Vývojářské sestavení umí ukázat, co zavaděč sestavil: po každém načtení to jádro ohlásí a Main_MiSTer zapíše `docs/MSX1/Configuration.txt`, který se otevře v systémovém menu položkou **Help**. Soubor obsahuje:
+
+- načtené packy, databázi mapperů a stav (OK nebo chyba OSD),
+- každý slot cartridge: použitou konfiguraci (např. `KONAMI_SCC`), zda pochází z databáze mapperů, z OSD, nebo jde o prostou ROM, soubor ROM a jeho CRC32,
+- mapu paměti po slotech, subslotech a stránkách (RAM, ROM, SRAM, mappery, zařízení) a I/O porty zařízení.
+
+Co je potřeba:
+
+- **Jádro:** zapnout `VERILOG_MACRO "MSX_CFG_REPORT=1"` v `MSX1.qsf`. Release sestavení ho nemá, logika zprávy pak ve FPGA není.
+- **Main_MiSTer** se `support/msx/msx_cfg.cpp`. Main bez něj zprávu ignoruje; jádro bez makra Main nic k zobrazení nedá.
+- Jména mapperů a zařízení jsou z tabulky jmen ve FW packu (oddíl 5.2); bez ní se zobrazí čísla.
+- Help otevírá textové soubory jen s `fb_terminal=1` v `MiSTer.ini` (výchozí stav).
+- Soubor se zapisuje jen při změně textu.
+
+Zpráva: 20 bajtů v DDR3 na `MSX::DDR3_INFO` (0x34000000, vyhrazeno 4 kB), zapisuje ji `rtl/cfg_report.sv` po každém běhu zavaděče: `'MSXR'`, platnost (nejdřív se zapíše 0, nakonec 1), verze 1, generace, `error_t`, pro každý slot cartridge zdroj (`cart_src_t`) a FW ID, pak CRC32 ROM A a ROM B (LE). Testy: `rtl/tb/run_cfg_report.sh <VG_8020 pack> <CART_FW_EN.msx>` a `rtl/tb/run_msxdos2_boot.sh` (`run_machine_boot.sh` s `VDEFS="+define+MSX_CFG_REPORT"`).

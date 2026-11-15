@@ -14,7 +14,7 @@ RC=0
 for v in "MSXDOS2:60:$TMP/dos2_msxdos2.rom" "ASCII8:50:$ROM"; do
     NAME=${v%%:*}; REST=${v#*:}; FWID=${REST%%:*}; FILE=${REST#*:}
     echo "=== mapper $NAME"
-    LOG=$(SIMARGS="+fw=$FW +db=$TMP/mappers.db +rom=$FILE +run_ms=${RUN_MS:-15000}" \
+    LOG=$(VDEFS="+define+MSX_CFG_REPORT" SIMARGS="+fw=$FW +db=$TMP/mappers.db +rom=$FILE +run_ms=${RUN_MS:-15000}" \
           bash run_machine_boot.sh "$PACK" none "Disk BASIC version 2.00" 2>&1) || true
     echo "$LOG" | grep -E "PASS|FAIL|error=|on the screen|^REPORT" || echo "$LOG" | tail -20
     echo "$LOG" | grep -q "^PASS machine_boot_tb" || RC=1

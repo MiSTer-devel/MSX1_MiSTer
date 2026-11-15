@@ -117,17 +117,6 @@ Když načtení selže, informační řádek OSD zobrazí jedno z těchto hláš
 | SMALL MEMORY | Stroj s cartridgemi potřebuje víc paměti, než je k dispozici: bez modulu SDRAM víc než 256 KB (viz [Bez modulu SDRAM](#bez-modulu-sdram)), s modulem 32 nebo 64 MB víc než jeho velikost. |
 | ROM too big | Soubor ROM je větší než 16 MB. |
 
-### Konfigurace stroje
-Po každém načtení jádro ohlásí, co sestavilo, a Main_MiSTer to zapíše do `docs/MSX1/Configuration.txt`. Soubor se otevře v systémovém menu položkou **Help**. Obsahuje:
-
-- načtené packy, databázi mapperů a stav (OK nebo chyba z tabulky výše),
-- každý slot cartridge: použitou konfiguraci (např. `KONAMI_SCC`), zda pochází z databáze mapperů, z OSD, nebo jde o prostou ROM, soubor ROM a jeho CRC32,
-- mapu paměti po slotech, subslotech a stránkách (RAM, ROM, SRAM, mappery, zařízení) a I/O porty zařízení.
-
-- **Potřebuje Main_MiSTer s podporou MSX1** (`support/msx`). S Main bez ní jádro běží jako dřív a soubor nevznikne.
-- Jména mapperů a zařízení jsou ve FW packu. FW pack ze staršího `createDev.py` je nemá, pak se zobrazí čísla.
-- Help otevírá textové soubory jen s `fb_terminal=1` v `MiSTer.ini` (výchozí stav).
-
 ## Podporované hardwarové součásti
 Jádro obsahuje tyto hardwarové moduly:
 - `PPI` – [Programmable Peripheral Interface](https://www.msx.org/wiki/Programmable_Peripheral_Interface)

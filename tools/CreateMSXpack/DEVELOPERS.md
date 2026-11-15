@@ -326,7 +326,7 @@ The OSD item value is converted to `cart_typ_t` in `rtl/msx_config.sv`, and the 
 - At 0x10: 256 x uint32 LE file offset of configuration N (N = FW ID). Unused IDs point to an empty configuration (a single END record).
 - A configuration is a list of 6-byte records `type addr block_type p1 p2 p3`, ended by `07 00 00 00 00 00`. The slot bits of `addr` are 0, the core ORs in the cartridge slot.
 - The ROM table is a uint32 LE offset per distinct ROM (deduplicated by skip, size and SHA1), followed by the ROM images padded with FF to 16 kB.
-- The name table follows the ROM images. It is for Main_MiSTer (`docs/MSX1/Configuration.txt`), not for the core: `'N' 'A' 'M' '1'`, then three lists, the mappers (`mapper.json`), the devices (`device.json`) and the FW configurations (`cart_device.json`, 256 entries). Each list is a uint16 LE count and that many NUL-terminated ASCII names, indexed by number; an unused number has an empty name.
+- The name table follows the ROM images. It is for Main_MiSTer (`docs/MSX1/Configuration.txt`, section 9), not for the core: `'N' 'A' 'M' '1'`, then three lists, the mappers (`mapper.json`), the devices (`device.json`) and the FW configurations (`cart_device.json`, 256 entries). Each list is a uint16 LE count and that many NUL-terminated ASCII names, indexed by number; an unused number has an empty name.
 
 ## 6. Pitfalls
 
@@ -364,3 +364,21 @@ The full table of messages and OSD errors with their meaning is in the [README](
    - Loader regression: `rtl/tb/run_mu_equiv.sh <packs dir> <CART_FW.msx> <ROM set dir>`, `run_memory_upload.sh` (OCM), `run_cart_rom.sh <VG_8020 pack> <CART_FW_EN.msx>`, `run_mu_restart.sh`, `run_ocm_boot.sh`.
    - `run_mu_equiv.sh` compares the loader against the reference revision; run it after any change of `memory_upload.sv` or of the pack format.
 4. Synthesis with Quartus is run separately; its result was not part of these tools.
+
+## 9. Configuration report (developer build)
+
+A developer build can show what the loader has built: after each load the core reports it, and Main_MiSTer writes `docs/MSX1/Configuration.txt`, opened in the system menu with **Help**. The file lists:
+
+- the loaded packs, the mapper database and the status (OK or the OSD error),
+- each cartridge slot: the configuration in use (e.g. `KONAMI_SCC`), whether it came from the mapper database, from the OSD or as a plain ROM, the ROM file and its CRC32,
+- the memory map by slot, subslot and page (RAM, ROM, SRAM, mappers, devices) and the I/O ports of the devices.
+
+How to get it:
+
+- **Core:** enable `VERILOG_MACRO "MSX_CFG_REPORT=1"` in `MSX1.qsf`. A release build leaves it out; the report logic is then not in the FPGA.
+- **Main_MiSTer** with `support/msx/msx_cfg.cpp`. A Main without it ignores the report; a core without it gives Main nothing to show.
+- Names of mappers and devices come from the name table of the FW pack (section 5.2); without it the numbers are shown.
+- Help opens text files only with `fb_terminal=1` in `MiSTer.ini` (the default).
+- The file is written only when its text changes.
+
+The report: 20 bytes in DDR3 at `MSX::DDR3_INFO` (0x34000000, 4 kB reserved), written by `rtl/cfg_report.sv` after each loader run: `'MSXR'`, valid (written 0 first and 1 last), version 1, generation, `error_t`, per cartridge slot the source (`cart_src_t`) and the FW ID, then the CRC32 of ROM A and ROM B (LE). Tests: `rtl/tb/run_cfg_report.sh <VG_8020 pack> <CART_FW_EN.msx>` and `rtl/tb/run_msxdos2_boot.sh` (`run_machine_boot.sh` with `VDEFS="+define+MSX_CFG_REPORT"`).

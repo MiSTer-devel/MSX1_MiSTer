@@ -117,17 +117,6 @@ When a load fails, the OSD info line shows one of these. After **No CRC32 DB**, 
 | SMALL MEMORY | The machine with its cartridges needs more memory than there is: without the SDRAM module more than 256 KB (see [Without the SDRAM module](#without-the-sdram-module)), with a 32 or 64 MB module more than its size. |
 | ROM too big | The ROM file is larger than 16 MB. |
 
-### Configuration of the machine
-After each load the core reports what it has built, and Main_MiSTer writes it to `docs/MSX1/Configuration.txt`. Open it in the system menu with **Help**. It shows:
-
-- the loaded packs, the mapper database and the status (OK or the error above),
-- each cartridge slot: the configuration in use (e.g. `KONAMI_SCC`), whether it came from the mapper database, from the OSD or as a plain ROM, the ROM file and its CRC32,
-- the memory map by slot, subslot and page (RAM, ROM, SRAM, mappers, devices) and the I/O ports of the devices.
-
-- **Needs a Main_MiSTer with MSX1 support** (`support/msx`). With a Main without it the core runs as before and no file is written.
-- Names of mappers and devices come from the FW pack. A FW pack made by an older `createDev.py` has no names; the numbers are shown then.
-- Help opens text files only with `fb_terminal=1` in `MiSTer.ini` (the default).
-
 ## Supported Hardware Components
 The core includes the following hardware modules:
 - `PPI` – [Programmable Peripheral Interface](https://www.msx.org/wiki/Programmable_Peripheral_Interface)

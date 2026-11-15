@@ -5,6 +5,7 @@
 #                            (Panasonic FS-A1F: skips the A1 Cockpit); "+vram_dump=<prefix>"
 #   machine.msx: cd tools/CreateMSXpack; python createComp.py --xml-dir <dir> --rom-dir <dir> --output-dir <dir>
 #   image.dsk:   python3 rtl/tb/make_dsk_image.py x.dsk --text 'AUTOEXEC.BAS=10 PRINT "DISK OK"'
+#   VDEFS="+define+MSX_CFG_REPORT"  developer build: configuration report (line "REPORT ...")
 set -e
 PACK=$(realpath "$1"); DSK="$2"; [ "$DSK" = none ] || DSK=$(realpath "$DSK"); EXPECT="$3"
 cd "$(dirname "$0")"
@@ -33,7 +34,7 @@ print('\n'.join(pk + [p for p in out if p not in pk]))
 EOF
 
 verilator --binary --timing -O3 -j 4 -Wno-fatal -Wno-lint -Wno-style -Wno-MULTIDRIVEN \
-    --top-module machine_boot_tb -Mdir "$OUT" \
+    --top-module machine_boot_tb -Mdir "$OUT" $VDEFS \
     $(cat "$OUT/files.txt") dpram_stub.sv spram_stub.sv altsyncram_stub.sv \
     machine_boot_tb.sv > "$OUT/build.log" 2>&1 || { grep -E "%Error" "$OUT/build.log" | head -30; exit 1; }
 grep -E '%Error' "$OUT/build.log" || true

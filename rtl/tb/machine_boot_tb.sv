@@ -299,6 +299,42 @@ int          s1990_wr = 0, main_rd = 0, main_wr = 0, a7_wr = 0, m1_all = 0, vdp_
 logic        r800_q = 0, dram_q = 0, hold_q = 0;
 logic  [1:0] sel_q = '0;
 int          sel_log = 0, io_holds = 0;
+
+// +sramlog=<n>: the first n writes to the SRAM of a mapper (CPU address, SRAM offset, data)
+int   sramlog_n = 0, sram_wr = 0;
+initial void'($value$plusargs("sramlog=%d", sramlog_n));
+always @(posedge clk_core)
+    if (sys.MSX.msx_slots.memory_bus_mappers.sram_cs && !sys.MSX.msx_slots.memory_bus_mappers.rnw && access) begin
+        sram_wr++;
+        if (sram_wr <= sramlog_n)
+            $display("%0t sram write %04h -> %05h = %02h (last M1 %04h) bus %07h cs %b rnw %b ref_sram %0d base %07h", $time,
+                     sys.MSX.cpu_bus.addr, sys.MSX.msx_slots.memory_bus_mappers.addr[16:0], sys.MSX.cpu_bus.data, last_m1,
+                     sys.memory_bus_msx.addr, sys.memory_bus_msx.ram_cs, sys.memory_bus_msx.rnw,
+                     sys.MSX.msx_slots.active_block.ref_sram, sys.MSX.msx_slots.base_sram);
+    end
+
+// +sramrd_ms=<ms>: reads of the SRAM of a mapper from that time on (data as the CPU gets it), 20000
+int          sramrd_ms = -1, sramrd_n = 0, now_ms = 0;
+logic        srd_pend = 0;
+logic [15:0] srd_a, srd_m1;
+logic [16:0] srd_o;
+logic  [7:0] srd_d;
+initial void'($value$plusargs("sramrd_ms=%d", sramrd_ms));
+always @(posedge clk_core)
+    if (sys.MSX.msx_slots.memory_bus_mappers.sram_cs && sys.MSX.cpu_bus.rd) begin
+        if (!srd_pend) begin
+            srd_pend <= 1'b1; srd_a <= sys.MSX.cpu_bus.addr; srd_m1 <= last_m1;
+            srd_o <= sys.MSX.msx_slots.memory_bus_mappers.addr[16:0];
+        end
+        srd_d <= sys.MSX.d_to_cpu;
+    end else if (srd_pend) begin
+        srd_pend <= 1'b0;
+        if (sramrd_ms >= 0 && now_ms >= sramrd_ms && sramrd_n < 20000) begin
+            sramrd_n++;
+            $display("%0t sram read %04h -> %05h = %02h (last M1 %04h)", $time, srd_a, srd_o, srd_d, srd_m1);
+        end
+    end
+
 always @(posedge clk_core) begin
     if (access && sys.MSX.cpu_bus.mreq && sys.MSX.cpu_bus.m1) begin
         last_m1 <= sys.MSX.cpu_bus.addr; m1_all++;
@@ -678,12 +714,16 @@ initial begin
     end
     $display("%0t pack loaded, error=%0d, msx_config.fdd=%b, CMOS Z80 %0d, VDP I/O wait %0d", $time, sys.error,
              msx_config.fdd, msx_config.cmos_z80, msx_config.vdp_io_wait);
+`ifdef MSX_CFG_REPORT
     repeat (5) @(posedge clk_core);
     wait (!sys.cfg_report.ddr3_request && !sys.cfg_report.pending);
     repeat (20) @(posedge clk_core);
     $display("REPORT %s valid %0d gen %0d error %0d A %0d/%0d %02h%02h%02h%02h B %0d/%0d %02h%02h%02h%02h",
              {report[0], report[1], report[2], report[3]}, report[4], report[6], report[7], report[8], report[9],
              report[15], report[14], report[13], report[12], report[10], report[11], report[19], report[18], report[17], report[16]);
+`else
+    if (report[0] != 0) $display("FAILED machine_boot_tb: configuration report written without MSX_CFG_REPORT");
+`endif
     if (want_err != 0) begin
         if (int'(sys.error) == want_err) $display("PASS machine_boot_tb: pack error %0d as expected", want_err);
         else                             $display("FAILED machine_boot_tb: pack error %0d, expected %0d", sys.error, want_err);
@@ -705,6 +745,7 @@ initial begin
     end
 
     for (int ms = 0; ms < run_ms; ms += 100) begin
+        now_ms = ms;
         repeat (MSX::CLK_CORE_HZ / 10) @(posedge clk_core);
         if (frame_prefix != "" && ms + 100 >= frame_ms) frame_arm = 1;
         if (frame_every > 0 && ms > frame_ms && (ms - frame_ms) % frame_every == 0) frame_left = frame_n;
@@ -803,6 +844,12 @@ initial begin
     $display("%0t final screen:\n%s", $time, screen_text());
     if (found_ms < 0 && expect_txt != "" && expect_armed && vram_has(expect_txt)) found_ms = run_ms;
     if ($value$plusargs("vram_dump=%s", dump)) dump_vram(dump);
+    if ($value$plusargs("sram_dump=%s", dump)) begin   // SRAM of the machine (lookup_SRAM[3])
+        fd = $fopen(dump, "wb");
+        for (int i = 0; i < int'(sys.lookup_SRAM[3].size) * 1024; i++) $fwrite(fd, "%c", sdram[25'(sys.lookup_SRAM[3].addr - (27'd1 << MSX::BRAM_WIDTH)) + 25'(i)]);
+        $fclose(fd);
+        $display("SRAM %0d kB at %07h dumped, %0d writes", sys.lookup_SRAM[3].size, sys.lookup_SRAM[3].addr, sram_wr);
+    end
     $display("disk ROM M1 %0d, FDC commands %0d, Read Data ok %0d / abnormal %0d, HPS reads %0d (LBA 0: %0d)",
              disk_m1, fdc_log, reads_ok, reads_bad, lba_reads, lba0_reads);
     if (io_holds != 0) $display("VDP accesses held back: %0d", io_holds);

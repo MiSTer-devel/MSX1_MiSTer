@@ -322,10 +322,11 @@ Hodnota položky OSD se převede na `cart_typ_t` v `rtl/msx_config.sv` a zavadě
 
 ### 5.2 FW pack (`MsX`)
 
-- 16bajtová hlavička: `'M' 's' 'X' 00`, uint32 LE s offsetem tabulky ROM v souboru, 8 nulových bajtů.
+- 16bajtová hlavička: `'M' 's' 'X' 00`, uint32 LE s offsetem tabulky ROM v souboru, uint32 LE s offsetem tabulky jmen (0 = žádná), 4 nulové bajty. Jádro čte jen bajty 0–7.
 - Na 0x10: 256 x uint32 LE offset konfigurace N v souboru (N = FW ID). Nepoužitá ID míří na prázdnou konfiguraci (jediný záznam END).
 - Konfigurace je seznam 6bajtových záznamů `type addr block_type p1 p2 p3` zakončený `07 00 00 00 00 00`. Bity slotu v `addr` jsou 0, slot cartridge doplní jádro operací OR.
 - Tabulka ROM je uint32 LE offset pro každou odlišnou ROM (deduplikace podle skip, size a SHA1), následují obrazy ROM doplněné FF na 16 kB.
+- Za obrazy ROM následuje tabulka jmen. Je pro Main_MiSTer (`docs/MSX1/Configuration.txt`), ne pro jádro: `'N' 'A' 'M' '1'`, pak tři seznamy, mappery (`mapper.json`), zařízení (`device.json`) a FW konfigurace (`cart_device.json`, 256 položek). Každý seznam je uint16 LE počet a tolik ASCII jmen zakončených NUL, indexovaných číslem; nepoužité číslo má prázdné jméno.
 
 ## 6. Úskalí
 

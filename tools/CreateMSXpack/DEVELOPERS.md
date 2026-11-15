@@ -322,10 +322,11 @@ The OSD item value is converted to `cart_typ_t` in `rtl/msx_config.sv`, and the 
 
 ### 5.2 FW pack (`MsX`)
 
-- 16-byte header: `'M' 's' 'X' 00`, a uint32 LE file offset of the ROM table, 8 zero bytes.
+- 16-byte header: `'M' 's' 'X' 00`, a uint32 LE file offset of the ROM table, a uint32 LE file offset of the name table (0 = none), 4 zero bytes. The core reads only bytes 0-7.
 - At 0x10: 256 x uint32 LE file offset of configuration N (N = FW ID). Unused IDs point to an empty configuration (a single END record).
 - A configuration is a list of 6-byte records `type addr block_type p1 p2 p3`, ended by `07 00 00 00 00 00`. The slot bits of `addr` are 0, the core ORs in the cartridge slot.
 - The ROM table is a uint32 LE offset per distinct ROM (deduplicated by skip, size and SHA1), followed by the ROM images padded with FF to 16 kB.
+- The name table follows the ROM images. It is for Main_MiSTer (`docs/MSX1/Configuration.txt`), not for the core: `'N' 'A' 'M' '1'`, then three lists, the mappers (`mapper.json`), the devices (`device.json`) and the FW configurations (`cart_device.json`, 256 entries). Each list is a uint16 LE count and that many NUL-terminated ASCII names, indexed by number; an unused number has an empty name.
 
 ## 6. Pitfalls
 

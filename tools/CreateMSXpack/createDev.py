@@ -264,6 +264,26 @@ def create_fw_config(config: dict, constants: dict, roms: dict) -> tuple:
     
     return address_array, data, addr
 
+NAMES_MAGIC = b'NAM1'
+
+def name_list(table: dict, size: int = 0) -> list:
+    """Names indexed by their number (JSON name -> number); unused numbers are empty."""
+    names = [''] * (max(list(table.values()) + [size - 1]) + 1)
+    for name, number in table.items():
+        names[number] = name
+    return names
+
+def build_names(constants: dict) -> bytes:
+    """Name table for the HPS (configuration report): 'NAM1', then mappers, devices and FW
+    configurations, each as uint16 LE count and that many NUL-terminated ASCII names."""
+    data = bytearray(NAMES_MAGIC)
+    for names in (name_list(constants['mapper']), name_list(constants['device']),
+                  name_list(constants['cart_dev'], 256)):
+        data += struct.pack('<H', len(names))
+        for name in names:
+            data += name.encode('ascii') + b'\0'
+    return bytes(data)
+
 def save_fw_config(config: dict, file_name: str, path: str, files_with_sha1: dict, constants: dict, roms: dict, table: bytearray, data: bytearray, rom_start_addr: int):
     file_path = os.path.join(DIR_SAVE, path)
     os.makedirs(file_path, exist_ok=True)
@@ -290,6 +310,12 @@ def save_fw_config(config: dict, file_name: str, path: str, files_with_sha1: dic
 
             outfile.write(rom_content)
             os.remove('ROM.bin')
+
+            # name table after the ROMs, its offset in header bytes 8-11 (the core does not read them)
+            names_addr = outfile.tell()
+            outfile.write(build_names(constants))
+            outfile.seek(8)
+            outfile.write(struct.pack('<I', names_addr))
     except IOError as e:
         logger.error(f"Error saving MSX config to {file_path}: {e}")
 

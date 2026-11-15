@@ -80,7 +80,9 @@ module mapper_panasonic (
     wire [7:0] sram_bank = (sel[7:0] - 8'h80) & (sram_bnks - 1'b1);
 
     wire rom_rd  = cs && cpu_bus.rd && !is_sram && !is_ram && !rd_reg;
-    wire mem_rw  = cs && (cpu_bus.rd ? !rd_reg : !(reg_area || cpu_bus.addr == 16'h7FF8 || cpu_bus.addr == 16'h7FF9));
+    // Only with RD / WR: the memory latches rnw with the select (Z80 MREQ comes before WR)
+    wire mem_rw  = cs && (cpu_bus.rd ? !rd_reg :
+                          cpu_bus.wr && !(reg_area || cpu_bus.addr == 16'h7FF8 || cpu_bus.addr == 16'h7FF9));
     wire sram_rw = mem_rw && is_sram;
     wire ram_rw  = mem_rw && is_ram;
 

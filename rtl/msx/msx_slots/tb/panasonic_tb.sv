@@ -103,6 +103,13 @@ initial begin
     @(negedge clk); addr = 16'h8000; data = 8'h55; mreq = 1; wr = 1; req = 1; #0;
     if (out.sram_cs || out.ram_cs) fail("write to a ROM bank ignored");
     @(negedge clk); req = 0; idle();
+    // Z80 write cycle: MREQ a clk before WR (also refresh: MREQ alone). The memory latches rnw
+    // with the chip select, so no select before WR
+    @(negedge clk); addr = 16'h4555; data = 8'hAA; mreq = 1; #0;
+    if (out.sram_cs) fail("SRAM selected by MREQ alone (a read cycle before WR)");
+    @(negedge clk); wr = 1; req = 1; #0;
+    if (!(out.sram_cs && !out.rnw)) fail("SRAM write after MREQ");
+    @(negedge clk); req = 0; idle();
 
     // mapper_param[0] (FS-A1WX/WSX, openMSX sram-mirrored): banks 80h-87h are SRAM, offset masked
     block_info.mapper_param = 2'b01;
@@ -129,6 +136,9 @@ initial begin
     @(negedge clk); addr = 16'h4777; data = 8'h5A; mreq = 1; wr = 1; req = 1; #0;
     if (!(out.main_cs && !out.rnw && out.addr == 27'h0002777)) fail("RAM bank write");
     @(negedge clk); req = 0; idle();
+    @(negedge clk); addr = 16'h4777; mreq = 1; #0;
+    if (out.main_cs) fail("RAM selected by MREQ alone");
+    @(negedge clk); idle();
     write(16'h6C00, 8'h80); write(16'h7FF8, 8'b0000_1100);   // region 3 (6000-7FFF) = 180h
     @(negedge clk); addr = 16'h7FF0; data = 8'h77; mreq = 1; wr = 1; req = 1; #0;
     if (!(out.main_cs && !out.rnw && out.addr == 27'h0001FF0)) fail("RAM write at 7FF0 (region 3)");

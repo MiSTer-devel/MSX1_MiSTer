@@ -16,6 +16,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 
+// As openMSX src/MSXKanji.cc: one address for both levels (written at D8h/D9h or DAh/DBh), the
+// level of the last write, the 32-byte character counter incremented by a valid read of D9h/DBh.
+// io_device param: bit 0 hangul (7-bit row), bit 1 lascom (unused), bits 3:2 level 2 access:
+//   0 read     - the read port selects the level (DBh = level 2)
+//   1 write    - the level of the last write (FS-A1ST / GT)
+//   2 interlocked_write_read - as write, a read of the other level gives FFh, no increment
+//                (FS-A1WX / WSX, Sanyo PHC-35J / 70FD)
+//   3 only_level_1 - DAh/DBh act as D8h/D9h (FS-A1F / FX, HB-11, FS-4000, YIS-805/256)
+// Addresses outside the font (ram_size, 16 kB units) read FFh. jis2_en: OCM IPL with a 384 kB BIOS.
 module dev_kanji (
     cpu_bus_if.device_mp       cpu_bus,
     input  MSX::io_device_t    io_device[3],
@@ -46,6 +55,7 @@ module dev_kanji (
         .rd(cs_enable && cpu_bus.rd),
         .hangul(hangul),
         .lascom(lascom),
+        .level2_via(io_device[0].param[3:2]),
         .jis2_en(jis2_en),
         .ram_addr(ram_addr),
         .ram_cs(ram_cs)
@@ -65,55 +75,46 @@ module kanji (
     input              rd,
     input              hangul,
     input              lascom,
+    input        [1:0] level2_via,
     input              jis2_en,
     output      [26:0] ram_addr,
     output             ram_cs
 );
 
-    logic [26:0] addr1, addr2, addr;
+    localparam logic [1:0] VIA_READ = 2'd0, VIA_WRITE = 2'd1, VIA_INTERLOCKED = 2'd2, VIA_LEVEL1 = 2'd3;
+
+    logic [17:0] adr;
+    logic        write_level;
+    logic [17:0] addr;
     logic        ram_en;
 
-    assign ram_addr = ram_cs ? ram_base + addr : '1;
-    assign ram_cs   = rd && ram_en;
+    wire  [1:0] port       = level2_via == VIA_LEVEL1 ? {1'b0, cpu_addr[0]} : cpu_addr;
+    wire        read_level = port[1];
+    wire        level      = level2_via == VIA_READ ? read_level : write_level;
+    wire        valid      = !(level2_via == VIA_INTERLOCKED && read_level != write_level);
+    wire [17:0] rd_addr    = {adr[17] | level, adr[16:0]};
+    wire        in_font    = {4'd0, rd_addr} < {ram_size, 14'd0};
+    wire  [6:0] row        = hangul ? data[6:0] : {1'b0, data[5:0]};
 
-    wire [6:0] hangul_data = hangul ? data[6:0] : {1'b0, data[5:0]};
+    assign ram_addr = ram_cs ? ram_base + 27'(addr) : '1;
+    assign ram_cs   = rd && ram_en;
 
     always_ff @(posedge clk) begin
         if (reset) begin
-            addr1 <= 27'h00000;
-            addr2 <= 27'h20000;
-            ram_en <= 1'b0;
+            adr         <= '0;
+            write_level <= 1'b0;
+            ram_en      <= 1'b0;
         end else begin
             ram_en <= 1'b0;
-            addr2 <= addr2;
-
-            if (req) begin
-                if (wr) begin
-                    case (cpu_addr)
-                        2'd0: addr1 <= (addr1 & 27'h1f800) | (27'(data[5:0]) << 5 );
-                        2'd1: addr1 <= (addr1 & 27'h007e0) | (27'(data[5:0]) << 11);
-                        2'd2: addr2 <= (addr2 & 27'h3f800) | (27'(hangul_data) << 5 );
-                        2'd3: addr2 <= (addr2 & 27'h207e0) | (27'(data[5:0]) << 11);
-                    endcase
-                end
-                if (rd) begin
-                    case (cpu_addr)
-                        2'd0: ;
-                        2'd1: begin
-                            addr   <= addr1 & ({5'b0, ram_size, 14'd0} - 27'd1);
-                            ram_en <= 1'b1;
-                            addr1  <= (addr1 & ~27'h1f) | ((addr1 + 27'd1) & 27'h1f);
-                        end
-                        2'd2: ;
-                        2'd3: begin
-                            if (ram_size == 8'h10 && jis2_en) begin
-                                addr   <= addr2;
-                                ram_en <= 1'b1;
-                            end
-                            addr2 <= (addr2 & ~27'h1f) | ((addr2 + 27'd1) & 27'h1f);
-                        end
-                    endcase
-                end
+            if (req && wr) begin
+                write_level <= port[1];
+                if (!port[0]) adr <= (adr & 18'h3F800) | {7'd0, data[5:0], 5'd0};
+                else          adr <= (adr & 18'h007E0) | {row, 11'd0};
+            end
+            if (req && rd && port[0] && valid) begin
+                addr   <= rd_addr;
+                ram_en <= in_font && (!level || jis2_en);
+                adr    <= {adr[17:5], adr[4:0] + 5'd1};
             end
         end
     end

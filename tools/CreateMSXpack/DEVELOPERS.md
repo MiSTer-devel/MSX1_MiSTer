@@ -59,8 +59,8 @@ The element text is a name from `device.json`; an unknown name prints `Device '<
 | Attribute | Meaning |
 |---|---|
 | `port`, `mask` | 8 bit each. The device decodes an access when `(addr & mask) == port` |
-| named parameters | encoded through `deviceParams.json` (section 2.6): `MODE` (TMS99xx: PAL/NTSC), `VDP_ID` (V99xx: V9938/V9958), `system` (PSG: true = the machine PSG with the joystick/keyboard ports), `OCM` (PPI), `inverted` (RESET_STATUS), `turbo` and `sram` (MATSUSHITA: the 5.37 MHz turbo switch and the 2 kB SRAM are present). `S1985` (switched I/O FEh, port 40h mask F0h) has no parameter; every machine with `<engine>S1985</engine>` declares it |
-| `param` | raw 8-bit parameter for devices **without** an entry in `deviceParams.json` (for example KANJI: bit 0 = hangul, bit 1 = lascom) |
+| named parameters | encoded through `deviceParams.json` (section 2.6): `MODE` (TMS99xx: PAL/NTSC), `VDP_ID` (V99xx: V9938/V9958), `system` (PSG: true = the machine PSG with the joystick/keyboard ports), `OCM` (PPI), `inverted` (RESET_STATUS), `turbo` and `sram` (MATSUSHITA: the 5.37 MHz turbo switch and the 2 kB SRAM are present), `hangul` and `level_2_via` (KANJI, as openMSX: `hangul="true"` 7-bit row; `level_2_via` `read` (default), `write` (FS-A1ST / GT), `interlocked_write_read` (FS-A1WX / WSX, Sanyo PHC-35J / 70FD), `only_level_1` (DAh / DBh act as D8h / D9h, mask 0xFC)). `S1985` (switched I/O FEh, port 40h mask F0h) has no parameter; every machine with `<engine>S1985</engine>` declares it |
+| `param` | raw 8-bit parameter for devices **without** an entry in `deviceParams.json` |
 | `ROM_SHA1`, `rom_skip`, `rom_size` | the device's own ROM, appended to the record (KANJI font) |
 | `shared_slot`, `shared_subslot`, `shared_block`, `shared_size` (all required together), `shared_offset` (default 0) | the device memory is a window into an existing block (1chipMSX KANJI uses the ESE-RAM block) |
 

@@ -143,6 +143,24 @@
             "default": 0
         }
     },
+    "KANJI": {
+        "hangul": {
+            "param_type": "enum",
+            "enums": ["false", "true"],
+            "min": null,
+            "max": null,
+            "default": 0,
+            "value_offset": 0
+        },
+        "level_2_via": {
+            "param_type": "enum",
+            "enums": ["read", "write", "interlocked_write_read", "only_level_1"],
+            "min": null,
+            "max": null,
+            "default": 0,
+            "value_offset": 2
+        }
+    },
     "MATSUSHITA": {
         "turbo": {
             "param_type": "enum",

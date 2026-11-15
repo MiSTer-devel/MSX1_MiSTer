@@ -293,8 +293,8 @@ wire       [5:0] joy[2];
 assign HDMI_FREEZE = pause;
 wire             tape_in;
 wire      [27:0] ddr3_addr;
-wire       [7:0] ddr3_dout;
-wire             ddr3_rd, ddr3_ready;
+wire       [7:0] ddr3_dout, ddr3_din;
+wire             ddr3_rd, ddr3_we, ddr3_ready;
 
 assign joy[0] = joy0[5:0];
 assign joy[1] = joy1[5:0];
@@ -341,6 +341,8 @@ msx_system msx_system
    .cpu_phase_next(cpu_phase_next),
    .ddr3_addr(ddr3_addr),
    .ddr3_rd(ddr3_rd),
+   .ddr3_we(ddr3_we),
+   .ddr3_din(ddr3_din),
    .ddr3_dout(ddr3_dout),
    .ddr3_ready(ddr3_ready)
 );
@@ -532,7 +534,7 @@ ltc2308_tape #(.ADC_RATE(120000), .CLK_RATE(MSX::CLK_CORE_HZ)) tape
    .active(tape_adc_act)
 );
 
-/////////////////   DDR3 (configuration packs, cassette images)   /////////////////
+/////////////////   DDR3 (configuration packs, cassette images, configuration report)   /////////////////
 assign DDRAM_CLK = clock_bus.clk;
 
 ddram buffer
@@ -550,8 +552,8 @@ ddram buffer
    .DDRAM_WE(DDRAM_WE),
    .addr(ddr3_addr),
    .dout(ddr3_dout),
-   .din(),
-   .we(),
+   .din(ddr3_din),
+   .we(ddr3_we),
    .rd(ddr3_rd),
    .ready(ddr3_ready),
    .dout64()

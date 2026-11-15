@@ -486,6 +486,23 @@ package MSX;
         cart_typ_t   typ;
     } config_cart_t;
 
+    // How the configuration of a cartridge slot was chosen (configuration report for the HPS)
+    typedef enum logic [2:0] {
+        CART_SRC_NONE,          // the machine has no such slot, or no configuration yet
+        CART_SRC_OSD,           // cartridge chosen in the OSD: fw = cart_typ_t
+        CART_SRC_DB,            // ROM found in the mapper DB
+        CART_SRC_PLAIN,         // ROM not in the DB (or no DB): plain ROM, fw 20 / 21 / 22
+        CART_SRC_NO_ROM,        // ROM chosen, no ROM file loaded
+        CART_SRC_LEFT_OUT,      // FDC cartridge left out, the machine has its own FDC
+        CART_SRC_FAIL           // ROM refused (see the error)
+    } cart_src_t;
+
+    typedef struct packed {
+        cart_src_t   src;
+        logic  [7:0] fw;        // FW pack configuration (cart_device.json)
+        logic [31:0] crc;       // CRC32 of the ROM file
+    } cart_report_t;
+
     typedef struct {
         logic [7:0] mask; 
         logic [7:0] port;
@@ -538,6 +555,7 @@ package MSX;
     localparam logic [27:0] DDR3_CAS      = 28'h1700000;   //  9 MB
     localparam logic [27:0] DDR3_ROM_A    = 28'h2000000;   // 16 MB
     localparam logic [27:0] DDR3_ROM_B    = 28'h3000000;   // 16 MB
+    localparam logic [27:0] DDR3_INFO     = 28'h4000000;   //  4 kB  configuration report, read by the HPS
     localparam logic [26:0] ROM_MAX       = 27'h1000000;   // larger ROM: ERR_ROM_TOO_BIG
 
     // System memory below 2^BRAM_WIDTH is BRAM in the FPGA, the rest SDRAM (system_memory).

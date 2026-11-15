@@ -46,7 +46,9 @@ module memory_upload
 
     output logic                load_sram,
     output error_t              error,
-    output logic                reset
+    output logic                reset,
+    output                      done,               // idle or stopped by an error (cfg_report)
+    output MSX::cart_report_t   cart_report[2]      // how each cartridge slot was configured
 );
 
     typedef enum logic [2:0] { size_MSX_PACK, size_FW_PACK, size_ROM_A, size_ROM_B, size_CRC } size_idx_t;
@@ -58,6 +60,7 @@ module memory_upload
 
     // Stavový signál, který indikuje, že jsem v režimu upload. Resetujeme core a RAM přístup pro UPLOAD
     assign upload = state != STATE_IDLE || restart;
+    assign done   = (state == STATE_IDLE && !restart) || state == STATE_STOP;
 
     // Řízení načítání dat
     logic [26:0] ioctl_size[5] = '{default: 27'd0};
@@ -169,6 +172,7 @@ module memory_upload
     wire        dev_slot_free = |dev_free;
     logic  [3:0] ref_ram;
     logic        crc_en;
+    logic  [1:0] crc_en_q = '0;     // crc_en delayed: CRC_32 has the result one clk after en falls
     logic        ram_ce;
     logic        cart_id;
     logic        fw_space;
@@ -396,6 +400,8 @@ module memory_upload
 
                     io_memory[block_num[2:0]].memory        <= '0;
                     io_memory[block_num[2:0]].memory_size   <= '0;
+                    cart_report[0]                          <= '0;
+                    cart_report[1]                          <= '0;
 
                     block_num                               <= block_num + 1'd1;
                     if (block_num == 63) begin
@@ -663,7 +669,10 @@ module memory_upload
                             fw_mem     <= 1'b0;
                             if (fdc_cart_off && !conf[3][0]) begin
                                 $display("BLOCK CART 0 LEFT OUT: the machine has its own FDC");
+                                cart_report[0].src <= MSX::CART_SRC_LEFT_OUT;
                             end else if (cart_conf[conf[3][0]].typ == CART_TYP_ROM) begin
+                                // a ROM is refused until the DB or the plain ROM gives a configuration
+                                cart_report[conf[3][0]].src <= conf_rom_size > '0 ? MSX::CART_SRC_FAIL : MSX::CART_SRC_NO_ROM;
                                 if (conf_rom_size > MSX::ROM_MAX) begin
                                     $display("BLOCK CART %d: ROM over the DDR3 area of its slot", conf[3][0]);
                                     error <= ERR_ROM_TOO_BIG;
@@ -686,6 +695,8 @@ module memory_upload
                                     ref_sram                 <= conf[3][0] ? 2'd2 : 2'd1;                                   // SRAM of its slot (entry 0 = none)
                                 end
                             end else begin                                                                // Neni ROM jdeme do FW
+                                cart_report[conf[3][0]].src <= MSX::CART_SRC_OSD;
+                                cart_report[conf[3][0]].fw  <= {4'd0, cart_conf[conf[3][0]].typ};
                                 if (ioctl_size[size_FW_PACK] > '0) begin                                  // Máme FW?
                                     save_addr  <= ddr3_addr - 1'b1;                                       // Uchováme adresu -1 kvůli již načtenému prefetch bajtu
                                     ddr3_addr  <= DDR3_BASE_FW_ADDR + 28'h10 + {22'b0, cart_conf[conf[3][0]].typ,2'b00};  // FW Area + ID zařízení
@@ -938,6 +949,8 @@ module memory_upload
                         crc_en <= 1'b0;
                         if (plain_ok && ioctl_size[size_FW_PACK] > '0) begin
                             $display("NO CRC32 DB: plain ROM, FW conf %0d", plain_id);
+                            cart_report[cart_id].src <= MSX::CART_SRC_PLAIN;
+                            cart_report[cart_id].fw  <= plain_id;
                             ddr3_addr  <= DDR3_BASE_FW_ADDR + 28'h10 + {18'b0, plain_id, 2'b00};
                             ddr3_rd    <= '1;
                             read_cnt   <= 4;
@@ -963,6 +976,8 @@ module memory_upload
                     if (ddr3_addr[2:0] == 3'd0 && rom_crc32 == {temp[4], temp[3], temp[2], temp[1]}) begin
                         $display("FIND CRC32: %x mapper:%x sram:%x", rom_crc32, temp[5], temp[6]);       // CRC32 nalezeno
                         if (ioctl_size[size_FW_PACK] > '0) begin                                                    // Máme FW?
+                            cart_report[cart_id].src <= MSX::CART_SRC_DB;
+                            cart_report[cart_id].fw  <= temp[5];
                             ddr3_addr  <= DDR3_BASE_FW_ADDR + 28'h10 + {18'b0, temp[5], 2'b00};
                             ddr3_rd    <= '1;
                             read_cnt   <= 4;
@@ -977,6 +992,8 @@ module memory_upload
                         if ((ddr3_addr - DDR3_CRC32_TABLE_ADDR) == {1'b0, ioctl_size[size_CRC]}) begin
                             if (plain_ok && ioctl_size[size_FW_PACK] > '0) begin                    // plain ROM
                                 $display("NOT FIND CRC32: %x, plain ROM, FW conf %0d", rom_crc32, plain_id);
+                                cart_report[cart_id].src <= MSX::CART_SRC_PLAIN;
+                                cart_report[cart_id].fw  <= plain_id;
                                 ddr3_addr  <= DDR3_BASE_FW_ADDR + 28'h10 + {18'b0, plain_id, 2'b00};
                                 ddr3_rd    <= '1;
                                 read_cnt   <= 4;
@@ -1025,6 +1042,10 @@ module memory_upload
             state        <= STATE_IDLE;
             fdc_cart_off <= 1'b0;
         end
+
+        // CRC32 of the ROM just loaded, for the report of its slot
+        crc_en_q <= {crc_en_q[0], crc_en};
+        if (crc_en_q == 2'b10) cart_report[cart_id].crc <= rom_crc32;
 
         // table and io_device writes of this step
         if (lay_we) begin

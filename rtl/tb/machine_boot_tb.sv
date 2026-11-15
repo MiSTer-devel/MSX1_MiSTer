@@ -70,8 +70,8 @@ wire   [15:0] audio_L, audio_R;
 wire          led_pause, pause;
 logic         osd_status = 0;
 wire   [27:0] ddr3_addr;
-wire          ddr3_rd, ddr3_ready;
-wire    [7:0] ddr3_dout;
+wire          ddr3_rd, ddr3_we, ddr3_ready;
+wire    [7:0] ddr3_dout, ddr3_din;
 
 block_device_if block_device_FDD[2*MSX::N_FDC]();
 block_device_if block_device_SD();
@@ -93,7 +93,7 @@ msx_system sys (
     .ext_SD_card_bus(ext_SD_card_bus),
     .memory_bus_sdram_ch1(sd_ch1), .memory_bus_sdram_ch2(sd_ch2), .memory_bus_sdram_ch3(sd_ch3),
     .wave_bus_sdram_ch4(sd_ch4), .cpu_phase(cpu_phase),
-    .ddr3_addr(ddr3_addr), .ddr3_rd(ddr3_rd), .ddr3_dout(ddr3_dout),
+    .ddr3_addr(ddr3_addr), .ddr3_rd(ddr3_rd), .ddr3_we(ddr3_we), .ddr3_din(ddr3_din), .ddr3_dout(ddr3_dout),
     .ddr3_ready(ddr3_ready)
 );
 assign ext_SD_card_bus.data_from_SD = 8'hFF;  assign ext_SD_card_bus.busy = 1'b0;
@@ -108,9 +108,16 @@ ddram ddr (
     .reset(reset), .DDRAM_CLK(clk_core), .DDRAM_BUSY(1'b0), .DDRAM_BURSTCNT(DDRAM_BURSTCNT),
     .DDRAM_ADDR(DDRAM_ADDR), .DDRAM_DOUT(DDRAM_DOUT), .DDRAM_DOUT_READY(DDRAM_DOUT_READY),
     .DDRAM_RD(DDRAM_RD), .DDRAM_DIN(DDRAM_DIN), .DDRAM_BE(DDRAM_BE), .DDRAM_WE(DDRAM_WE),
-    .addr(ddr3_addr), .dout(ddr3_dout), .din(8'h00), .we(1'b0), .rd(ddr3_rd), .ready(ddr3_ready),
+    .addr(ddr3_addr), .dout(ddr3_dout), .din(ddr3_din), .we(ddr3_we), .rd(ddr3_rd), .ready(ddr3_ready),
     .dout64()
 );
+
+// configuration report written by the core (cfg_report)
+byte unsigned report[20];
+always_ff @(posedge clk_core)
+    if (DDRAM_WE) for (int b = 0; b < 8; b++)
+        if (DDRAM_BE[b] && {DDRAM_ADDR[24:0], 3'(b)} - MSX::DDR3_INFO < 20)
+            report[{DDRAM_ADDR[24:0], 3'(b)} - MSX::DDR3_INFO] <= DDRAM_DIN[8*b +: 8];
 
 logic [28:0] ddr_rd_addr;
 int          ddr_wait = -1;
@@ -671,6 +678,12 @@ initial begin
     end
     $display("%0t pack loaded, error=%0d, msx_config.fdd=%b, CMOS Z80 %0d, VDP I/O wait %0d", $time, sys.error,
              msx_config.fdd, msx_config.cmos_z80, msx_config.vdp_io_wait);
+    repeat (5) @(posedge clk_core);
+    wait (!sys.cfg_report.ddr3_request && !sys.cfg_report.pending);
+    repeat (20) @(posedge clk_core);
+    $display("REPORT %s valid %0d gen %0d error %0d A %0d/%0d %02h%02h%02h%02h B %0d/%0d %02h%02h%02h%02h",
+             {report[0], report[1], report[2], report[3]}, report[4], report[6], report[7], report[8], report[9],
+             report[15], report[14], report[13], report[12], report[10], report[11], report[19], report[18], report[17], report[16]);
     if (want_err != 0) begin
         if (int'(sys.error) == want_err) $display("PASS machine_boot_tb: pack error %0d as expected", want_err);
         else                             $display("FAILED machine_boot_tb: pack error %0d, expected %0d", sys.error, want_err);

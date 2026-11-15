@@ -65,6 +65,8 @@ module msx_system (
     output                      cpu_phase_next,         // cpu_phase one clk ahead (SDRAM)
     output             [27:0]   ddr3_addr,
     output                      ddr3_rd,
+    output                      ddr3_we,
+    output              [7:0]   ddr3_din,
     input               [7:0]   ddr3_dout,
     input                       ddr3_ready
 );
@@ -100,8 +102,10 @@ wire         upload, upload_reset, load_sram;
 wire   [7:0] uart_rx_data;
 wire         uart_rx;
 wire         motor, CAS_dout;
-wire  [27:0] ddr3_addr_download, ddr3_addr_cas;
+wire  [27:0] ddr3_addr_download, ddr3_addr_cas, ddr3_addr_report;
 wire         ddr3_rd_download, ddr3_rd_cas, ddr3_request_download;
+wire         ddr3_request_report, ddr3_we_report, upload_done;
+MSX::cart_report_t cart_report[2];
 wire  [26:0] flash_addr;
 wire   [7:0] flash_dout;
 wire         flash_req, flash_ready, flash_done;
@@ -237,12 +241,33 @@ memory_upload memory_upload(
    .io_memory(io_memory),
    .msx_config(msx_config),
    .error(error),
-   .reset(upload_reset)
+   .reset(upload_reset),
+   .done(upload_done),
+   .cart_report(cart_report)
 );
 
-// DDR3: configuration upload has priority over the cassette player
-assign ddr3_addr = ddr3_request_download ? ddr3_addr_download : ddr3_addr_cas;
-assign ddr3_rd   = ddr3_request_download ? ddr3_rd_download   : ddr3_rd_cas;
+// Result of each configuration run for the HPS (DDR3 at MSX::DDR3_INFO)
+cfg_report cfg_report
+(
+   .clk(clock_bus.clk),
+   .done(upload_done),
+   .mu_rd(ddr3_rd_download),
+   .error(error),
+   .cart(cart_report),
+   .ddr3_ready(ddr3_ready),
+   .ddr3_request(ddr3_request_report),
+   .ddr3_addr(ddr3_addr_report),
+   .ddr3_din(ddr3_din),
+   .ddr3_we(ddr3_we_report)
+);
+
+// DDR3: the report (only while the upload is idle) before the configuration upload, both
+// before the cassette player
+assign ddr3_addr = ddr3_request_report   ? ddr3_addr_report   :
+                   ddr3_request_download ? ddr3_addr_download : ddr3_addr_cas;
+assign ddr3_rd   = ddr3_request_report   ? 1'b0               :
+                   ddr3_request_download ? ddr3_rd_download   : ddr3_rd_cas;
+assign ddr3_we   = ddr3_request_report && ddr3_we_report;
 
 /////////////////   MEMORY   /////////////////
 flash flash (

@@ -3,6 +3,7 @@ set_global_assignment -name QIP_FILE           [file join $::quartus(qip_path) p
 set_global_assignment -name QIP_FILE           [file join $::quartus(qip_path) pll.qip                               ]
 set_global_assignment -name QIP_FILE           [file join $::quartus(qip_path) lib/files.qip                         ]
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) blockDevMux.sv                        ]
+set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) cfg_report.sv                         ]
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) clock.sv                              ]
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) memory_upload.sv                      ]
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) midi_port.sv                          ]

@@ -105,7 +105,7 @@ module kanji (
             write_level <= 1'b0;
             ram_en      <= 1'b0;
         end else begin
-            ram_en <= 1'b0;
+            if (!rd) ram_en <= 1'b0;            // held to the end of the read: q is valid only with ram_cs
             if (req && wr) begin
                 write_level <= port[1];
                 if (!port[0]) adr <= (adr & 18'h3F800) | {7'd0, data[5:0], 5'd0};

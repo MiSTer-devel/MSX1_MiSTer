@@ -126,6 +126,21 @@ initial begin
     io_read("128 kB: DBh nothing", 8'hDB, 0, '1);
     io_read("128 kB: D9h byte 1", 8'hD9, 1, BASE + 27'd1);
 
+    // the memory request lasts until the I/O read ends (memory_bus.q is valid only with ram_cs;
+    // the CPU takes the data at the end of the cycle)
+    for (int i = 0; i < 8; i++) io_memory[i].memory_size = 8'd16;
+    do_reset();
+    io_write(8'hD8, 8'h12); io_write(8'hD9, 8'h21);
+    @(negedge clk); addr = 16'h00D9; iorq = 1; rd = 1; req = 1;
+    @(negedge clk); req = 0;
+    repeat (5) @(negedge clk);
+    if (!(ram_cs && ram_addr == BASE + {10'd0, 6'h21, 6'h12, 5'd0})) begin
+        errors++; $display("FAIL request held to the end of the read: ram_cs=%b addr=%07h", ram_cs, ram_addr);
+    end
+    iorq = 0; rd = 0;
+    @(negedge clk);
+    if (ram_cs) begin errors++; $display("FAIL request after the read"); end
+
     if (errors == 0) $display("PASS kanji_tb");
     else             $display("FAILED kanji_tb: %0d errors", errors);
     $finish;

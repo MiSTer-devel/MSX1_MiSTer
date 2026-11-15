@@ -1,36 +1,38 @@
 # Mapper database report
 
 Source: `https://romdb.vampier.net/Archive/sql-msxromdb.zip`  
-Records in `vampier.db`: **8129** (previous file: 8129; added 0, removed 0, changed 0)  
-Mirrored/Normal start address: 3771 from the header, 480 guessed (no header at 0, placed at 0000h like the core does without a record)  
+Records in `vampier.db`: **8151** (previous file: 8129; added 23, removed 1, changed 16)  
+Mirrored/Normal start address: 3755 from the header, 479 guessed (no header at 0, placed at 0000h like the core does without a record)  
 Overrides: 54 lines, 0 give the same as the dump (`--prune` removes them)
 
 ## Supported
 
 | FW configuration | ID | ROMs | of them override | DB types |
 |---|---|---|---|---|
-| Mirror_0x4000 | 27 | 3265 | 13 | Mirrored, Mirrored4000 |
-| KonamiSCC | 56 | 1355 |  | KonamiSCC |
-| ASCII8 | 50 | 783 | 1 | ASCII8 |
-| ASCII16 | 51 | 695 |  | ASCII16 |
-| Mirror_0x0000 | 26 | 487 | 1 | Mirrored |
-| Mirror_0x8000 | 28 | 461 | 4 | Mirrored, Normal |
+| Mirror_0x4000 | 27 | 3250 | 13 | Mirrored, Mirrored4000 |
+| KonamiSCC | 56 | 1356 |  | KonamiSCC |
+| ASCII8 | 50 | 790 | 1 | ASCII8 |
+| ASCII16 | 51 | 705 |  | ASCII16 |
+| Mirror_0x0000 | 26 | 486 | 1 | Mirrored |
+| Mirror_0x8000 | 28 | 460 | 4 | Mirrored, Normal |
 | KONAMI | 52 | 403 |  | Konami, konami |
 | 0x8000 | 22 | 302 |  | 0x8000, Normal, Page2 |
 | 0x4000 | 21 | 91 | 13 | 0x4000, Mirrored, Normal, Page12 |
 | Generic8kB | 25 | 67 |  | 8kB |
-| ASCII16X | 57 | 49 |  | ASCII16-X |
+| ASCII16X | 57 | 50 |  | ASCII16-X |
 | 0x0000 | 20 | 29 | 22 | 0x0000, Mirrored |
 | 16kb | 23 | 25 |  | 16kb |
 | KOEI | 54 | 24 |  | KoeiSRAM32 |
-| ASCII8SRAM8 | 36 | 16 |  | ASCII8SRAM8 |
-| NEO8 | 58 | 13 |  | NEO-8 |
+| ASCII8SRAM8 | 36 | 17 |  | ASCII8SRAM8 |
+| NEO8 | 58 | 14 |  | NEO-8 |
+| YAMANOOTO | 37 | 13 |  | YAMANOOTO |
 | ASCII16SRAM2 | 33 | 10 |  | ASCII16SRAM2 |
 | NEO16 | 59 | 9 |  | NEO-16 |
 | RTYPE | 49 | 8 |  | R-Type |
 | Synthesizer | 41 | 8 |  | Synthesizer |
 | ASCII16SRAM8 | 34 | 5 |  | ASCII16SRAM8 |
 | ASCII8SRAM2 | 35 | 5 |  | ASCII8SRAM2 |
+| KUC | 24 | 5 |  | KonamiUltimateCollection |
 | Zemina80 | 31 | 5 |  | Zemina80in1 |
 | Zemina90 | 32 | 3 |  | Zemina90in1 |
 | CrossBlaim | 29 | 2 |  | CrossBlaim |
@@ -46,11 +48,9 @@ ROM types of the dump without a FW configuration. They are not in the database: 
 
 | DB type | ROMs | games | over 64 kB | max kB | examples |
 |---|---|---|---|---|---|
-| YAMANOOTO | 12 | 4 | 12 | 8192 | Konami Neo-Ultimate Collection, Nightstalker, Tech Demo - Xenon 2 Megablast, ... |
 | MatraCompilation | 6 | 5 | 6 | 512 | Cardwork Orange, Casio GPM-Compilation Volumen 1, Casio GPM-Compilation Volumen 2, ... |
 | Namco | 6 | 6 | 0 | 16 | Bosconian, Dig Dug, Galaga, ... |
 | manbow2 | 6 | 2 | 6 | 512 | Lotus F3, Manbow 2 |
-| KonamiUltimateCollection | 5 | 2 | 5 | 5120 | Konami ultimate collection, Pampas and Selene |
 | Manbow2_2 | 4 | 1 | 4 | 512 | Manbow 2 |
 | AlAlamiah30-in-1 | 3 | 3 | 3 | 1024 | 30-in-1 Group A, 30-in-1 Group B, 30-in-1 Group C |
 | Majutsushi | 3 | 1 | 3 | 128 | Hai no Majutsushi - Mahjong 2 |
@@ -61,6 +61,7 @@ ROM types of the dump without a FW configuration. They are not in the database: 
 | WonderKid | 2 | 2 | 2 | 128 | Aliens 2, Wonder Kid |
 | Zemina126in1 | 2 | 1 | 2 | 2048 | Super Game World - 126 Games |
 | Zemina25in1 | 2 | 1 | 2 | 512 | Super Game 25 |
+| ASCII-16 | 1 | 1 | 1 | 512 | RainBIOS |
 | AlQuranDecoded | 1 | 1 | 1 | 1024 | Holy Quaran |
 | Arc | 1 | 1 | 0 | 32 | ARC |
 | ColecoMegaCart | 1 | 1 | 1 | 128 | The Pink Panther |

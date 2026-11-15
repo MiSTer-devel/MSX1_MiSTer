@@ -268,6 +268,17 @@ initial forever begin                                   // HPS: one request at a
 end
 
 // ------------------------------------------------------------------ monitors
+// +kanjilog: memory reads of the Kanji device (address of the device, merged bus address), 80
+logic kanjilog = 1'b0;
+int   kj_n = 0;
+initial kanjilog = $test$plusargs("kanjilog");
+always @(posedge clk_core)
+    if (kanjilog && kj_n < 80 && sys.MSX.devices.kanji_ram_cs) begin
+        kj_n++;
+        $display("%0t kanji read: device addr %07h, bus addr %07h, slots addr %07h", $time,
+                 sys.MSX.devices.kanji_ram_addr, sys.memory_bus_msx.addr, sys.MSX.memory_bus_slots.addr);
+    end
+
 logic req_q = 0;
 always @(posedge clk_core) req_q <= sys.MSX.cpu_bus.req;
 wire  access = sys.MSX.cpu_bus.req && !req_q && !reset;

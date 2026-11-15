@@ -17,10 +17,13 @@
 //
 
 
+// 8-bit DAC in the memory of its block. Written by any write to 4000-7FFF with address bit 4
+// = 0 (Konami Synthesizer), or with param bit 0 by the strobe of the mapper (KUC: device_bus.we).
 module dev_dac (
     cpu_bus_if.device_mp   cpu_bus,
     clock_bus_if.base_mp   clock_bus,
     input  MSX::block_info_t block_info,
+    input  MSX::device_bus_t device_bus,
     input MSX::io_device_t io_device[3],
     output MSX::sound_t    sound
 );
@@ -43,9 +46,10 @@ endfunction
     genvar i;
     generate for (i=0; i<MSX::N_DAC; i++) begin : g_dac
         always_ff @(posedge cpu_bus.clk) begin
-            if (cpu_bus.reset) 
-                audio_dac[i] <= '0;
-            else if (cs && io_device[i].enable && io_device[i].device_ref == block_info.device_ref)
+            if (cpu_bus.reset)
+                audio_dac[i] <= 8'h80;                          // silence, as openMSX
+            else if ((io_device[i].param[0] ? device_bus.we && cpu_bus.req : cs) &&
+                     io_device[i].enable && io_device[i].device_ref == block_info.device_ref)
                 audio_dac[i] <= cpu_bus.data;
         end
     end endgenerate   

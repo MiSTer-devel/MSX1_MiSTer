@@ -97,5 +97,36 @@ class CreateDevNamesTest(unittest.TestCase):
         self.assertEqual(struct.unpack_from('<I', pack, 8)[0], rom_addr + len(rom))
 
 
+
+class CreateDevBlockTest(unittest.TestCase):
+    """A <block> may carry several <device> elements (KUC: SCC and DAC, Yamanooto: SCC and PSG)."""
+    def setUp(self):
+        self.cwd = os.getcwd()
+        os.chdir(TOOL_DIR)
+        import createDev
+        from tools import load_constants
+        self.createDev = createDev
+        self.constants = load_constants()
+
+    def tearDown(self):
+        os.chdir(self.cwd)
+
+    def test_two_devices(self):
+        import xml.etree.ElementTree as ET
+        root = ET.fromstring('<block><flash>8388608</flash><mapper>KUC</mapper>'
+                             '<device>SCC</device><device mapper="true">DAC</device>'
+                             '<device port="0x10" mask="0xFE">PSG</device></block>')
+        recs = self.createDev.parse_fw_block(root, 0, {}, self.constants)
+        c = self.constants
+        devs = [(r['param1'], r['param2']) for r in recs if r['block_typ'] == c['block']['DEVICE']]
+        self.assertEqual(devs, [(c['device']['SCC'], 0), (c['device']['DAC'], 1), (c['device']['PSG'], 0)])
+        io = [(r['param1'], r['param2']) for r in recs if r['block_typ'] == c['block']['IO_DEVICE']]
+        self.assertEqual(io, [(0x10, 0xFE)])
+        dac = next(i for i, r in enumerate(recs) if r['block_typ'] == c['block']['DEVICE'] and r['param1'] == c['device']['DAC'])
+        psg = next(i for i, r in enumerate(recs) if r['block_typ'] == c['block']['DEVICE'] and r['param1'] == c['device']['PSG'])
+        iorec = next(i for i, r in enumerate(recs) if r['block_typ'] == c['block']['IO_DEVICE'])
+        self.assertTrue(dac < psg < iorec, 'IO_DEVICE must follow its own DEVICE record')
+
+
 if __name__ == '__main__':
     unittest.main()

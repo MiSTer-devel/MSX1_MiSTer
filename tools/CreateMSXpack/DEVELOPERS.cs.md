@@ -221,10 +221,10 @@ Kořen `<fwConfig>`, potomci `<fw name="X">`. `X` musí být klíčem v `cart_de
 | `<SHA1 [skip] [size]>sha1</SHA1>` | ROM bloku ze složky ROM (skip/size desítkově) |
 | `<filename>` | informativní |
 | `<mapper>` | název z `mapper.json` |
-| `<device [port] [mask] [param] [named params] [memory="block"]>NAME</device>` | zařízení. Pojmenované parametry se kódují přes `deviceParams.json`. `memory="block"` znamená, že zařízení používá paměť bloku (vlnová ROM/RAM OPL4). Chybějící paměť bloku dá v jádře `NOT FW CONF` |
+| `<device [port] [mask] [param] [named params] [memory="block"]>NAME</device>` | zařízení; může se opakovat, všechna zařízení bloku sdílejí jeho referenci zařízení (KUC: SCC + DAC, Yamanooto: SCC + PSG). Pojmenované parametry se kódují přes `deviceParams.json`. `memory="block"` znamená, že zařízení používá paměť bloku (vlnová ROM/RAM OPL4). Chybějící paměť bloku dá v jádře `NOT FW CONF` |
 | `<ram>bytes</ram>` | RAM, vzor FF |
 | `<sram>bytes</sram>` | SRAM s baterií, ukládá se v jednotkách 1 kB (sloty A a B mají oddělené oblasti SRAM) |
-| `<flash>bytes</flash>` | paměť je flash čip této velikosti: načtená ROM, zbytek FF (ASCII16-X, 8 MB) |
+| `<flash>bytes</flash>` | paměť je flash čip této velikosti: načtená ROM, zbytek FF (ASCII16-X, KUC, Yamanooto: 8 MB) |
 | `<extend>bytes</extend>` | stejný záznam, s významem „RAM za ROM“ (MoonSound: 2 MB ROM + 2 MB sample RAM = 4 MB) |
 | `<device_param>` | načte se, ale nepoužije |
 
@@ -254,7 +254,7 @@ Hodnota položky OSD se převede na `cart_typ_t` v `rtl/msx_config.sv` a zavadě
 
 - `CART_TYP_ROM` (11) je zvláštní: zavaděč spočítá CRC32 načtené ROM a zeptá se DB. Záznam DB dá FW ID (20-59). ROM o velikosti nejvýše 64 kB, která v DB není, běží jako prostá ROM s FW ID 20/21/22 zvoleným podle hlavičky `AB`.
 - `CART_TYP_EMPTY` (12) nemá záznam `<fw>`; jeho položka v tabulce míří na prázdnou konfiguraci. Proto i prázdný slot potřebuje FW pack.
-- **Volná FW ID**: 10, 14 a 15 pro nové cartridge z nabídky (`cart_typ_t` i pole stavu mají 4 bity). Pro mappery z DB: 24, 37-48 kromě 40-42 a 61 výše.
+- **Volná FW ID**: 10, 14 a 15 pro nové cartridge z nabídky (`cart_typ_t` i pole stavu mají 4 bity). Pro mappery z DB: 38-48 kromě 40-42 a 61 výše.
 - Text nabídky: `CONF_STR_SLOT_A` / `CONF_STR_SLOT_B` v `rtl/msx_config.sv`.
 
 ## 4. Postupy
@@ -281,7 +281,7 @@ Hodnota položky OSD se převede na `cart_typ_t` v `rtl/msx_config.sv` a zavadě
 
 ### 4.3 Nový mapper ROM vybíraný podle DB
 
-1. Dejte FW konfiguraci volné ID (24, 37-48 kromě 40-42, 58+) v `cart_device.json` a přidejte `<fw>` do obou XML rozšíření.
+1. Dejte FW konfiguraci volné ID (38-48 kromě 40-42, 61+) v `cart_device.json` a přidejte `<fw>` do obou XML rozšíření.
 2. V `../CreateCRC/romtypes.json` přidejte do `types` jeden řádek `"TypROM": "název fw"`. `TypROM` je název z tabulky „Not supported“ v `../CreateCRC/report.md`; FW ID se vezme z `cart_device.json`.
 3. Znovu sestavte FW pack a `vampier.db` (viz [../CreateCRC/README.cs.md](../CreateCRC/README.cs.md)).
 4. Pokud je samotný mapper nový hardware, viz 4.4.

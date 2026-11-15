@@ -42,5 +42,7 @@
   "HIDDEN" : 40,
   "NEO8" : 41,
   "NEO16" : 42,
-  "MSXDOS2" : 43
+  "MSXDOS2" : 43,
+  "KUC" : 44,
+  "YAMANOOTO" : 45
 }

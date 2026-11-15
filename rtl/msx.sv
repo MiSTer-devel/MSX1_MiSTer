@@ -109,7 +109,7 @@ wire                 keybeep;
 wire                 reset_lock, reset_request;
 wire                 ocm_megaSD_enable, ocm_slot1_mode;
 wire           [1:0] ocm_slot2_mode;
-wire                 ocm_ipl_en, ocm_mmc_on, sd_wait, opll_wait, opl4_wait, ocm_slot0_mode;
+wire                 ocm_ipl_en, ocm_mmc_on, psg_echo, sd_wait, opll_wait, opl4_wait, ocm_slot0_mode;
 wire                 turbor_r800, turbor_dram, io_hold;
 MSX::cpu_speed_t     cpu_speed;
 wire signed   [15:0] device_sound_L, device_sound_R;
@@ -266,6 +266,7 @@ devices #(.sysCLK(sysCLK)) devices
    .pause_led(led_pause),
    .turbor_turbo_led(led_turbo),
    .ocm_mmc_on(ocm_mmc_on),
+   .psg_echo(psg_echo),
    .ocm_megaSD_enable(ocm_megaSD_enable),
    .ocm_slot1_mode(ocm_slot1_mode),
    .ocm_slot2_mode(ocm_slot2_mode),
@@ -300,6 +301,7 @@ msx_slots msx_slots
    .ocm_ipl_en(ocm_ipl_en),
    .ocm_slot0_mode(ocm_slot0_mode),
    .ocm_mmc_on(ocm_mmc_on),
+   .psg_echo(psg_echo),
    .sd_wait(sd_wait)
 );
 

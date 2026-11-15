@@ -37,7 +37,7 @@ def parse_fw_block(root: ET.Element, subslot: int, files_with_sha1: dict, consta
     offset = int(root.attrib.get("offset", -1))
     fix_offset = int(root.attrib.get("fix_offset", -1))
 
-    dev_el = None
+    dev_els = []                                # several devices may share the block (KUC: SCC + DAC)
     for element in root:
         if element.tag in ['SHA1', 'filename', 'device', 'mapper', 'sram', 'ram', 'flash', 'extend', 'device_param']:
             block[element.tag] = get_int_or_string_value(element)
@@ -45,14 +45,7 @@ def parse_fw_block(root: ET.Element, subslot: int, files_with_sha1: dict, consta
                 pattern = 1;
             
             if element.tag == 'device' :
-                dev_el = element
-                device_port = convert_to_8bit(element.attrib.get('port'))
-                device_mask = convert_to_8bit(element.attrib.get('mask'))
-                device_param = convert_to_8bit(element.attrib.get('param','0'))
-
-                if device_port is not None:
-                    if device_mask is None:
-                        device_mask = 0xFF             #Defaultni hodnota
+                dev_els.append(element)
 
             if element.tag == 'SHA1' :
                 file_skip_bytes = convert_to_int(element.attrib.get('skip',0))
@@ -100,22 +93,27 @@ def parse_fw_block(root: ET.Element, subslot: int, files_with_sha1: dict, consta
         else:
             logger.warning(f"Unknown mapper type: {block['mapper']} see file mapper.json")
 
-    if 'device' in block:
-        if block['device'] in constants['device']:
-            param_dev = block.get('device_param', 0)
-            device_id = constants['device'][block['device']]
+    for dev_el in dev_els:
+        dev_name = get_int_or_string_value(dev_el)
+        if dev_name in constants['device']:
+            device_id = constants['device'][dev_name]
             param_dev = 0
             parameter = 0
-            if dev_el is not None and dev_el.attrib:
-                param_dev = get_device_param(constants, block['device'], dev_el.attrib)
+            if dev_el.attrib:
+                param_dev = get_device_param(constants, dev_name, dev_el.attrib)
                 if dev_el.attrib.get('memory') == 'block':      # the device uses the memory of this block
                     parameter = 1
 
             result.append(create_block_entry(constants, 'DEVICE', address, param1=device_id, param2 = param_dev, param3=parameter))
+            device_port = convert_to_8bit(dev_el.attrib.get('port'))
             if device_port is not None:
+                device_mask = convert_to_8bit(dev_el.attrib.get('mask'))
+                if device_mask is None:
+                    device_mask = 0xFF             #Defaultni hodnota
+                device_param = convert_to_8bit(dev_el.attrib.get('param','0'))
                 result.append(create_block_entry(constants, 'IO_DEVICE', address, param1=device_port, param2 = device_mask, param3 = device_param))
         else:
-            logger.warning(f"Unknown device type: {block['device']}")
+            logger.warning(f"Unknown device type: {dev_name}")
     
     if 'sram' in block:
         size = convert_to_int(block['sram'])

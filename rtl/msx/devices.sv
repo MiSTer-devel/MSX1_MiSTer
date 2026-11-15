@@ -61,6 +61,7 @@ module devices  #(parameter sysCLK)
     output                  pause_led,
     output                  turbor_turbo_led,       // R800 running (turbo R) or the machine turbo on
     input                   ocm_mmc_on,
+    input                   psg_echo,           // Yamanooto: the cartridge PSG also on A0h-A1h
     output                  ocm_megaSD_enable,
     output                  ocm_slot1_mode,
     output [1:0]            ocm_slot2_mode,
@@ -328,7 +329,8 @@ module devices  #(parameter sysCLK)
         .ps2_mouse(ps2_mouse),
         .mouse_en(ocm_present),
         .mouse_port(msx_user_config.mouse_port),
-        .tape_in(tape_in)
+        .tape_in(tape_in),
+        .psg_echo(psg_echo)
     );
 
     // OCM: joystick swap and PS/2 mouse (OSD options shown only for OCM)
@@ -344,6 +346,7 @@ module devices  #(parameter sysCLK)
         .cpu_bus(cpu_bus),
         .clock_bus(clock_bus),
         .block_info(block_info),
+        .device_bus(device_bus),
         .io_device(io_device[DEV_DAC]),
         .sound(dac_sound)
     );

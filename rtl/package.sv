@@ -37,6 +37,7 @@ typedef enum logic [5:0] {MAPPER_NONE, MAPPER_OFFSET, MAPPER_ASCII16, MAPPER_RTY
                           MAPPER_HIDDEN,          // no mapper module: memory of the block is not on the CPU bus (MoonSound)
                           MAPPER_NEO8, MAPPER_NEO16,
                           MAPPER_MSXDOS2,
+                          MAPPER_KUC, MAPPER_YAMANOOTO,
                           MAPPER_UNUSED} mapper_typ_t;
 typedef enum logic [3:0] {BLOCK_RAM, BLOCK_ROM, BLOCK_SRAM, BLOCK_DEVICE, BLOCK_MAPPER, BLOCK_CART, BLOCK_REF_MEM, BLOCK_REF_DEV, BLOCK_IO_DEVICE, BLOCK_EXPANDER, BLOCK_REF_SHARED_MEM, BLOCK_FLASH} block_t;
 typedef enum logic [2:0] {CONF_BLOCK, CONF_DEVICE, CONF_LAYOUT, CONF_CARTRIGE, CONF_BLOCK_FW, CONF_UNUSED5, CONF_UNUSED6, CONF_END} conf_t;
@@ -569,7 +570,7 @@ package MSX;
     localparam int N_OPLL         = 2;      // 0..3  machine + FM-PAC, or FM-PAC in A and B
     localparam int N_OPM          = 1;      // 0..3
     localparam int N_SCC          = 2;      // 0..2
-    localparam int N_PSG          = 1;      // 0..3
+    localparam int N_PSG          = 2;      // 0..3  system + Yamanooto
     localparam int N_DAC          = 2;      // 0..3  Synthesizer ROM in A and B
     localparam int N_LATCH_PORT   = 2;      // 0..3  Zemina90 ROM in A and B
     localparam int N_MEM_MAPPER   = 2;      // 0..3  machine + MFRSD in slot A

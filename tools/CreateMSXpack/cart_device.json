@@ -15,6 +15,8 @@
   "0x4000": 21,
   "0x8000": 22,
   "16kb":23,
+  "KUC": 24,
+  "YAMANOOTO": 37,
   "Generic8kB": 25,
   "Mirror_0x0000":26,
   "Mirror_0x4000":27,

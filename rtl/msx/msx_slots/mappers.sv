@@ -34,6 +34,7 @@ module mappers (
     input                 [1:0] ocm_slot2_mode,
     input                       ocm_ipl_en,         // OCM IPL ROM visible (before BIOS load)
     output                      ocm_mmc_on,         // MegaSD window of the ESE-RAM mapped
+    output                      psg_echo,           // Yamanooto: its PSG also on A0h-A1h
     output                      sd_wait             // CPU wait: SD SPI busy (MegaSD, MFRSD)
 );
 
@@ -43,12 +44,12 @@ module mappers (
         M_OFFSET, M_MIRROR, M_MSX2_RAM, M_ASCII8, M_ASCII16, M_GENERIC8K, M_GENERIC16K,
         M_FM_PAC, M_YAMAHA_SFG, M_KONAMI, M_KONAMI_SCC, M_GM2, M_CROSS_BLAIM, M_NATIONAL,
         M_HARRY_FOX, M_ZEMINA80, M_ZEMINA90, M_MFRSD, M_ESE_RAM, M_MEGA_RAM, M_OCM_IPL,
-        M_TURBOR_FDC, M_PANASONIC, M_DRAM, M_ASCII16X, M_NEO, M_MSXDOS2,
+        M_TURBOR_FDC, M_PANASONIC, M_DRAM, M_ASCII16X, M_NEO, M_MSXDOS2, M_KUC, M_YAMANOOTO,
         M_COUNT
     } mapper_idx_t;
 
     typedef enum {
-        D_FM_PAC, D_YAMAHA_SFG, D_KONAMI_SCC, D_MFRSD, D_MEGA_RAM,
+        D_FM_PAC, D_YAMAHA_SFG, D_KONAMI_SCC, D_MFRSD, D_MEGA_RAM, D_KUC, D_YAMANOOTO,
         D_COUNT
     } device_idx_t;
 
@@ -192,24 +193,47 @@ module mappers (
         .data_to_mapper(data_to_mapper)
     );
     
-    // One flash engine for MFRSD and the ASCII16-X cartridges: inactive mappers drive 0
+    // One flash engine for MFRSD, ASCII16-X, KUC and Yamanooto: inactive mappers drive 0
     flash_bus_if flash_mfrsd();
     flash_bus_if flash_ascii16x();
+    flash_bus_if flash_kuc();
+    flash_bus_if flash_yama();
 
-    assign flash_bus.base_addr     = flash_mfrsd.base_addr     | flash_ascii16x.base_addr;
-    assign flash_bus.addr          = flash_mfrsd.addr          | flash_ascii16x.addr;
-    assign flash_bus.area_lo       = flash_mfrsd.area_lo       | flash_ascii16x.area_lo;
-    assign flash_bus.area_size     = flash_mfrsd.area_size     | flash_ascii16x.area_size;
-    assign flash_bus.chip          = flash_mfrsd.chip          | flash_ascii16x.chip;
-    assign flash_bus.id            = flash_mfrsd.id            | flash_ascii16x.id;
-    assign flash_bus.data_to_flash = flash_mfrsd.data_to_flash | flash_ascii16x.data_to_flash;
-    assign flash_bus.we            = flash_mfrsd.we            | flash_ascii16x.we;
-    assign flash_bus.ce            = flash_mfrsd.ce            | flash_ascii16x.ce;
+    assign flash_bus.base_addr     = flash_mfrsd.base_addr     | flash_ascii16x.base_addr | flash_kuc.base_addr | flash_yama.base_addr;
+    assign flash_bus.addr          = flash_mfrsd.addr          | flash_ascii16x.addr | flash_kuc.addr | flash_yama.addr;
+    assign flash_bus.area_lo       = flash_mfrsd.area_lo       | flash_ascii16x.area_lo | flash_kuc.area_lo | flash_yama.area_lo;
+    assign flash_bus.area_size     = flash_mfrsd.area_size     | flash_ascii16x.area_size | flash_kuc.area_size | flash_yama.area_size;
+    assign flash_bus.chip          = flash_mfrsd.chip          | flash_ascii16x.chip | flash_kuc.chip | flash_yama.chip;
+    assign flash_bus.id            = flash_mfrsd.id            | flash_ascii16x.id | flash_kuc.id | flash_yama.id;
+    assign flash_bus.data_to_flash = flash_mfrsd.data_to_flash | flash_ascii16x.data_to_flash | flash_kuc.data_to_flash | flash_yama.data_to_flash;
+    assign flash_bus.we            = flash_mfrsd.we            | flash_ascii16x.we | flash_kuc.we | flash_yama.we;
+    assign flash_bus.ce            = flash_mfrsd.ce            | flash_ascii16x.ce | flash_kuc.ce | flash_yama.ce;
 
     assign flash_mfrsd.data_from_flash    = flash_bus.data_from_flash;
     assign flash_mfrsd.data_valid         = flash_bus.data_valid;
     assign flash_ascii16x.data_from_flash = flash_bus.data_from_flash;
     assign flash_ascii16x.data_valid      = flash_bus.data_valid;
+    assign flash_kuc.data_from_flash      = flash_bus.data_from_flash;
+    assign flash_kuc.data_valid           = flash_bus.data_valid;
+    assign flash_yama.data_from_flash     = flash_bus.data_from_flash;
+    assign flash_yama.data_valid          = flash_bus.data_valid;
+
+    mapper_kuc kuc (
+        .cpu_bus(cpu_bus),
+        .flash_bus(flash_kuc),
+        .block_info(block_info),
+        .out(mapper_out[M_KUC]),
+        .device_out(device_out[D_KUC])
+    );
+
+    mapper_yamanooto yamanooto (
+        .cpu_bus(cpu_bus),
+        .flash_bus(flash_yama),
+        .block_info(block_info),
+        .out(mapper_out[M_YAMANOOTO]),
+        .device_out(device_out[D_YAMANOOTO]),
+        .psg_echo(psg_echo)
+    );
 
     mapper_ascii16x ascii16x (
         .cpu_bus(cpu_bus),

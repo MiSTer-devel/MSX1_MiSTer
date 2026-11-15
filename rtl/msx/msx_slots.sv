@@ -42,6 +42,7 @@ module msx_slots (
     input                       ocm_ipl_en,
     input                       ocm_slot0_mode,    // OCM: 0 = slot 0 primary (cmd 249), 1 otherwise
     output                      ocm_mmc_on,
+    output                      psg_echo,           // Yamanooto: its PSG also on A0h-A1h
     output                      sd_wait            // CPU wait: SD SPI busy (MegaSD, MFRSD)
 );
 
@@ -170,6 +171,7 @@ module msx_slots (
         .ocm_slot2_mode(ocm_slot2_mode),
         .ocm_ipl_en(ocm_ipl_en),
         .ocm_mmc_on(ocm_mmc_on),
+        .psg_echo(psg_echo),
         .sd_wait(sd_wait)
     );
 

@@ -27,6 +27,7 @@ module dev_psg (
     input                  mouse_en,        // mouse allowed (OCM)
     input                  mouse_port,      // 0 = port 1, 1 = port 2
     input                  tape_in,
+    input                  psg_echo,        // Yamanooto ECHO: a cartridge PSG also on A0h-A1h
     output           [7:0] data
 );
 
@@ -84,8 +85,11 @@ module dev_psg (
     generate
         for (i = 0; i < 3; i++) begin : PSG_INSTANCES
             if (i < MSX::N_PSG) begin : inst
-                wire cs_io_active = (cpu_bus.addr[7:0] & io_device[i].mask) == io_device[i].port;
-                wire cs_enable = io_device[i].enable && cs_io_active && io_en;
+                // a cartridge PSG (param bit 0 = 0, Yamanooto) is write only
+                wire cart         = ~io_device[i].param[0];
+                wire cs_io_active = (cpu_bus.addr[7:0] & io_device[i].mask) == io_device[i].port ||
+                                    (cart && psg_echo && cpu_bus.addr[7:1] == 7'h50);
+                wire cs_enable = io_device[i].enable && cs_io_active && io_en && (~cart || cpu_bus.wr);
 
                 assign psg_data[i] = cs_enable && io_device[i].param[0] ? data_tmp[i] : '1;
 

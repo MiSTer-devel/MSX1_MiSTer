@@ -221,10 +221,10 @@ Root `<fwConfig>`, children `<fw name="X">`. `X` must be a key of `cart_device.j
 | `<SHA1 [skip] [size]>sha1</SHA1>` | ROM of the block from the ROM folder (decimal skip/size) |
 | `<filename>` | informational |
 | `<mapper>` | name from `mapper.json` |
-| `<device [port] [mask] [param] [named params] [memory="block"]>NAME</device>` | device. Named parameters are encoded via `deviceParams.json`. `memory="block"` means the device uses the block's memory (OPL4 wave ROM/RAM). A missing block memory gives `NOT FW CONF` in the core |
+| `<device [port] [mask] [param] [named params] [memory="block"]>NAME</device>` | device; may repeat, all devices of a block share its device reference (KUC: SCC + DAC, Yamanooto: SCC + PSG). Named parameters are encoded via `deviceParams.json`. `memory="block"` means the device uses the block's memory (OPL4 wave ROM/RAM). A missing block memory gives `NOT FW CONF` in the core |
 | `<ram>bytes</ram>` | RAM, pattern FF |
 | `<sram>bytes</sram>` | battery SRAM, stored in 1 kB units (slot A and B get separate SRAM areas) |
-| `<flash>bytes</flash>` | the memory is a flash chip of this size: loaded ROM, FF to the end (ASCII16-X, 8 MB) |
+| `<flash>bytes</flash>` | the memory is a flash chip of this size: loaded ROM, FF to the end (ASCII16-X, KUC, Yamanooto: 8 MB) |
 | `<extend>bytes</extend>` | same record, meaning "RAM behind the ROM" (MoonSound: 2 MB ROM + 2 MB sample RAM = 4 MB) |
 | `<device_param>` | parsed but unused |
 
@@ -254,7 +254,7 @@ The OSD item value is converted to `cart_typ_t` in `rtl/msx_config.sv`, and the 
 
 - `CART_TYP_ROM` (11) is special: the loader computes the CRC32 of the loaded ROM and asks the DB. The DB record gives the FW ID (20-59). A ROM of at most 64 kB that is not in the DB runs as a plain ROM, with FW ID 20/21/22 chosen from the `AB` header.
 - `CART_TYP_EMPTY` (12) has no `<fw>` entry; its table slot points to the empty configuration. That is why an empty slot also needs a FW pack.
-- **Free FW IDs**: 10, 14 and 15 for new menu cartridges (`cart_typ_t` and the status fields are 4 bits). For DB mappers: 24, 37-48 except 40-42, and 61 and up.
+- **Free FW IDs**: 10, 14 and 15 for new menu cartridges (`cart_typ_t` and the status fields are 4 bits). For DB mappers: 38-48 except 40-42, and 61 and up.
 - Menu text: `CONF_STR_SLOT_A` / `CONF_STR_SLOT_B` in `rtl/msx_config.sv`.
 
 ## 4. Recipes
@@ -281,7 +281,7 @@ The OSD item value is converted to `cart_typ_t` in `rtl/msx_config.sv`, and the 
 
 ### 4.3 New ROM mapper selected by the DB
 
-1. Give the FW configuration a free ID (24, 37-48 except 40-42, 58+) in `cart_device.json` and add `<fw>` in both Extension XMLs.
+1. Give the FW configuration a free ID (38-48 except 40-42, 61+) in `cart_device.json` and add `<fw>` in both Extension XMLs.
 2. In `../CreateCRC/romtypes.json` add one line `"RomType": "fw name"` to `types`. `RomType` is the name in the "Not supported" table of `../CreateCRC/report.md`; the FW ID is taken from `cart_device.json`.
 3. Rebuild the FW pack and `vampier.db` (see [../CreateCRC/README.md](../CreateCRC/README.md)).
 4. If the mapper itself is new hardware, see 4.4.

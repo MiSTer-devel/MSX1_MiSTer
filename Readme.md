@@ -66,12 +66,12 @@ The core also runs **without the SDRAM add-on board**, but only for smaller conf
   - MSX2: Daewoo CPC-400S, Hitachi MB-H70, Mitsubishi ML-G30 (both models), National FS-4500, FS-4600F, FS-4700F, FS-5000F2, FS-5500F1, FS-5500F2, Panasonic FS-A1F, Al Alamiah AX370, Sony HB-F700D/F/P/S, HB-F900, HB-G900AP, HB-T600, Yamaha AX350II, AX350IIF, AX500, YIS-805/256
   - MSX2+: Panasonic FS-A1FX, FS-A1WX, FS-A1WSX, Sanyo PHC-35J, PHC-70FD, PHC-70FD2, CIEL Expert Turbo
   - MSX turbo R: Panasonic FS-A1ST, FS-A1GT; and the 1chipMSX
-- MoonSound, MegaFlashROM SCC+ SD, ASCII16-X, MegaRAM and MegaSCC.
+- MoonSound, MegaFlashROM SCC+ SD, ASCII16-X, Konami Ultimate Collection, Yamanooto, MegaRAM and MegaSCC.
 - Any ROM cartridge bigger than the free space: most MegaROM games on an MSX2, ROMs of 256 KB and more on any machine.
 
 **What happens when it does not fit:** loading stops with **SMALL MEMORY** in the OSD and the core stays in reset. Load a smaller machine or cartridge, or fit the SDRAM board. The core knows the SDRAM size from the MiSTer menu core, which checks the module at start. If the core is started without the menu (unusual), it does not know the size and does not check. A configuration that does not fit then reads garbage above 256 KB.
 
-With SDRAM, a 32 MB module is enough. The largest machine (1chipMSX) needs about 8 MB, a MoonSound 4 MB, an ASCII16-X 8 MB. Only two ROMs of 16 MB each would not fit (SMALL MEMORY).
+With SDRAM, a 32 MB module is enough. The largest machine (1chipMSX) needs about 8 MB, a MoonSound 4 MB, an ASCII16-X, Konami Ultimate Collection or Yamanooto 8 MB. Only two ROMs of 16 MB each would not fit (SMALL MEMORY).
 
 ## OSD Features
 
@@ -135,7 +135,7 @@ The core includes the following hardware modules:
 - `SCC` – [Konami SCC](https://www.msx.org/wiki/Konami_SCC)
 - `SCC+` – [Konami 052539 Enhanced SCC](https://www.msx.org/wiki/Konami_052539)
 - `OPL4` – [Yamaha YMF278B](https://www.msx.org/wiki/MoonSound) (MoonSound: OPL3 FM and 24 channel wave table synthesis)
-- `DAC` – Konami Synthesizer 8-bit DAC
+- `DAC` – 8-bit DAC of the Konami Synthesizer and of the Konami Ultimate Collection
 - `YM2148` – MIDI interface of the Yamaha SFG modules, MIDI IN and MIDI OUT via the MiSTer UART or the user port
 - `MSX_MIDI` – [MSX-MIDI](https://www.msx.org/wiki/MSX-MIDI) (i8251 UART + i8254 timer, I/O ports E8h–EFh), MIDI IN and MIDI OUT via the MiSTer UART or the user port
 - `SFG01` – [Yamaha SFG-01](https://www.msx.org/wiki/Yamaha_SFG-01)
@@ -149,7 +149,7 @@ The core includes the following hardware modules:
 Not implemented: MSX-AUDIO, V9990 / GFX9000, printer, paddles, light gun, RS-232.
 
 ## Supported ROM Mappers
-Cartridge ROMs are assigned to a mapper by the CRC32 database (`vampier.db`, 8124 entries, built by [tools/CreateCRC](tools/CreateCRC/README.md) from the [romdb.vampier.net](https://romdb.vampier.net/) dump). ROMs not in the database and up to 64 KB are placed as plain ROM (see the first rows).
+Cartridge ROMs are assigned to a mapper by the CRC32 database (`vampier.db`, 8151 entries, built by [tools/CreateCRC](tools/CreateCRC/README.md) from the [romdb.vampier.net](https://romdb.vampier.net/) dump). ROMs not in the database and up to 64 KB are placed as plain ROM (see the first rows).
 
 | Mapper (name in the DB) | Description |
 |---|---|
@@ -163,6 +163,8 @@ Cartridge ROMs are assigned to a mapper by the CRC32 database (`vampier.db`, 812
 | `ASCII16` | ASCII 16 KB mapper |
 | `ASCII16SRAM2`, `ASCII16SRAM8` | ASCII 16 KB mapper with 2 / 8 KB SRAM |
 | `ASCII16-X` | [ASCII16-X](https://www.grauw.nl/projects/ascii-x/ascii16-x/) mapper with an 8 MB flash ROM (changes are not saved) |
+| `KonamiUltimateCollection` | Konami Ultimate Collection: Konami and Konami SCC mapper with an offset register, SCC/SCC+ and a DAC on an 8 MB flash ROM (changes are not saved) |
+| `YAMANOOTO` | Yamanooto (Konami Neo-Ultimate Collection): Konami SCC and Konami4 mapper with an offset register, SCC/SCC+ and a second PSG at ports 10h-11h on an 8 MB flash ROM (changes are not saved) |
 | `NEO-8`, `NEO-16` | NEO-8 (six 8 KB banks) and NEO-16 (three 16 KB banks) mappers with 12-bit bank numbers, ROMs up to 16 MB |
 | `R-Type` | R-Type mapper |
 | `Wizardry` | Wizardry (ASCII 8 KB variant with SRAM) |
@@ -218,7 +220,7 @@ The core integrates with MiSTerFPGA and supports the following features provided
 - `SDRAM support` – optional; needed for the bigger machines and cartridges, see [Without the SDRAM module](#without-the-sdram-module)
 
 ## Known Limitations
-- **Nothing is persistent:** cartridge SRAM (FM-PAC, Game Master 2, KOEI, ASCII with SRAM), flash writes (MegaFlashROM, ASCII16-X), the SRAM of the machines (Panasonic and National mapper SRAM, Matsushita and S1985 SRAM) and the RTC CMOS start as FFh on every load. The **SRAM Save / SRAM Load** items do nothing.
+- **Nothing is persistent:** cartridge SRAM (FM-PAC, Game Master 2, KOEI, ASCII with SRAM), flash writes (MegaFlashROM, ASCII16-X, Konami Ultimate Collection, Yamanooto), the SRAM of the machines (Panasonic and National mapper SRAM, Matsushita and S1985 SRAM) and the RTC CMOS start as FFh on every load. The **SRAM Save / SRAM Load** items do nothing.
 - **Disks:** only raw `.DSK` images (720K, 640K, 360K, 320K); no 40-track, 1.44 MB, XSA, D88, HFE or DMK. The FDC cartridge works only in slot 1 and only in machines without an FDC; there is no TC8566AF cartridge.
 - **Tape:** playback only, no saving; the end of the file is not detected (garbage is played after the last block).
 - **R800:** the R800 of the turbo R runs the Z80 cycle counts at 10.7 MHz, about 3x the Z80 speed; the real one needs fewer cycles per instruction and is faster still. I/O, multiplication and the spacing of VDP accesses take their real time. No turbo R microphone.
@@ -232,7 +234,7 @@ The core integrates with MiSTerFPGA and supports the following features provided
 - [MSX_MiSTer](https://github.com/MiSTer-devel/MSX_MiSTer) by Sorgelig – the MiSTer port of KdL's OCM-PLD and the inspiration for this core. The 1chipMSX machine was converted from it: the IPL ROM, the system I/O ports and CPU speed logic, the ESE-RAM with the MegaSD, the MegaSCC/MegaRAM and the PS/2 mouse.
 - [OCM-PLD](https://github.com/gnogni/ocm-pld-dev) by KdL and the ESE Artists' Factory (Kazuhiro Tsujikawa), with the ESE-VDP by Kunihiko Ohnaka – the origin of the T80 CPU (rewritten to SystemVerilog), the V99x8 VDP, the SCC and the MegaSD/MegaRAM code.
 - [muhanpong/MSX1_MiSTer](https://github.com/muhanpong/MSX1_MiSTer) (branch `nextz80_v9990`) – a fork of this core. Its bug analyses and reports from real hardware pointed out faults in the flash emulation and the pitfalls of the ASCII16-X mapper and the MoonSound. No code was taken from it; the implementations here are independent.
-- [openMSX](https://openmsx.org/) – reference for the behaviour of the ASCII16-X mapper and its flash chip, of the NEO-8 and NEO-16 mappers, of the OPL4 (YMF278B) wave part, bus interface and timers, and of the V99x8 timing.
+- [openMSX](https://openmsx.org/) – reference for the behaviour of the ASCII16-X mapper and its flash chip, of the Konami Ultimate Collection and Yamanooto cartridges, of the NEO-8 and NEO-16 mappers, of the OPL4 (YMF278B) wave part, bus interface and timers, and of the V99x8 timing.
 - [Grauw](https://www.grauw.nl/projects/ascii-x/ascii16-x/) – specification of the ASCII16-X mapper.
 - [Nuked OPL3](https://github.com/nukeykt/Nuked-OPL3) by Nuke.YKT – the OPL3 model the FM part of the MoonSound is checked against, sample by sample. Its source (LGPL-2.1-or-later) is used by the test only (`rtl/peripheral/SOUND/opl4/tb/nuked`).
 

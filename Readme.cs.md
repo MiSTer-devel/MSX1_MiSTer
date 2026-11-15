@@ -66,12 +66,12 @@ Jádro běží i **bez přídavné desky SDRAM**, ale jen v menších sestavách
   - MSX2: Daewoo CPC-400S, Hitachi MB-H70, Mitsubishi ML-G30 (oba modely), National FS-4500, FS-4600F, FS-4700F, FS-5000F2, FS-5500F1, FS-5500F2, Panasonic FS-A1F, Al Alamiah AX370, Sony HB-F700D/F/P/S, HB-F900, HB-G900AP, HB-T600, Yamaha AX350II, AX350IIF, AX500, YIS-805/256
   - MSX2+: Panasonic FS-A1FX, FS-A1WX, FS-A1WSX, Sanyo PHC-35J, PHC-70FD, PHC-70FD2, CIEL Expert Turbo
   - MSX turbo R: Panasonic FS-A1ST, FS-A1GT; a 1chipMSX
-- MoonSound, MegaFlashROM SCC+ SD, ASCII16-X, MegaRAM a MegaSCC.
+- MoonSound, MegaFlashROM SCC+ SD, ASCII16-X, Konami Ultimate Collection, Yamanooto, MegaRAM a MegaSCC.
 - Každá ROM cartridge větší než volné místo: většina her MegaROM na MSX2, ROM od 256 KB na jakémkoli stroji.
 
 **Co se stane, když se to nevejde:** nahrávání skončí hlášením **SMALL MEMORY** v OSD a jádro zůstane v resetu. Nahrajte menší stroj nebo cartridge, nebo osaďte desku SDRAM. Velikost SDRAM jádro zná od menu jádra MiSTeru, které modul při startu zjišťuje. Spustí-li se jádro bez menu (neobvyklé), velikost nezná a nekontroluje. Konfigurace, která se nevejde, pak nad 256 KB čte nesmysly.
 
-Se SDRAM stačí modul 32 MB. Největší stroj (1chipMSX) potřebuje asi 8 MB, MoonSound 4 MB, ASCII16-X 8 MB. Nevešly by se jen dvě ROM po 16 MB (SMALL MEMORY).
+Se SDRAM stačí modul 32 MB. Největší stroj (1chipMSX) potřebuje asi 8 MB, MoonSound 4 MB, ASCII16-X, Konami Ultimate Collection i Yamanooto 8 MB. Nevešly by se jen dvě ROM po 16 MB (SMALL MEMORY).
 
 ## Funkce OSD
 
@@ -135,7 +135,7 @@ Jádro obsahuje tyto hardwarové moduly:
 - `SCC` – [Konami SCC](https://www.msx.org/wiki/Konami_SCC)
 - `SCC+` – [Konami 052539 Enhanced SCC](https://www.msx.org/wiki/Konami_052539)
 - `OPL4` – [Yamaha YMF278B](https://www.msx.org/wiki/MoonSound) (MoonSound: FM OPL3 a 24kanálová vlnová syntéza)
-- `DAC` – 8bitový DAC Konami Synthesizer
+- `DAC` – 8bitový DAC Konami Synthesizer a Konami Ultimate Collection
 - `YM2148` – rozhraní MIDI modulů Yamaha SFG, MIDI IN i MIDI OUT přes UART MiSTeru nebo uživatelský port
 - `MSX_MIDI` – [MSX-MIDI](https://www.msx.org/wiki/MSX-MIDI) (UART i8251 + časovač i8254, I/O porty E8h–EFh), MIDI IN i MIDI OUT přes UART MiSTeru nebo uživatelský port
 - `SFG01` – [Yamaha SFG-01](https://www.msx.org/wiki/Yamaha_SFG-01)
@@ -149,7 +149,7 @@ Jádro obsahuje tyto hardwarové moduly:
 Neimplementováno: MSX-AUDIO, V9990 / GFX9000, tiskárna, pádla, světelná pistole, RS-232.
 
 ## Podporované ROM mappery
-ROM cartridge se k mapperu přiřazují podle databáze CRC32 (`vampier.db`, 8124 záznamů, vytvořená nástrojem [tools/CreateCRC](tools/CreateCRC/README.cs.md) z dumpu [romdb.vampier.net](https://romdb.vampier.net/)). ROM, které v databázi nejsou a mají do 64 KB, se umístí jako obyčejná ROM (první řádky tabulky).
+ROM cartridge se k mapperu přiřazují podle databáze CRC32 (`vampier.db`, 8151 záznamů, vytvořená nástrojem [tools/CreateCRC](tools/CreateCRC/README.cs.md) z dumpu [romdb.vampier.net](https://romdb.vampier.net/)). ROM, které v databázi nejsou a mají do 64 KB, se umístí jako obyčejná ROM (první řádky tabulky).
 
 | Mapper (název v DB) | Popis |
 |---|---|
@@ -163,6 +163,8 @@ ROM cartridge se k mapperu přiřazují podle databáze CRC32 (`vampier.db`, 812
 | `ASCII16` | mapper ASCII 16 KB |
 | `ASCII16SRAM2`, `ASCII16SRAM8` | mapper ASCII 16 KB se 2 / 8 KB SRAM |
 | `ASCII16-X` | mapper [ASCII16-X](https://www.grauw.nl/projects/ascii-x/ascii16-x/) s 8 MB flash ROM (změny se neukládají) |
+| `KonamiUltimateCollection` | Konami Ultimate Collection: mapper Konami a Konami SCC s registrem offsetu, SCC/SCC+ a DAC na 8 MB flash ROM (změny se neukládají) |
+| `YAMANOOTO` | Yamanooto (Konami Neo-Ultimate Collection): mapper Konami SCC a Konami4 s registrem offsetu, SCC/SCC+ a druhým PSG na portech 10h–11h na 8 MB flash ROM (změny se neukládají) |
 | `NEO-8`, `NEO-16` | mappery NEO-8 (šest bank 8 KB) a NEO-16 (tři banky 16 KB) s 12bitovým číslem banky, ROM do 16 MB |
 | `R-Type` | mapper R-Type |
 | `Wizardry` | Wizardry (varianta ASCII 8 KB s SRAM) |
@@ -218,7 +220,7 @@ Jádro se integruje s MiSTerFPGA a podporuje tyto funkce platformy:
 - `Podpora SDRAM` – volitelná; potřebují ji větší stroje a cartridge, viz [Bez modulu SDRAM](#bez-modulu-sdram)
 
 ## Známá omezení
-- **Nic se neukládá trvale:** SRAM cartridge (FM-PAC, Game Master 2, KOEI, ASCII se SRAM), zápisy do flash (MegaFlashROM, ASCII16-X), SRAM strojů (SRAM mapperů Panasonic a National, SRAM zařízení Matsushita a S1985) a CMOS RTC začínají při každém načtení s hodnotou FFh. Položky **SRAM Save / SRAM Load** nic nedělají.
+- **Nic se neukládá trvale:** SRAM cartridge (FM-PAC, Game Master 2, KOEI, ASCII se SRAM), zápisy do flash (MegaFlashROM, ASCII16-X, Konami Ultimate Collection, Yamanooto), SRAM strojů (SRAM mapperů Panasonic a National, SRAM zařízení Matsushita a S1985) a CMOS RTC začínají při každém načtení s hodnotou FFh. Položky **SRAM Save / SRAM Load** nic nedělají.
 - **Disky:** jen surové obrazy `.DSK` (720K, 640K, 360K, 320K); žádné 40stopé, 1,44 MB, XSA, D88, HFE ani DMK. Cartridge FDC funguje jen ve slotu 1 a jen na strojích bez FDC; cartridge s TC8566AF neexistuje.
 - **Páska:** jen přehrávání, žádné ukládání; konec souboru se nedetekuje (po posledním bloku se přehrávají nesmyslná data).
 - **R800:** R800 u turbo R vykonává počty taktů Z80 na 10,7 MHz, tedy asi 3x rychleji než Z80; skutečný potřebuje na instrukci méně taktů a je ještě rychlejší. I/O, násobení a odstup přístupů k VDP trvají jako na skutečném stroji. Chybí mikrofon turbo R.
@@ -232,7 +234,7 @@ Jádro se integruje s MiSTerFPGA a podporuje tyto funkce platformy:
 - [MSX_MiSTer](https://github.com/MiSTer-devel/MSX_MiSTer) od Sorgeliga – port OCM-PLD od KdL na MiSTer a inspirace pro toto jádro. Stroj 1chipMSX byl převeden z něj: IPL ROM, systémové I/O porty a řízení rychlosti CPU, ESE-RAM s MegaSD, MegaSCC/MegaRAM a myš PS/2.
 - [OCM-PLD](https://github.com/gnogni/ocm-pld-dev) od KdL a ESE Artists' Factory (Kazuhiro Tsujikawa) s ESE-VDP od Kunihiko Ohnaky – původ CPU T80 (přepsaného do SystemVerilogu), VDP V99x8, SCC a kódu MegaSD/MegaRAM.
 - [muhanpong/MSX1_MiSTer](https://github.com/muhanpong/MSX1_MiSTer) (větev `nextz80_v9990`) – fork tohoto jádra. Jeho analýzy chyb a hlášení ze skutečného hardware upozornily na chyby v emulaci flash a na úskalí mapperu ASCII16-X a MoonSound. Žádný kód z něj nebyl převzat; zdejší implementace jsou nezávislé.
-- [openMSX](https://openmsx.org/) – reference pro chování mapperu ASCII16-X a jeho flash čipu, mapperů NEO-8 a NEO-16, vlnové části OPL4 (YMF278B), sběrnicového rozhraní a časovačů a časování V99x8.
+- [openMSX](https://openmsx.org/) – reference pro chování mapperu ASCII16-X a jeho flash čipu, cartridge Konami Ultimate Collection a Yamanooto, mapperů NEO-8 a NEO-16, vlnové části OPL4 (YMF278B), sběrnicového rozhraní a časovačů a časování V99x8.
 - [Grauw](https://www.grauw.nl/projects/ascii-x/ascii16-x/) – specifikace mapperu ASCII16-X.
 - [Nuked OPL3](https://github.com/nukeykt/Nuked-OPL3) od Nuke.YKT – model OPL3, proti kterému se FM část MoonSound kontroluje vzorek po vzorku. Jeho zdroj (LGPL-2.1-or-later) používá pouze test (`rtl/peripheral/SOUND/opl4/tb/nuked`).
 

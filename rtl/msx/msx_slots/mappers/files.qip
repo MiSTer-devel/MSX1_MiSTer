@@ -27,3 +27,4 @@ set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) n
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) msxdos2.sv                         ]
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) kuc.sv                             ]
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) yamanooto.sv                       ]
+set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) halnote.sv                         ]

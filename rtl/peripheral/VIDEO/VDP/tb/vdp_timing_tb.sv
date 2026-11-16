@@ -221,6 +221,27 @@ module vdp_timing_tb;
     endtask
 
 
+    // S#2 HR (openMSX getHR): 1 from the right border for 312 clocks, 404 in text modes, where
+    // the right border is 28 clocks earlier (V99x8 TEXT1: picture 36 clocks right, 960 wide);
+    // moves with R#18, every line (also in the vertical blanking)
+    task automatic hr_window(input string what, input int at_line, input int rise, input int len);
+        int on = -1, off = -1, p, l0;
+        bit prev;
+        if (at_line >= 0) while (line < disp0 + at_line) @(posedge clk);
+        l0 = line;
+        status(2); prev = st[5];
+        while ((on < 0 || off < 0) && line < l0 + 3) begin
+            p = hpos();
+            status(2);
+            if (!prev && st[5] && on < 0) on = p;
+            if (prev && !st[5] && on >= 0 && off < 0) off = p;
+            prev = st[5];
+        end
+        $display("%s", what);
+        expect_pos("HR = 1 (right border)", 0, on, 0, rise, 4);
+        expect_pos("HR = 0", 0, off, 0, (rise + len) % CLOCKS_PER_LINE, 4);
+    endtask
+
     // Sprite collision (S#0 C) in SCREEN 5: two overlapping 8x8 sprites at Y; the frame is
     // checked from display line 1 to display line 1 of the next frame, borders included
     task automatic vram_wr(input logic [15:0] a, input logic [7:0] d[$]);
@@ -292,6 +313,21 @@ module vdp_timing_tb;
         line_int("NTSC 192", 100, 192);
         line_int("NTSC 192", 190, 192);
         fh_level("NTSC 192", 100);
+
+        wait_frame_start();
+        hr_window("S#2 HR: Graphic 1, display line 100", 100, 1080, 312);
+        hr_window("S#2 HR: Graphic 1, vertical blanking (line 220)", 220, 1080, 312);
+        set_reg(18, 8'h08);                     // 8 dots right
+        wait_frame_start();
+        hr_window("S#2 HR: Graphic 1, R#18 = 08h", 100, 1080 + 32, 312);
+        set_reg(18, 8'h03);                     // 3 dots left
+        wait_frame_start();
+        hr_window("S#2 HR: Graphic 1, R#18 = 03h", 100, 1080 - 12, 312);
+        set_reg(18, 8'h00);
+        set_reg(1, 8'h50);                      // TEXT1
+        repeat (2) wait_line1();
+        hr_window("S#2 HR: TEXT1", -1, 1080 - 28, 404);
+        set_reg(1, 8'h40);
 
         setup(8'h80);
         vblank_vr("NTSC 212", 212);

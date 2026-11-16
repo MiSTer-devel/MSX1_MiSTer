@@ -139,6 +139,10 @@ package VDP_PACKAGE;
     // Left border start on the video output (picture from H_CNT 257 with R#18 = 0), the
     // openMSX reference point (tick 202) for VBLANK, VR and the end of the FH window
     localparam logic [10:0] LEFT_BORDER_OUT = 11'd201;
+    // S#2 HR (openMSX getHR) from the next clock on: the right border on the output at R#18 = 0
+    // (text modes: picture 36 clocks right, 960 wide)
+    localparam logic [10:0] HR_START_GFX  = 11'd1280;
+    localparam logic [10:0] HR_START_TEXT = 11'd1252;
     // Clocks from PREDOTCOUNTER_X = 255 (ACTIVE_LINE) to the right border on the output
     localparam logic [5:0] RIGHT_BORDER_DELAY = 6'd40;
     // localparam int DISPLAY_AREA = 1024;

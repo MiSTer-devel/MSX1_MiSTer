@@ -735,6 +735,19 @@ end
 
 assign TEXT_MODE = VDPMODETEXT1 || VDPMODETEXT1Q || VDPMODETEXT2;
 
+// S#2 HR as openMSX getHR: from the right border for 312 clocks (404 in text modes), moved
+// by R#18. Games poll it to write scroll registers in the border.
+logic  [8:0] FF_HR_CNT;
+logic [10:0] W_HR_START;
+logic        HR;
+assign W_HR_START = (TEXT_MODE ? HR_START_TEXT : HR_START_GFX) - {{5{REG_R18_ADJ[3]}}, REG_R18_ADJ[3:0], 2'b00};
+always_ff @(posedge CLK21M or posedge RESET) begin
+    if (RESET)                    FF_HR_CNT <= '0;
+    else if (H_CNT == W_HR_START) FF_HR_CNT <= TEXT_MODE ? 9'd404 : 9'd312;
+    else if (FF_HR_CNT != '0)     FF_HR_CNT <= FF_HR_CNT - 1'b1;
+end
+assign HR = FF_HR_CNT != '0;
+
 always_ff @(posedge CLK21M or posedge RESET) begin
     // VARIABLE equivalent in SystemVerilog: use a `logic` or a local variable inside the block
     logic [16:0] VDPVRAMACCESSADDRV;
@@ -1125,7 +1138,7 @@ VDP_REGISTER U_VDP_REGISTER (
 
     .VDPCMDTR               (VDPCMDTR),
     .VD                     (VD),
-    .HD                     (HD),
+    .HD                     (HR),
     .VDPCMDBD               (VDPCMDBD),
     .FIELD                  (FIELD),
     .VDPCMDCE               (VDPCMDCE),

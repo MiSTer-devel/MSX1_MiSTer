@@ -4,13 +4,13 @@
 
 Back to the [Readme](Readme.md).
 
-The core is not tied to one computer: each machine below is a definition (an XML file in `tools/CreateMSXpack/Computer/`) that is turned into a ROM PACK (`.msx`). There are **225 definitions** from 36 manufacturers:
+The core is not tied to one computer: each machine below is a definition (an XML file in `tools/CreateMSXpack/Computer/`) that is turned into a ROM PACK (`.msx`). There are **227 definitions** from 36 manufacturers:
 
 | Generation | Count |
 |---|---|
 | MSX1 | 135 (124 with a TMS99xx VDP, 11 with a V9938 and an MSX1 BIOS) |
 | MSX2 | 80 |
-| MSX2+ | 7 |
+| MSX2+ | 9 |
 | MSX turbo R | 2 |
 | 1chipMSX / OCM (MSX2+ class) | 1 |
 
@@ -298,7 +298,9 @@ Notes on the tables:
 | [HB-F1](https://www.msx.org/wiki/Sony_HB-F1) | MSX2 | Japanese MSX2 with built-in software (speed controller not emulated). | 64 KB mapper, RTC, firmware ROMs |
 | HB-F1II | MSX2 | Cost-reduced HB-F1 with built-in software (speed controller not emulated). | 64 KB RAM, RTC, firmware ROM |
 | HB-F1XD | MSX2 | Japanese MSX2 with a built-in disk drive (speed controller not emulated). | 64 KB RAM, RTC, FDC + 1 drive |
+| HB-F1XDJ | MSX2+ | Japanese MSX2+ with a built-in disk drive, MSX-MUSIC and the MSX-JE Kanji conversion (Ren-Sha Turbo and speed controller not emulated). | V9958, 64 KB mapper, RTC, MSX-MUSIC, Kanji ROM, FDC + 1 drive, MSX-JE ROM (Halnote mapper), MSX-JE SRAM (not saved) |
 | [HB-F1XDmk2](https://www.msx.org/wiki/Sony_HB-F1XDmk2) | MSX2 | Cost-reduced HB-F1XD: Japanese MSX2 with a built-in disk drive. | 64 KB mapper, RTC, FDC + 1 single-sided drive |
+| HB-F1XV | MSX2+ | The last Sony MSX; technically the same as the HB-F1XDJ. | V9958, 64 KB mapper, RTC, MSX-MUSIC, Kanji ROM, FDC + 1 drive, MSX-JE ROM (Halnote mapper), MSX-JE SRAM (not saved) |
 | [HB-F5](https://www.msx.org/wiki/Sony_HB-F5) | MSX2 | Sony's first MSX2 with built-in Personal Databank software. | 64 KB RAM, RTC, firmware ROM |
 | HB-F500 | MSX2 | First Sony desktop MSX2 with a double-sided drive; unusual memory layout. | 64 KB RAM, RTC, Kanji ROM, FDC + 1 drive |
 | HB-F500 (v2) | MSX2 | Second HB-F500 version with a simpler memory layout. | 64 KB RAM, RTC, Kanji ROM, FDC + 1 drive |
@@ -404,5 +406,4 @@ These openMSX machines need hardware the core does not have yet:
 | Toshiba HX-34 | Toshiba floppy controller wiring (registers 7FF0-7FF7) |
 | Victor HC-90A, HC-95A | Victor floppy controller wiring, system control register 7FFD |
 | Panasonic FS-A1FM | FS-A1FM firmware and modem mappers |
-| Sony HB-F1XDJ, HB-F1XV | Halnote mapper (MSX-JE firmware) |
 | Aucnet NIA-2001 | MSX-DOS2 ROM mapper |

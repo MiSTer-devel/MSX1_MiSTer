@@ -800,7 +800,7 @@ always_ff @(posedge CLK21M or posedge RESET) begin
     end else if (DOTSTATE == 2'b10) begin
         // JP: DOTCOUNTERと実際の表示(カラーコードの出力)は8ドットずれている
         if (DOTCOUNTERX == 9'd8) begin
-            SPLINEBUFDISPX <= {5'b00000, REG_R27_H_SCROLL};
+            SPLINEBUFDISPX <= 8'd0;             // R#27 delays only the background
         end else begin
             SPLINEBUFDISPX <= SPLINEBUFDISPX + 1'b1;
         end

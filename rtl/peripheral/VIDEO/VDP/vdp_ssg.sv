@@ -222,7 +222,8 @@ module VDP_SSG (
         if (RESET) begin
             FF_PRE_X_CNT_START1 <= 6'b0;
         end else begin
-            FF_PRE_X_CNT_START1 <= {W_PRE_X_CNT_START0[4], W_PRE_X_CNT_START0} - {3'b000, REG_R27_H_SCROLL};
+            // R#27 does not move the counter: VDP_COLORDEC delays the background instead
+            FF_PRE_X_CNT_START1 <= {W_PRE_X_CNT_START0[4], W_PRE_X_CNT_START0};
         end
     end
 
@@ -266,32 +267,17 @@ module VDP_SSG (
         end
     end
 
-    // DISPLAY WINDOW
-    // LEFT MASK (R25 MSK)
-    // H_SCROLL = 0 --> 8
-    // H_SCROLL = 1 --> 7
-    // H_SCROLL = 2 --> 6
-    // H_SCROLL = 3 --> 5
-    // H_SCROLL = 4 --> 4
-    // H_SCROLL = 5 --> 3
-    // H_SCROLL = 6 --> 2
-    // H_SCROLL = 7 --> 1
-
+    // DISPLAY WINDOW in screen dots: the left R#27 dots (8 with R#25 MSK) show the border,
+    // as the background there is delayed by R#27 (VDP_COLORDEC)
 always_comb begin
     if (REG_R25_MSK == 1'b0) begin
-        W_LEFT_MASK = 9'b0;
+        W_LEFT_MASK = {6'b000000, REG_R27_H_SCROLL};
     end else begin
-        W_LEFT_MASK = {5'b00000, ({1'b0,(~REG_R27_H_SCROLL)} + 1'b1)};
+        W_LEFT_MASK = 9'd8;
     end
 end
 
-always_ff @(posedge CLK21M) begin
-    // MAIN WINDOW
-    if (W_H_CNT[1:0] == 2'b01 && FF_X_CNT == W_LEFT_MASK) begin
-        // WHEN DOTCOUNTER_X = 0
-        FF_RIGHT_MASK <= 9'b100000000 - {6'b000000, REG_R27_H_SCROLL};
-    end
-end
+assign FF_RIGHT_MASK = 9'd256;
 
 always_ff @(posedge CLK21M or posedge RESET) begin
     if (RESET) begin

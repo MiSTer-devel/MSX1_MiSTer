@@ -267,16 +267,21 @@ module VDP_REGISTER (
             REG_R0_DISP_MODE    <= 3'b000;
             REG_R1_DISP_MODE    <= 2'b00;
             REG_R25_SP2         <= 1'b0;
-            REG_R26_H_SCROLL    <= '0;
         end else if (HSYNC) begin
             REG_R1_DISP_ON      <= FF_R1_DISP_ON;
             REG_R0_DISP_MODE    <= FF_R0_DISP_MODE;
             REG_R1_DISP_MODE    <= FF_R1_DISP_MODE;
             if (VDP_ID != 5'b00000) begin
                 REG_R25_SP2         <= FF_R25_SP2;
-                REG_R26_H_SCROLL    <= FF_R26_H_SCROLL;
             end
         end
+    end
+
+    // R#26 at once, as openMSX: the fetch takes it per 8-dot group, a write within a line
+    // scrolls the rest of the line
+    always_ff @(posedge CLK21M or posedge RESET) begin
+        if (RESET)                       REG_R26_H_SCROLL <= '0;
+        else if (VDP_ID != 5'b00000)     REG_R26_H_SCROLL <= FF_R26_H_SCROLL;
     end
 
     assign W_IS_BITMAP_MODE = (REG_R0_DISP_MODE == 3'b011 || REG_R0_DISP_MODE[3]);

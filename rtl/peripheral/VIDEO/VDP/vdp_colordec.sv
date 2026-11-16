@@ -95,7 +95,8 @@ module VDP_COLORDEC (
     input  logic            REG_R1_DISP_ON,
     input  logic [7:0]      REG_R7_FRAME_COL,
     input  logic            REG_R8_COL0_ON,
-    input  logic            REG_R25_YJK
+    input  logic            REG_R25_YJK,
+    input  logic [2:0]      REG_R27_H_SCROLL
 );
 
     logic [5:0] FF_VIDEO_R, FF_VIDEO_G, FF_VIDEO_B;
@@ -116,6 +117,24 @@ module VDP_COLORDEC (
     assign PVIDEOB_VDP = FF_VIDEO_B;
 
     assign W_EVEN_DOTSTATE = (DOTSTATE == 2'b00 || DOTSTATE == 2'b11);
+
+    // R#27: the background (not the sprites, not the window) later by 0-7 dots, two samples a
+    // dot. A write within a line moves the rest of the line at once, as openMSX.
+    logic [26:0] W_BG, W_BG_D;
+    logic [26:0] FF_BG_DLY [0:13];
+    logic [7:0]  BG_CODE;
+    logic [5:0]  BG_YJK_R, BG_YJK_G, BG_YJK_B;
+    logic        BG_YJK_EN;
+    assign W_BG = {P_YJK_EN, P_YJK_R, P_YJK_G, P_YJK_B,
+                   (VDPMODETEXT1 || VDPMODETEXT1Q || VDPMODETEXT2) ? {4'b0000, COLORCODET12} :
+                   (VDPMODEGRAPHIC1 || VDPMODEGRAPHIC2 || VDPMODEGRAPHIC3 || VDPMODEMULTI || VDPMODEMULTIQ) ?
+                   {4'b0000, COLORCODEG123M} : COLORCODEG4567};
+    always_ff @(posedge CLK21M) if (W_EVEN_DOTSTATE) begin
+        FF_BG_DLY[0] <= W_BG;
+        for (int i = 1; i < 14; i++) FF_BG_DLY[i] <= FF_BG_DLY[i - 1];
+    end
+    assign W_BG_D = (REG_R27_H_SCROLL == 3'd0) ? W_BG : FF_BG_DLY[{REG_R27_H_SCROLL, 1'b0} - 4'd1];
+    assign {BG_YJK_EN, BG_YJK_R, BG_YJK_G, BG_YJK_B, BG_CODE} = W_BG_D;
 
     // OUTPUT DATA LATCH
     always_ff @(posedge CLK21M or posedge RESET) begin
@@ -169,13 +188,11 @@ module VDP_COLORDEC (
     // FOR OTHERS
     always_comb begin
         if (VDPMODETEXT1 || VDPMODETEXT1Q || VDPMODETEXT2)
-            W_FORE_COLOR = COLORCODET12;
+            W_FORE_COLOR = BG_CODE[3:0];
         else if (SPRITECOLOROUT)
             W_FORE_COLOR = COLORCODESPRITE;
-        else if (VDPMODEGRAPHIC1 || VDPMODEGRAPHIC2 || VDPMODEGRAPHIC3 || VDPMODEMULTI || VDPMODEMULTIQ)
-            W_FORE_COLOR = COLORCODEG123M;
         else
-            W_FORE_COLOR = COLORCODEG4567[3:0];
+            W_FORE_COLOR = BG_CODE[3:0];
     end
 
     assign W_BACK_COLOR = REG_R7_FRAME_COL[3:0];
@@ -219,7 +236,7 @@ module VDP_COLORDEC (
             if (SPRITECOLOROUT)
                 FF_GRP7_COLOR_CODE <= W_GRP7_SPRITE_COLOR;
             else
-                FF_GRP7_COLOR_CODE <= COLORCODEG4567;
+                FF_GRP7_COLOR_CODE <= BG_CODE;
         end
     end
 
@@ -233,10 +250,10 @@ module VDP_COLORDEC (
         end else if (W_EVEN_DOTSTATE) begin
             FF_SPRITECOLOROUT <= SPRITECOLOROUT && WINDOW && REG_R1_DISP_ON;
             if (WINDOW && REG_R1_DISP_ON) begin
-                FF_YJK_R <= P_YJK_R;
-                FF_YJK_G <= P_YJK_G;
-                FF_YJK_B <= P_YJK_B;
-                FF_YJK_EN <= P_YJK_EN;
+                FF_YJK_R <= BG_YJK_R;
+                FF_YJK_G <= BG_YJK_G;
+                FF_YJK_B <= BG_YJK_B;
+                FF_YJK_EN <= BG_YJK_EN;
             end else if ((!WINDOW || !REG_R1_DISP_ON) && REG_R25_YJK) begin
                 FF_YJK_EN <= 1'b0;
             end else begin

@@ -987,7 +987,8 @@ VDP_COLORDEC U_VDP_COLORDEC (
     .REG_R1_DISP_ON     (REG_R1_DISP_ON),
     .REG_R7_FRAME_COL   (REG_R7_FRAME_COL),
     .REG_R8_COL0_ON     (REG_R8_COL0_ON),
-    .REG_R25_YJK        (REG_R25_YJK)
+    .REG_R25_YJK        (REG_R25_YJK),
+    .REG_R27_H_SCROLL   (REG_R27_H_SCROLL)
 );
 
 //---------------------------------------------------------------------------

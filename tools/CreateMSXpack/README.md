@@ -442,7 +442,7 @@ Load the FW pack and the machine pack (and the DB if you use big ROM cartridges)
 
 ### OSD errors in the core
 
-After **ROM too big**, **SMALL MEMORY**, **No CRC32 DB** and **Not find CRC32 in DB** the core stays in reset until the next load. After the other messages the loader stops where the error occurred and the machine may start with an incomplete configuration; fix the cause and load again.
+After any of these messages the machine does not start: the core stays in reset until the next load. Fix the cause and load again.
 
 | OSD text | Meaning and fix |
 |---|---|

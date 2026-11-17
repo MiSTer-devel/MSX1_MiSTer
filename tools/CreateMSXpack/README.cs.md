@@ -442,7 +442,7 @@ Načtěte FW pack a pack počítače (a DB, pokud používáte velké ROM cartri
 
 ### Chyby OSD v jádře
 
-Po **ROM too big**, **SMALL MEMORY**, **No CRC32 DB** a **Not find CRC32 in DB** zůstane jádro v resetu do dalšího načtení. Po ostatních zprávách se zavaděč zastaví v místě chyby a stroj se může rozběhnout s neúplnou konfigurací; odstraňte příčinu a načtěte znovu.
+Po kterékoli z těchto zpráv se stroj nespustí: jádro zůstane v resetu do dalšího načtení. Odstraňte příčinu a načtěte znovu.
 
 | Text OSD | Význam a oprava |
 |---|---|

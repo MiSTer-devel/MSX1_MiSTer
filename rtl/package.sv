@@ -568,7 +568,7 @@ package MSX;
     // The one place to set how many copies of a device are built (io_device keeps 3 slots
     // per type). Values = what the machine XMLs and the OSD cartridges need, see
     // doc/pocty-zarizeni.md. memory_upload stops a configuration needing more copies with
-    // ERR_MISSING_SOURCE ("Device not in this core build").
+    // ERR_DEVICE_MISSING, one needing a device type with no copy with ERR_MISSING_SOURCE.
     localparam int N_OPLL         = 2;      // 0..3  machine + FM-PAC, or FM-PAC in A and B
     localparam int N_OPM          = 1;      // 0..3
     localparam int N_SCC          = 2;      // 0..2

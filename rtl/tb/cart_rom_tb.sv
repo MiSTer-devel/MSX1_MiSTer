@@ -161,6 +161,14 @@ task automatic download(input int idx, input int unsigned size, input bit wait_u
 endtask
 
 // ROM of size bytes: 'AB' + INIT at offset hdr (-1: none), a pattern elsewhere
+// After an error the machine must stay in reset with the error shown, until the next load
+task automatic check_held(input string what, input error_t err);
+    repeat (2000) @(posedge clk);
+    if (!upload_reset || error !== err) begin
+        errors++; $display("FAIL %s: after error %0d the reset is %b, error %0d", what, err, upload_reset, error);
+    end
+endtask
+
 task automatic make_rom(input int size, input int hdr, input logic [15:0] init);
     rom = {};
     for (int i = 0; i < size; i++) rom.push_back(8'(i * 7 + (i >> 9) + 3));
@@ -188,7 +196,10 @@ task automatic check(input string what, input int p0, input int p1, input int p2
         errors++; $display("FAIL %s: error %0d (expected %0d)", what, error, err);
         return;
     end
-    if (err != ERR_NONE) begin $display("ok   %s: error %0d", what, error); return; end
+    if (err != ERR_NONE) begin
+        check_held(what, err);
+        $display("ok   %s: error %0d", what, error); return;
+    end
     for (int p = 0; p < 4; p++) begin
         MSX::block_t b = slot_layout[{2'd1, 2'd0, 2'(p)}];
         if (exp[p] < 0) begin                           // empty, or past the ROM end (OFFSET reads FFh there)
@@ -432,6 +443,7 @@ task automatic check_msx_midi(input string what);
     download(1, pack.size(), 0);
     wait (upload); wait (!upload || error != ERR_NONE); repeat (10) @(posedge clk);
     if (error !== ERR_DEVICE_MISSING) begin errors++; $display("FAIL %s: in A and B error %0d (expected %0d)", what, error, ERR_DEVICE_MISSING); end
+    else check_held({what, ": in A and B"}, ERR_DEVICE_MISSING);
     cart_conf[0].typ = CART_TYP_EMPTY; cart_conf[1].typ = CART_TYP_EMPTY;
     download(1, pack.size(), 1);
     if (io_device[DEV_MSX_MIDI][0].enable) begin errors++; $display("FAIL %s: device left enabled without the cartridge", what); end

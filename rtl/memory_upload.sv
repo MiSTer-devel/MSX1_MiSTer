@@ -458,7 +458,7 @@ module memory_upload
                         ddr3_rd      <= '1;
                     end else begin
                         error <= ERR_BAD_MSX_FW_CONF;
-                        state <= STATE_IDLE;
+                        state <= STATE_STOP;
                     end
                 end
                 STATE_CHECK_CONF: begin
@@ -475,7 +475,7 @@ module memory_upload
                         msx_config.vdp_io_wait   <= conf[4][1];
                     end else begin
                         error <= ERR_BAD_MSX_CONF;
-                        state <= STATE_IDLE;
+                        state <= STATE_STOP;
                     end
                 end
                 STATE_LOAD_CONF: begin
@@ -517,7 +517,7 @@ module memory_upload
                                 $display("LOAD IO_DEVICE FAILED ID:%x port:%x mask %x param %x size %x addr: %x (DDR addr %x)",
                                         conf[1], conf[2], conf[3], conf[4], {3'b0, conf[5], 14'd0}, ram_addr, ddr3_addr);
                                 error <= dev_ok == '0 ? ERR_MISSING_SOURCE : ERR_DEVICE_MISSING;
-                                state <= STATE_IDLE;
+                                state <= STATE_STOP;
                             end
 
                             if (conf[6][7] && dev_slot_free) begin                        // memory = window into an existing block
@@ -549,7 +549,7 @@ module memory_upload
                         end
                     default: begin
                         error <= ERR_NOT_SUPPORTED_CONF;
-                        state <= STATE_IDLE;
+                        state <= STATE_STOP;
                     end
                     endcase
                 end
@@ -709,7 +709,7 @@ module memory_upload
                                     $display("%t BLOCK CART LOAD FW FROM DDR ADDR %x", $time(), DDR3_BASE_FW_ADDR + 28'h10 + {22'b0, cart_conf[conf[3][0]].typ,2'b00});
                                 end else begin
                                     error <= ERR_NOT_FW_CONF;                                             // FW není k dispozici
-                                    state <= STATE_IDLE;
+                                    state <= STATE_STOP;
                                 end
                             end
                         end
@@ -729,7 +729,7 @@ module memory_upload
                             if (device_t'(conf[3]) == DEV_TC8566AF || device_t'(conf[3]) == DEV_WD2793) begin       // FDC: fixed position
                                 if ((fw_space && cart_id) || !dev_ok[fdc_pos]) begin  // slot B, or not built at this position
                                     error       <= ERR_MISSING_SOURCE;
-                                    state       <= STATE_IDLE;
+                                    state       <= STATE_STOP;
                                     device      <= DEV_NONE;
                                     last_device <= DEV_NONE;
                                     $display("FDC %x NOT IN THIS BUILD (cartridge %0d, position %0d)", device_t'(conf[3]), fw_space ? cart_id + 1 : 0, fdc_pos);
@@ -742,7 +742,7 @@ module memory_upload
                                     $display("FDC %x: POSITION %0d HAS AN FDC, LOAD AGAIN WITHOUT CARTRIDGE A", device_t'(conf[3]), fdc_pos);
                                 end else if (fdc_busy) begin                         // one FDC per position
                                     error       <= ERR_FDC_PRESENT;
-                                    state       <= STATE_IDLE;
+                                    state       <= STATE_STOP;
                                     device      <= DEV_NONE;
                                     last_device <= DEV_NONE;
                                     $display("FDC %x: POSITION %0d ALREADY HAS AN FDC", device_t'(conf[3]), fdc_pos);
@@ -774,7 +774,7 @@ module memory_upload
                                     dev_we_phi  = 1'b0;
                                     dev_we_dref = 1'b0;
                                     error       <= ERR_NOT_FW_CONF;
-                                    state       <= STATE_IDLE;
+                                    state       <= STATE_STOP;
                                     device      <= DEV_NONE;
                                     last_device <= DEV_NONE;
                                     $display("DEVICE %x: NO MEMORY IN ITS BLOCK", device_t'(conf[3]));
@@ -787,7 +787,7 @@ module memory_upload
                                 end
                             end else begin
                                 error                 <= dev_ok == '0 ? ERR_MISSING_SOURCE : ERR_DEVICE_MISSING;
-                                state                 <= STATE_IDLE;
+                                state                 <= STATE_STOP;
                                 $display("DEVICE %x: NO COPY LEFT IN THIS BUILD", device_t'(conf[3]));
                                 device                <= DEV_NONE;
                                 last_device           <= DEV_NONE;
@@ -831,7 +831,7 @@ module memory_upload
                         default: begin
                             $display("BLOCK UNKNOWN");
                             error <= ERR_NOT_SUPPORTED_BLOCK;
-                            state <= STATE_IDLE;
+                            state <= STATE_STOP;
                         end
                     endcase
                 end
@@ -986,7 +986,7 @@ module memory_upload
                             next_state <= STATE_GET_FW_ADDR;
                         end else begin
                             error <= ERR_NOT_FW_CONF;
-                            state <= STATE_IDLE;
+                            state <= STATE_STOP;
                         end
                     end else begin
                         if ((ddr3_addr - DDR3_CRC32_TABLE_ADDR) == {1'b0, ioctl_size[size_CRC]}) begin

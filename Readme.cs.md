@@ -103,7 +103,7 @@ Se SDRAM stačí modul 32 MB. Největší stroj (1chipMSX) potřebuje asi 8 MB, 
 1chipMSX má navíc blok: CPU speed (Normal / Turbo, přepíná F11), CPU type (Z80 / R800 – jen násobicí instrukce R800), Slot1, Slot2, Internal Mapper (2048 / 4096 KB), Joysticks Swap, Reset after Mount.
 
 ### Chybová hlášení OSD
-Když načtení selže, informační řádek OSD zobrazí jedno z těchto hlášení. Po **No CRC32 DB**, **Not find CRC32 in DB**, **SMALL MEMORY** a **ROM too big** zůstane jádro v resetu do dalšího načtení.
+Když načtení selže, informační řádek OSD zobrazí jedno z těchto hlášení. Po kterémkoli z nich se stroj nespustí: jádro zůstane v resetu do dalšího načtení (nový pack, ROM nebo volba cartridge).
 
 | Hlášení | Význam |
 |---|---|

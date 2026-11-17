@@ -103,7 +103,7 @@ With SDRAM, a 32 MB module is enough. The largest machine (1chipMSX) needs about
 1chipMSX has an extra block: CPU speed (Normal / Turbo, F11 toggles), CPU type (Z80 / R800 – only the R800 multiply instructions), Slot1, Slot2, Internal Mapper (2048 / 4096 KB), Joysticks Swap, Reset after Mount.
 
 ### OSD error messages
-When a load fails, the OSD info line shows one of these. After **No CRC32 DB**, **Not find CRC32 in DB**, **SMALL MEMORY** and **ROM too big** the core stays in reset until the next load.
+When a load fails, the OSD info line shows one of these. After any of them the machine does not start: the core stays in reset until the next load (a new pack, ROM or cartridge selection).
 
 | Message | Meaning |
 |---|---|

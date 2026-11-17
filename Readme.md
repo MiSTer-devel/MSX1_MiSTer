@@ -231,6 +231,13 @@ The core integrates with MiSTerFPGA and supports the following features provided
 - No per-source volume or mute in the OSD, SCC+ deform bits 0/1 missing, no V9990.
 
 ## Acknowledgements
+Many thanks to the MSX community on Discord for testing on real hardware, for bug reports and for
+advice; much of this core would not work as well without it. Special thanks go to:
+- **Vampier** – for the [romdb.vampier.net](https://romdb.vampier.net/) ROM database the mapper
+  database `vampier.db` is built from, and for testing and advice.
+- **wark91** – for testing and advice.
+
+Projects this core builds on or was checked against:
 - [MSX_MiSTer](https://github.com/MiSTer-devel/MSX_MiSTer) by Sorgelig – the MiSTer port of KdL's OCM-PLD and the inspiration for this core. The 1chipMSX machine was converted from it: the IPL ROM, the system I/O ports and CPU speed logic, the ESE-RAM with the MegaSD, the MegaSCC/MegaRAM and the PS/2 mouse.
 - [OCM-PLD](https://github.com/gnogni/ocm-pld-dev) by KdL and the ESE Artists' Factory (Kazuhiro Tsujikawa), with the ESE-VDP by Kunihiko Ohnaka – the origin of the T80 CPU (rewritten to SystemVerilog), the V99x8 VDP, the SCC and the MegaSD/MegaRAM code.
 - [muhanpong/MSX1_MiSTer](https://github.com/muhanpong/MSX1_MiSTer) (branch `nextz80_v9990`) – a fork of this core. Its bug analyses and reports from real hardware pointed out faults in the flash emulation and the pitfalls of the ASCII16-X mapper and the MoonSound. No code was taken from it; the implementations here are independent.

@@ -231,6 +231,13 @@ Jádro se integruje s MiSTerFPGA a podporuje tyto funkce platformy:
 - Žádná hlasitost ani ztlumení po zdrojích v OSD, chybí deform bity 0/1 SCC+, žádné V9990.
 
 ## Poděkování
+Velký dík patří komunitě MSX na Discordu za testování na skutečném hardware, hlášení chyb a rady;
+bez ní by toto jádro zdaleka nefungovalo tak dobře. Zvláštní poděkování:
+- **Vampier** – za databázi ROM [romdb.vampier.net](https://romdb.vampier.net/), ze které vzniká
+  databáze mapperů `vampier.db`, a za testování a rady.
+- **wark91** – za testování a rady.
+
+Projekty, na kterých jádro staví nebo podle kterých bylo ověřováno:
 - [MSX_MiSTer](https://github.com/MiSTer-devel/MSX_MiSTer) od Sorgeliga – port OCM-PLD od KdL na MiSTer a inspirace pro toto jádro. Stroj 1chipMSX byl převeden z něj: IPL ROM, systémové I/O porty a řízení rychlosti CPU, ESE-RAM s MegaSD, MegaSCC/MegaRAM a myš PS/2.
 - [OCM-PLD](https://github.com/gnogni/ocm-pld-dev) od KdL a ESE Artists' Factory (Kazuhiro Tsujikawa) s ESE-VDP od Kunihiko Ohnaky – původ CPU T80 (přepsaného do SystemVerilogu), VDP V99x8, SCC a kódu MegaSD/MegaRAM.
 - [muhanpong/MSX1_MiSTer](https://github.com/muhanpong/MSX1_MiSTer) (větev `nextz80_v9990`) – fork tohoto jádra. Jeho analýzy chyb a hlášení ze skutečného hardware upozornily na chyby v emulaci flash a na úskalí mapperu ASCII16-X a MoonSound. Žádný kód z něj nebyl převzat; zdejší implementace jsou nezávislé.

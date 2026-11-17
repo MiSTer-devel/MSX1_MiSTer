@@ -9,6 +9,11 @@ the HDL sources are kept.
 | `ikaopll` | https://github.com/ika-musume/IKAOPLL | `4d393238d1be33ea428a454956270504f037dfa3` | `LICENSE`, `README.md`, `src/` |
 | `jt49` | https://github.com/jotego/jt49 | unknown | `LICENSE`, `README.md`, `hdl/`, `syn/quartus/jt49.qip` |
 
+## Local changes
+
+- `jt51/hdl/jt51.v`, `jt51/hdl/jt51_timers.v`: input `ym2164`, timer B prescaler 32 instead
+  of 16 for the YM2164 (OPP). Marked in the file headers.
+
 ## Updating
 
 1. Take the local changes as a patch: `git diff <import commit> HEAD -- <directory>`, where the

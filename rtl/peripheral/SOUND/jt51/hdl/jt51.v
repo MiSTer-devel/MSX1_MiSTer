@@ -16,6 +16,8 @@
     Author: Jose Tejada Gomez. Twitter: @topapate
     Version: 1.0
     Date: 27-10-2016
+
+    Modified 2026-11-12 for MSX1_MiSTer (Molekula): input ym2164 for the timers.
     */
 
 `ifdef VERILATOR_KEEP_JT51
@@ -30,6 +32,7 @@ module jt51(
     input               wr_n,   // write
     input               a0,
     input       [7:0]   din, // data in
+    input               ym2164, // YM2164 (OPP): timer B counts at half the YM2151 rate
     output      [7:0]   dout, // data out
     // peripheral control
     output              ct1,
@@ -55,6 +58,7 @@ wire        zero, half;
 wire [4:0]  cycles;
 
 jt51_timers u_timers(
+    .ym2164     ( ym2164        ),
     .clk        ( clk           ),
     .cen        ( cen_p1        ),
     .rst        ( rst           ),

@@ -16,6 +16,9 @@
     Author: Jose Tejada Gomez. Twitter: @topapate
     Version: 1.0
     Date: 27-10-2016
+
+    Modified 2026-11-12 for MSX1_MiSTer (Molekula): input ym2164, timer B
+    prescaler 32 instead of 16 for the YM2164 (OPP).
     */
 
 module jt51_timers(
@@ -23,6 +26,7 @@ module jt51_timers(
     input         clk,
     input         cen,
     input         zero,
+    input         ym2164,   // YM2164 (OPP): timer B prescaler 32 instead of 16
     input [9:0]   value_A,
     input [7:0]   value_B,
     input         load_A,
@@ -40,6 +44,7 @@ module jt51_timers(
 assign irq_n = ~(flag_A | flag_B);
 
 jt51_timer #(.CW(10)) timer_A(
+    .free5      ( 1'b0      ),
     .rst        ( rst       ),
     .clk        ( clk       ),
     .cen        ( cen       ),
@@ -53,6 +58,7 @@ jt51_timer #(.CW(10)) timer_A(
 );
 
 jt51_timer #(.CW(8),.FREE_EN(1)) timer_B(
+    .free5      ( ym2164        ),
     .rst        ( rst           ),
     .clk        ( clk           ),
     .cen        ( cen           ),
@@ -75,6 +81,7 @@ module jt51_timer #(parameter
     input   clk,
     input   cen,
     input   zero,
+    input   free5,      // FREE_EN: count every 32 instead of 16
     input   [CW-1:0] start_value,
     input   load,
     input   clr_flag,
@@ -85,7 +92,7 @@ module jt51_timer #(parameter
 
 reg          last_load;
 reg [CW-1:0] cnt, next;
-reg [   3:0] free_cnt, free_next;
+reg [   4:0] free_cnt, free_next;
 reg          free_ov;
 reg          cnt_ov;
 
@@ -101,7 +108,8 @@ always@(posedge clk, posedge rst)
     end
 
 always @(*) begin
-    {free_ov, free_next} = { 1'b0, free_cnt} + 1'b1;
+    free_next = free_cnt + 1'b1;
+    free_ov   = free5 ? &free_cnt : &free_cnt[3:0];
     /* verilator lint_off WIDTH */
     {cnt_ov, next }      = { 1'b0, cnt }     + (FREE_EN ? free_ov : 1'b1);
     /* verilator lint_on WIDTH */
@@ -118,7 +126,7 @@ end
 // Free running counter
 always @(posedge clk) begin
     if( rst ) begin
-        free_cnt <= 4'd0;
+        free_cnt <= 5'd0;
     end else if( cen&&zero ) begin
         free_cnt <= free_next;
     end

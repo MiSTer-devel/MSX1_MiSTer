@@ -21,7 +21,7 @@ import os, re, subprocess, sys
 root, tmp = sys.argv[1], sys.argv[2]
 
 def from_git(p):
-    # a file missing in the working tree (e.g. broken submodule checkout) is taken from HEAD
+    # a file missing in the working tree (deleted locally) is taken from HEAD
     repo = os.path.dirname(p)
     while not os.path.exists(os.path.join(repo, '.git')): repo = os.path.dirname(repo)
     rel = os.path.relpath(p, repo)

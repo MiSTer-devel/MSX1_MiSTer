@@ -118,7 +118,8 @@ module msx_slots (
     wire       cart_num   = active_block.cart_num;
 
     assign block_info.typ        = active_block.mapper;
-    assign block_info.device_ref = active_block.device_ref;
+    // FFFF hides devices too: a page 3 FDC mirror (NMS 8250) would win over the subslot register
+    assign block_info.device_ref = subslot_cs ? '0 : active_block.device_ref;
     assign block_info.base_ram   = active_RAM.addr;
 
     wire [26:0] base_ram   = active_RAM.addr;

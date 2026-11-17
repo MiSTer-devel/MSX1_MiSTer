@@ -1,0 +1,24 @@
+VDP CMD Timings v1.0. Area pixel amount handled in one frame (60 Hz detected)   
+--------------------------------------------------------------------------------
+                NORMAL   |    NO SPR   |    NO SCR   | NORMAL +CPU | NO SCR +CPU
+#  OPERATION  THIS  REAL |  THIS  REAL |  THIS  REAL |  THIS  REAL |  THIS  REAL
+--------------------------------------------------------------------------------
+ 1 Copy HMMM  2859  2859 |  3708  3708 |  3911  3911 |  1997  1943 |  3871  3858
+ 2 Copy LMMM  2000  2001 |  2708  2709 |  2746  2746 |  1347  1327 |  2744  2744
+ 3 Copy YMMM  3360  3360 |  5252  5252 |  5475  5475 |  2310  2252 |  5098  5019
+ 4 Fill HMMV  5810  5811 |  6023  6024 |  7281  7281 |  3739  3656 |  6997  7018
+ 5 Fill LMMV  2802  2803 |  3023  3024 |  3655  3655 |  1880  1843 |  3494  3460
+ 6 Copy HMMM  2844  2844 |  3678  3678 |  3831  3831 |  1977  1952 |  3800  3809
+ 7 Copy LMMM  1990  1990 |  2687  2689 |  2731  2732 |  1338  1316 |  2714  2716
+ 8 Copy YMMM  3320  3322 |  5109  5111 |  5362  5362 |  2277  2226 |  5006  4948
+ 9 Fill HMMV  5664  5664 |  5886  5886 |  6980  6980 |  3680  3596 |  6840  6879
+10 Fill LMMV  2748  2749 |  3013  3014 |  3600  3600 |  1860  1803 |  3447  3449
+--------------------------------------------------------------------------------
+First halt of tests is landscape shapes. Second half is portrait shapes.        
+Testing does not differenciate between VBLANK or not. Hammering is WRITING.     
+SPACE: run again                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                

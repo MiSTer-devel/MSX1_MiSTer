@@ -22,6 +22,7 @@ sh tools/vdpcmd/build.sh
 | `vdpcmd.asm` | loader and MSX-DOS environment |
 | `upstream/vdpcmd.com` | the original program (bengalack/vdpcmd, commit `ddcc203`) |
 | `upstream/LICENSE` | license of the original (MIT) |
+| `screen.tcl`, `trace.tcl`, `mkdata.py` | result and trace from openMSX for the VDP testbench |
 
 The assembler is `pasmo.exe` from `tools/vdptest`. The ROM starts without an entry in the
 mapper database (`AB` header at offset 0, see [vdptest](../vdptest/README.md)).
@@ -67,3 +68,15 @@ The ROM sets this up:
 
 The tests themselves (each between two frame interrupts) call none of this, so the timing is the
 same as under DOS.
+
+## VDP testbench
+
+`rtl/peripheral/VIDEO/VDP/tb/run_vdp_vdpcmd.sh gt|nms` runs the same 50 tests in the VDP alone
+and compares them with openMSX. It writes port 98h, the command start and the abort at the same
+cycles after the frame interrupt as openMSX. The data come from:
+
+```
+TRACE_OUT=trace.txt TEND=22 openmsx -machine Panasonic_FS-A1GT -cart vdpcmd.rom -script trace.tcl
+python mkdata.py trace.txt 358416 vdpcmd_gt.txt          (NTSC; PAL: 428184)
+OUTTXT=vdpcmd_gt_openmsx.txt TEND=25 openmsx -machine Panasonic_FS-A1GT -cart vdpcmd.rom -script screen.tcl
+```

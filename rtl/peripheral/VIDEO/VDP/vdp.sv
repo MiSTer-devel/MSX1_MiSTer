@@ -321,6 +321,8 @@ logic WINDOW_X;
 logic PREWINDOW_X;
 logic PREWINDOW_Y;
 logic PREWINDOW_Y_SP;
+logic SLOTAREA;
+logic VDPCMDSTART;
 logic PREWINDOW;
 logic PREWINDOW_SP;
 
@@ -586,6 +588,7 @@ VDP_SSG U_SSG (
     .PREDOTCOUNTER_YP       (PREDOTCOUNTER_YP),
     .PREWINDOW_Y            (PREWINDOW_Y),
     .PREWINDOW_Y_SP         (PREWINDOW_Y_SP),
+    .SLOTAREA               (SLOTAREA),
     .FIELD                  (FIELD),
     .WINDOW_X               (WINDOW_X),
     .OWINDOW_X              (OWINDOW_X),
@@ -1256,6 +1259,7 @@ VDP_COMMAND U_VDP_COMMAND (
     .CUR_VDP_COMMAND     (CUR_VDP_COMMAND),
     .PROWSTEP            (VDPCMDROWSTEP),
     .PMINORSTEP          (VDPCMDMINORSTEP),
+    .PSTART              (VDPCMDSTART),
     .REG_R25_CMD         (REG_R25_CMD)
 );
 
@@ -1265,16 +1269,20 @@ VDP_ACCESS_SLOTS U_VDP_ACCESS_SLOTS (
     .CLK21M              (CLK21M),
 
     .H_CNT               (H_CNT),
-    .DISP_LINE           (PREWINDOW_Y & REG_R1_DISP_ON),
+    .SLOT_AREA           (SLOTAREA),
+    .DISP_ON             (REG_R1_DISP_ON),
     .SPRITES             (~REG_R8_SP_OFF),
     .BITMAP              (VDPMODEGRAPHIC4 | VDPMODEGRAPHIC5 | VDPMODEGRAPHIC6 | VDPMODEGRAPHIC7),
     .TEXT                (TEXT_MODE),
 
     .VDP_COMMAND         (CUR_VDP_COMMAND),
     .CE                  (VDPCMDCE),
+    .START               (VDPCMDSTART),
     .XFER                (VDP_CMD_XFER),
     .ROWSTEP             (VDPCMDROWSTEP),
     .MINORSTEP           (VDPCMDMINORSTEP),
+    .CPU_WR_REQ          (VDPVRAMWRREQ),
+    .CPU_RD_REQ          (VDPVRAMRDREQ),
 
     .VDPSPEEDMODE        (VDPSPEEDMODE),
     .ACTIVE              (VDP_COMMAND_ACTIVE)

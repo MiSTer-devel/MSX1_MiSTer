@@ -73,6 +73,7 @@ module VDP_SSG (
     output logic [8:0] PREDOTCOUNTER_YP,
     output logic PREWINDOW_Y,
     output logic PREWINDOW_Y_SP,
+    output logic SLOTAREA,              // display access grid of the command engine (openMSX)
     output logic FIELD,
     output logic WINDOW_X,
     output logic OWINDOW_X,             // output window without the border, fixed on the screen
@@ -352,6 +353,18 @@ always_ff @(posedge CLK21M or posedge RESET) begin
     end else if (W_H_CNT == LEFT_BORDER_OUT) begin
         FF_VR <= !(FF_MONITOR_LINE == 9'h1FE || FF_MONITOR_LINE == 9'h1FF ||
                    (!FF_MONITOR_LINE[8] && FF_MONITOR_LINE[7:0] < (REG_R9_Y_DOTS ? 8'd211 : 8'd191)));
+    end
+end
+
+// Access grid of the display (openMSX isSlotTableDisplayEnabled): from cycle 162 of the
+// line before the display to cycle 162 of the line after it, i.e. where VR is 0 but switched
+// 40 cycles earlier (tick 162 = H_CNT 161).
+always_ff @(posedge CLK21M or posedge RESET) begin
+    if (RESET) begin
+        SLOTAREA <= 1'b0;
+    end else if (W_H_CNT == 11'd160) begin
+        SLOTAREA <= FF_MONITOR_LINE == 9'h1FE || FF_MONITOR_LINE == 9'h1FF ||
+                    (!FF_MONITOR_LINE[8] && FF_MONITOR_LINE[7:0] < (REG_R9_Y_DOTS ? 8'd211 : 8'd191));
     end
 end
 

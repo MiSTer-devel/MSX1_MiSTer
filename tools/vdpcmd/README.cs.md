@@ -21,6 +21,7 @@ sh tools/vdpcmd/build.sh
 | `vdpcmd.asm` | zavaděč a náhrada prostředí MSX-DOS |
 | `upstream/vdpcmd.com` | originální program (bengalack/vdpcmd, commit `ddcc203`) |
 | `upstream/LICENSE` | licence originálu (MIT) |
+| `screen.tcl`, `trace.tcl`, `mkdata.py` | výsledek a trasa z openMSX pro testbench VDP |
 
 Assembler je `pasmo.exe` z `tools/vdptest`. ROM se spustí bez záznamu v databázi mapperů
 (hlavička `AB` na offsetu 0, viz [vdptest](../vdptest/README.cs.md)).
@@ -64,3 +65,15 @@ ROM to připraví takto:
 
 Vlastní testy (každý mezi dvěma přerušeními snímku) nic z toho nevolají, takže časování je
 stejné jako pod DOSem.
+
+## Testbench VDP
+
+`rtl/peripheral/VIDEO/VDP/tb/run_vdp_vdpcmd.sh gt|nms` projde stejných 50 testů v samotném VDP
+a porovná je s výsledkem openMSX. Port 98h, start a ukončení příkazu zapisuje v týchž taktech
+po přerušení snímku jako openMSX. Data připraví:
+
+```
+TRACE_OUT=trace.txt TEND=22 openmsx -machine Panasonic_FS-A1GT -cart vdpcmd.rom -script trace.tcl
+python mkdata.py trace.txt 358416 vdpcmd_gt.txt          (NTSC; PAL: 428184)
+OUTTXT=vdpcmd_gt_openmsx.txt TEND=25 openmsx -machine Panasonic_FS-A1GT -cart vdpcmd.rom -script screen.tcl
+```

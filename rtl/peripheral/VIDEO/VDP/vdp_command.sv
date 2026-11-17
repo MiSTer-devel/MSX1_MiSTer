@@ -89,6 +89,7 @@ module VDP_COMMAND (
     output logic [7:4]      CUR_VDP_COMMAND,
     output logic            PROWSTEP,     // pulse: block command went to the next row
     output logic            PMINORSTEP,   // pulse: LINE stepped its minor axis
+    output logic            PSTART,       // pulse: a command starts (R#46 written)
     input  logic            REG_R25_CMD
 );
 
@@ -202,9 +203,11 @@ module VDP_COMMAND (
             VRAMACCESSADDR <= '0;
             PROWSTEP <= 1'b0;
             PMINORSTEP <= 1'b0;
+            PSTART <= 1'b0;
         end else begin
             PROWSTEP <= 1'b0;
             PMINORSTEP <= 1'b0;
+            PSTART <= 1'b0;
         
             GRAPHIC4_OR_6 = (VDPMODEGRAPHIC4 == 1'b1 || VDPMODEGRAPHIC6 == 1'b1);
         
@@ -361,6 +364,7 @@ module VDP_COMMAND (
                         // EXEC NEW VDP COMMAND
                         CMRWR <= 1'b0;
                         CE <= 1'b1;
+                        PSTART <= 1'b1;
                         BD <= 1'b0;
                         if (CMR[7:4] == LINE) begin
                             // LINE COMMAND REQUIRES SPECIAL SXTMP AND NXTMP SET-UP

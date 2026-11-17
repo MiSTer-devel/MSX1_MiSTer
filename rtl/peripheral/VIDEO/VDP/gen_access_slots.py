@@ -12,7 +12,7 @@ import sys
 
 src = open(sys.argv[1], encoding='utf-8').read()
 NAMES = [('ScreenOff', 'SLOT_OFF'), ('SpritesOn', 'SLOT_SPON'), ('SpritesOff', 'SLOT_SPOFF'),
-         ('CharSpritesOn', 'SLOT_CSPON'), ('CharSpritesOff', 'SLOT_CSPOFF'), ('Text', 'SLOT_TEXT')]
+         ('Char', 'SLOT_CHAR'), ('Text', 'SLOT_TEXT')]
 out = ['    // BEGIN slot tables: gen_access_slots.py from openMSX VDPAccessSlots.cc, do not edit.',
        '    // Bit n = an access slot at line cycle 2n (openMSX cycle numbering).']
 for name, sv in NAMES:

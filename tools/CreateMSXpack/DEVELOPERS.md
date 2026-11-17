@@ -330,7 +330,7 @@ The OSD item value is converted to `cart_typ_t` in `rtl/msx_config.sv`, and the 
 - At 0x10: 256 x uint32 LE file offset of configuration N (N = FW ID). Unused IDs point to an empty configuration (a single END record).
 - A configuration is a list of 6-byte records `type addr block_type p1 p2 p3`, ended by `07 00 00 00 00 00`. The slot bits of `addr` are 0, the core ORs in the cartridge slot.
 - The ROM table is a uint32 LE offset per distinct ROM (one entry per ROM block), followed by the ROM images padded with FF to 16 kB.
-- The name table follows the ROM images. It is for Main_MiSTer (`docs/MSX1/Configuration.txt`, section 9), not for the core: `'N' 'A' 'M' '1'`, then three lists, the mappers (`mapper.json`), the devices (`device.json`) and the FW configurations (`cart_device.json`, 256 entries). Each list is a uint16 LE count and that many NUL-terminated ASCII names, indexed by number; an unused number has an empty name.
+- The name table follows the ROM images. It is for Main_MiSTer (`docs/MSX/Configuration.txt`, section 9), not for the core: `'N' 'A' 'M' '1'`, then three lists, the mappers (`mapper.json`), the devices (`device.json`) and the FW configurations (`cart_device.json`, 256 entries). Each list is a uint16 LE count and that many NUL-terminated ASCII names, indexed by number; an unused number has an empty name.
 
 ## 6. Pitfalls
 
@@ -370,7 +370,7 @@ The full table of messages and OSD errors with their meaning is in the [README](
 
 ## 9. Configuration report (developer build)
 
-A developer build can show what the loader has built: after each load the core reports it, and Main_MiSTer writes `docs/MSX1/Configuration.txt`, opened in the system menu with **Help**. The file lists:
+A developer build can show what the loader has built: after each load the core reports it, and Main_MiSTer writes `docs/MSX/Configuration.txt`, opened in the system menu with **Help**. The file lists:
 
 - the loaded packs, the mapper database and the status (OK or the OSD error),
 - each cartridge slot: the configuration in use (e.g. `KONAMI_SCC`), whether it came from the mapper database, from the OSD or as a plain ROM, the ROM file and its CRC32,
@@ -378,7 +378,7 @@ A developer build can show what the loader has built: after each load the core r
 
 How to get it:
 
-- **Core:** enable `VERILOG_MACRO "MSX_CFG_REPORT=1"` in `MSX1.qsf`. A release build leaves it out; the report logic is then not in the FPGA.
+- **Core:** enable `VERILOG_MACRO "MSX_CFG_REPORT=1"` in `MSX.qsf`. A release build leaves it out; the report logic is then not in the FPGA.
 - **Main_MiSTer** with `support/msx/msx_cfg.cpp`. A Main without it ignores the report; a core without it gives Main nothing to show.
 - Names of mappers and devices come from the name table of the FW pack (section 5.2); without it the numbers are shown.
 - Help opens text files only with `fb_terminal=1` in `MiSTer.ini` (the default).

@@ -3,7 +3,7 @@
 // plain ROM, read linearly and placed by its MSX header (FW pack configurations 0x0000 /
 // 0x4000 / 0x8000); a ROM above 64 kB still needs the database. A database entry still wins.
 // Two ROMs with SRAM in slots A and B each get their own SRAM; blocks without SRAM see none (C9).
-// DDR3 as the HPS fills it: every file whole at its OSD address (CONF_STR of MSX1.sv, given by
+// DDR3 as the HPS fills it: every file whole at its OSD address (CONF_STR of MSX.sv, given by
 // run_cart_rom.sh), the later download wins where two overlap. A ROM A over 5 MB must not
 // destroy ROM B, a ROM over the area of its slot is refused (C8). Without an SDRAM module
 // (sdram_sz of the Menu core) memory above the BRAM stops the load with ERR_NO_MEMORY.

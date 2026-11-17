@@ -330,7 +330,7 @@ Hodnota položky OSD se převede na `cart_typ_t` v `rtl/msx_config.sv` a zavadě
 - Na 0x10: 256 x uint32 LE offset konfigurace N v souboru (N = FW ID). Nepoužitá ID míří na prázdnou konfiguraci (jediný záznam END).
 - Konfigurace je seznam 6bajtových záznamů `type addr block_type p1 p2 p3` zakončený `07 00 00 00 00 00`. Bity slotu v `addr` jsou 0, slot cartridge doplní jádro operací OR.
 - Tabulka ROM je uint32 LE offset pro každou odlišnou ROM (jeden záznam na blok ROM), následují obrazy ROM doplněné FF na 16 kB.
-- Za obrazy ROM následuje tabulka jmen. Je pro Main_MiSTer (`docs/MSX1/Configuration.txt`, oddíl 9), ne pro jádro: `'N' 'A' 'M' '1'`, pak tři seznamy, mappery (`mapper.json`), zařízení (`device.json`) a FW konfigurace (`cart_device.json`, 256 položek). Každý seznam je uint16 LE počet a tolik ASCII jmen zakončených NUL, indexovaných číslem; nepoužité číslo má prázdné jméno.
+- Za obrazy ROM následuje tabulka jmen. Je pro Main_MiSTer (`docs/MSX/Configuration.txt`, oddíl 9), ne pro jádro: `'N' 'A' 'M' '1'`, pak tři seznamy, mappery (`mapper.json`), zařízení (`device.json`) a FW konfigurace (`cart_device.json`, 256 položek). Každý seznam je uint16 LE počet a tolik ASCII jmen zakončených NUL, indexovaných číslem; nepoužité číslo má prázdné jméno.
 
 ## 6. Úskalí
 
@@ -370,7 +370,7 @@ Hodnota položky OSD se převede na `cart_typ_t` v `rtl/msx_config.sv` a zavadě
 
 ## 9. Zpráva o konfiguraci (vývojářské sestavení)
 
-Vývojářské sestavení umí ukázat, co zavaděč sestavil: po každém načtení to jádro ohlásí a Main_MiSTer zapíše `docs/MSX1/Configuration.txt`, který se otevře v systémovém menu položkou **Help**. Soubor obsahuje:
+Vývojářské sestavení umí ukázat, co zavaděč sestavil: po každém načtení to jádro ohlásí a Main_MiSTer zapíše `docs/MSX/Configuration.txt`, který se otevře v systémovém menu položkou **Help**. Soubor obsahuje:
 
 - načtené packy, databázi mapperů a stav (OK nebo chyba OSD),
 - každý slot cartridge: použitou konfiguraci (např. `KONAMI_SCC`), zda pochází z databáze mapperů, z OSD, nebo jde o prostou ROM, soubor ROM a jeho CRC32,
@@ -378,7 +378,7 @@ Vývojářské sestavení umí ukázat, co zavaděč sestavil: po každém načt
 
 Co je potřeba:
 
-- **Jádro:** zapnout `VERILOG_MACRO "MSX_CFG_REPORT=1"` v `MSX1.qsf`. Release sestavení ho nemá, logika zprávy pak ve FPGA není.
+- **Jádro:** zapnout `VERILOG_MACRO "MSX_CFG_REPORT=1"` v `MSX.qsf`. Release sestavení ho nemá, logika zprávy pak ve FPGA není.
 - **Main_MiSTer** se `support/msx/msx_cfg.cpp`. Main bez něj zprávu ignoruje; jádro bez makra Main nic k zobrazení nedá.
 - Jména mapperů a zařízení jsou z tabulky jmen ve FW packu (oddíl 5.2); bez ní se zobrazí čísla.
 - Help otevírá textové soubory jen s `fb_terminal=1` v `MiSTer.ini` (výchozí stav).

@@ -75,7 +75,7 @@ module sdram
 
 // ch1 is driven by clk_core combinational logic (CPU address decode, longer than one clk
 // period). It is sampled only on the 2nd clk edge after a clk_core edge, which makes
-// a 2-cycle multicycle constraint clk_core -> ch1 capture registers valid (MSX1.sdc).
+// a 2-cycle multicycle constraint clk_core -> ch1 capture registers valid (MSX.sdc).
 reg core_phase_1, core_phase_2;
 always @(posedge clk) begin
     core_phase_1 <= core_phase;
@@ -90,7 +90,7 @@ wire ch1_sample = core_phase_1 ^ core_phase_2;
 // be captured, so a CPU access never waits (also while the CPU speed changes). Without a CPU
 // clock every cycle is free.
 // (named ch1_*: both take clk_core signals at ch1_sample only, as the capture registers of
-// ch1 in MSX1.sdc)
+// ch1 in MSX.sdc)
 reg ch1_ph_free = 1'b0, ch1_lat_free = 1'b0;
 always @(posedge clk) ch1_ph_free  <= ch1_sample & ~cpu_phase_next;
 always @(posedge clk) ch1_lat_free <= ch1_sample & ch1_free;

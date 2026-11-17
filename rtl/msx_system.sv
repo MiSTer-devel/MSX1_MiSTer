@@ -16,7 +16,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // MSX system: computer, configuration upload, memories, cassette, floppy drives.
-// emu (MSX1.sv) only bridges it to the MiSTer framework: hps_io, PLL and clock
+// emu (MSX.sv) only bridges it to the MiSTer framework: hps_io, PLL and clock
 // enables, video output, SDRAM / DDR3 / SD card / ADC pins.
 module msx_system (
     clock_bus_if.base_mp        clock_bus,
@@ -251,7 +251,7 @@ memory_upload memory_upload(
 );
 
 // Result of each configuration run for the HPS (DDR3 at MSX::DDR3_INFO). Developer build only
-// (MSX1.qsf: MSX_CFG_REPORT); without it the captures in memory_upload are unused and removed.
+// (MSX.qsf: MSX_CFG_REPORT); without it the captures in memory_upload are unused and removed.
 `ifdef MSX_CFG_REPORT
 cfg_report cfg_report
 (

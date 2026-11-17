@@ -410,7 +410,7 @@ It always reads `Extension/` and writes to `MSX/`; only the ROM folder can be ch
 
 ## Copy to the SD card
 
-Copy to `/media/fat/games/MSX1/` on the MiSTer:
+Copy to `/media/fat/games/MSX/` on the MiSTer:
 
 - the contents of `MSX/` (vendor folders with `.msx` machine packs) and one of `CART_FW_EN.msx` / `CART_FW_JP.msx`,
 - `tools/CreateCRC/vampier.db` (the mapper database, see [../CreateCRC/README.md](../CreateCRC/README.md)).

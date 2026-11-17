@@ -1,4 +1,4 @@
-# MSX1/MSX2/MSX2+/turbo R for [MiSTer Board](https://github.com/MiSTer-devel/Main_MiSTer/wiki)
+# MSX (MSX1/MSX2/MSX2+/turbo R) for [MiSTer Board](https://github.com/MiSTer-devel/Main_MiSTer/wiki)
 
 **English** | [Česky](Readme.cs.md)
 
@@ -6,7 +6,7 @@
 > **WIP Notice**: This core is currently in **WIP (Work in Progress)** status. Some components are still under development and may include debug outputs or experimental features. Certain functionalities may not yet work 100% as intended. See [Known limitations](#known-limitations).
 
 ## Core Overview
-The core (its MiSTer name is still `MSX1`, hence the folder `games/MSX1`) is not a direct synthesis of a specific MSX computer model. Instead, it provides a **dynamically configurable hardware environment** that is built at run time from a selected definition (a *ROM PACK*). Each machine definition includes not only the hardware setup but also the corresponding **ROM binary content.** The core can run:
+The core (MiSTer name `MSX`, folder `games/MSX`) is not a direct synthesis of a specific MSX computer model. Instead, it provides a **dynamically configurable hardware environment** that is built at run time from a selected definition (a *ROM PACK*). Each machine definition includes not only the hardware setup but also the corresponding **ROM binary content.** The core can run:
 
 - **MSX1** machines (TMS9918 family VDP),
 - **MSX2** machines (Yamaha V9938, RTC, memory mapper),
@@ -34,7 +34,7 @@ The third configuration file is a **CRC32-based ROM database** (the *DB MAPPERS*
 Seven openMSX machines are not supported yet: six need hardware the core does not have, the Aucnet NIA-2001 only lacks its definition; they are listed at the end of the model list. The ROM dumps of the machines are not part of this repository; see [Getting started](#getting-started).
 
 ## Getting Started
-The core needs **at least a machine pack** (ROM PACK). Everything else depends on what you want to run. Put the files on the MiSTer SD card into `/media/fat/games/MSX1/`:
+The core needs **at least a machine pack** (ROM PACK). Everything else depends on what you want to run. Put the files on the MiSTer SD card into `/media/fat/games/MSX/`:
 
 | File | Needed? | Notes |
 |---|---|---|
@@ -45,6 +45,8 @@ The core needs **at least a machine pack** (ROM PACK). Everything else depends o
 | SD card image `.VHD` | 1chipMSX: yes | FAT16 **with a partition table** and `OCM-BIOS.DAT` as the first file. Optional for the MegaFlashROM SCC+ SD cartridge. |
 
 Then load the packs in the OSD (**Load ROM PACK**, **Load FW PACK**, **Load DB MAPPERS**). MiSTer **remembers these three files and loads them again automatically at the next core start**; ROM cartridges, disks and tapes are not remembered. Every load rebuilds the whole machine.
+
+Coming from the core under its former name `MSX1`: move `games/MSX1` to `games/MSX` and `saves/MSX1` to `saves/MSX`, then load the three packs once more. The OSD settings start from their defaults.
 
 How to build the packs and the database:
 - [Tools overview](tools/README.md)

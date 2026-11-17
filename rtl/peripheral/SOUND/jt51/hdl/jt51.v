@@ -17,7 +17,7 @@
     Version: 1.0
     Date: 27-10-2016
 
-    Modified 2026-11-12 for MSX1_MiSTer (Molekula): input ym2164 for the timers.
+    Modified 2026-11-12 for MSX_MiSTer (Molekula): input ym2164 for the timers.
     */
 
 `ifdef VERILATOR_KEEP_JT51

@@ -1,4 +1,4 @@
-# MSX1/MSX2/MSX2+/turbo R pro [MiSTer Board](https://github.com/MiSTer-devel/Main_MiSTer/wiki)
+# MSX (MSX1/MSX2/MSX2+/turbo R) pro [MiSTer Board](https://github.com/MiSTer-devel/Main_MiSTer/wiki)
 
 [English](Readme.md) | **Česky**
 
@@ -6,7 +6,7 @@
 > **Upozornění (WIP)**: Toto jádro je ve vývoji (**Work in Progress**). Některé součásti jsou rozpracované a mohou obsahovat ladicí výstupy nebo experimentální funkce. Některé funkce zatím nemusí fungovat stoprocentně. Viz [Známá omezení](#známá-omezení).
 
 ## Přehled jádra
-Jádro (na MiSTeru se stále jmenuje `MSX1`, proto složka `games/MSX1`) není přímou syntézou konkrétního počítače MSX. Poskytuje **dynamicky konfigurovatelné hardwarové prostředí**, které se za běhu sestaví z vybrané definice (*ROM PACK*). Každá definice stroje obsahuje nejen zapojení hardware, ale i příslušný **obsah ROM.** Jádro umí spustit:
+Jádro (na MiSTeru `MSX`, složka `games/MSX`) není přímou syntézou konkrétního počítače MSX. Poskytuje **dynamicky konfigurovatelné hardwarové prostředí**, které se za běhu sestaví z vybrané definice (*ROM PACK*). Každá definice stroje obsahuje nejen zapojení hardware, ale i příslušný **obsah ROM.** Jádro umí spustit:
 
 - stroje **MSX1** (VDP řady TMS9918),
 - stroje **MSX2** (Yamaha V9938, RTC, paměťový mapper),
@@ -34,7 +34,7 @@ Třetím konfiguračním souborem je **databáze ROM podle CRC32** (*DB MAPPERS*
 Sedm strojů z openMSX zatím podporováno není: šest potřebuje hardware, který jádro nemá, Aucnet NIA-2001 jen nemá definici; jsou vypsané na konci seznamu modelů. Obrazy ROM strojů nejsou součástí tohoto repozitáře, viz [Začínáme](#začínáme).
 
 ## Začínáme
-Jádro potřebuje **alespoň balíček stroje** (ROM PACK). Zbytek závisí na tom, co chcete spustit. Soubory dejte na SD kartu MiSTeru do `/media/fat/games/MSX1/`:
+Jádro potřebuje **alespoň balíček stroje** (ROM PACK). Zbytek závisí na tom, co chcete spustit. Soubory dejte na SD kartu MiSTeru do `/media/fat/games/MSX/`:
 
 | Soubor | Potřeba? | Poznámky |
 |---|---|---|
@@ -45,6 +45,8 @@ Jádro potřebuje **alespoň balíček stroje** (ROM PACK). Zbytek závisí na t
 | Obraz SD karty `.VHD` | 1chipMSX: ano | FAT16 **s tabulkou oddílů** a `OCM-BIOS.DAT` jako prvním souborem. Volitelný pro cartridge MegaFlashROM SCC+ SD. |
 
 Balíčky pak načtěte v OSD (**Load ROM PACK**, **Load FW PACK**, **Load DB MAPPERS**). MiSTer si tyto tři soubory **pamatuje a při příštím startu jádra je načte automaticky**; ROM cartridge, disky a pásky si nepamatuje. Každé načtení znovu sestaví celý stroj.
+
+Přechod z jádra pod dřívějším jménem `MSX1`: přesuňte `games/MSX1` do `games/MSX` a `saves/MSX1` do `saves/MSX` a tři balíčky načtěte ještě jednou. Nastavení v OSD začíná na výchozích hodnotách.
 
 Jak balíčky a databázi vytvořit:
 - [Přehled nástrojů](tools/README.cs.md)

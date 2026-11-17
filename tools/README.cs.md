@@ -16,7 +16,7 @@ Pomocné nástroje jádra MSX pro MiSTer. Zpět na [hlavní Readme](../Readme.md
 
 ## Rychlý start pro uživatele
 
-Na SD kartu do `/media/fat/games/MSX1/` zkopíruj tyto soubory:
+Na SD kartu do `/media/fat/games/MSX/` zkopíruj tyto soubory:
 
 | Soubor | Povinný? | Vyrobí | Položka OSD |
 |---|---|---|---|
@@ -31,7 +31,7 @@ Postup:
 3. V `tools/CreateMSXpack` spusť `python createComp.py` a `python createDev.py`; balíčky vzniknou
    v `MSX/`. Podrobnosti a význam hlášek na konzoli jsou v
    [README CreateMSXpack](CreateMSXpack/README.cs.md).
-4. Obsah `MSX/` a `tools/CreateCRC/vampier.db` zkopíruj do `/media/fat/games/MSX1/`.
+4. Obsah `MSX/` a `tools/CreateCRC/vampier.db` zkopíruj do `/media/fat/games/MSX/`.
 5. V OSD nahraj FW pack, databázi (nepovinně) a balíček stroje.
 
 ROM her (`*.rom`) se nahrávají přímo z SD karty v OSD (slot 1/slot 2 = ROM); žádný nástroj je

@@ -8,7 +8,7 @@
 #   NOSZ=1: memory_upload without the sdram_sz port (with OLD or ALT before the memory check)
 #   EXTRA="+realrom=<file> +realdb=<vampier.db>": report how a real ROM is found and mapped
 #   DDRAM=<file>: alternative ddram.sv; EXTRA="+busy": DDR3 randomly busy
-#   TOP=<git rev>: OSD load addresses from MSX1.sv of that revision (default: working tree)
+#   TOP=<git rev>: OSD load addresses from MSX.sv (MSX1.sv before the rename) of that revision (default: working tree)
 #   EXTRA="+pack2=<Panasonic_FS-A1ST.msx>": machine pack with an SRAM block (lookup_SRAM 3)
 set -e
 PACK=$(realpath "$1"); FW=$(realpath "$2")
@@ -18,8 +18,9 @@ DDR=$(realpath "${DDRAM:-$(dirname "$0")/../peripheral/ddram.sv}")
 cd "$(dirname "$0")"
 OUT=$(mktemp -d)
 # DDR3 load addresses of the OSD files (CONF_STR), offset from 0x30000000
-if [ -n "$TOP" ]; then git -C .. show "$TOP:MSX1.sv" > "$OUT/MSX1.sv"; else cp ../../MSX1.sv "$OUT/MSX1.sv"; fi
-osd_addr() { sed -n "s/.*$1,3\([0-9A-Fa-f]\{7\}\);.*/\1/p" "$OUT/MSX1.sv" | head -1; }
+if [ -n "$TOP" ]; then git -C .. show "$TOP:MSX.sv" > "$OUT/MSX.sv" 2>/dev/null || git -C .. show "$TOP:MSX1.sv" > "$OUT/MSX.sv"
+else cp ../../MSX.sv "$OUT/MSX.sv"; fi
+osd_addr() { sed -n "s/.*$1,3\([0-9A-Fa-f]\{7\}\);.*/\1/p" "$OUT/MSX.sv" | head -1; }
 ADDRS="+fwaddr=$(osd_addr 'FC2,MSX,Load FW  PACK') +rom_a=$(osd_addr 'FS3,ROM,Load') +rom_b=$(osd_addr 'F4,ROM,Load') +db=$(osd_addr 'FC6,DB,Load DB MAPPERS')"
 echo "$ADDRS" | grep -qE 'fwaddr=[0-9A-Fa-f]{7} .*rom_a=[0-9A-Fa-f]{7} .*rom_b=[0-9A-Fa-f]{7} .*db=[0-9A-Fa-f]{7}' || { echo "OSD addresses not found: $ADDRS"; exit 1; }
 MU=${ALT:-../memory_upload.sv}

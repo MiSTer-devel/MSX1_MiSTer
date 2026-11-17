@@ -17,7 +17,7 @@
     Version: 1.0
     Date: 27-10-2016
 
-    Modified 2026-11-12 for MSX1_MiSTer (Molekula): input ym2164, timer B
+    Modified 2026-11-12 for MSX_MiSTer (Molekula): input ym2164, timer B
     prescaler 32 instead of 16 for the YM2164 (OPP).
     */
 

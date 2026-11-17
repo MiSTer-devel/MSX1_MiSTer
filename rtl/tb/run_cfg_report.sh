@@ -8,7 +8,7 @@ PACK=$(realpath "$1"); FW=$(realpath "$2")
 cd "$(dirname "$0")"
 OUT=$(mktemp -d)
 # DDR3 load addresses of the OSD files (CONF_STR), offset from 0x30000000
-osd_addr() { sed -n "s/.*$1,3\([0-9A-Fa-f]\{7\}\);.*/\1/p" ../../MSX1.sv | head -1; }
+osd_addr() { sed -n "s/.*$1,3\([0-9A-Fa-f]\{7\}\);.*/\1/p" ../../MSX.sv | head -1; }
 ADDRS="+fwaddr=$(osd_addr 'FC2,MSX,Load FW  PACK') +rom_a=$(osd_addr 'FS3,ROM,Load') +rom_b=$(osd_addr 'F4,ROM,Load') +db=$(osd_addr 'FC6,DB,Load DB MAPPERS')"
 echo "$ADDRS" | grep -qE 'fwaddr=[0-9A-Fa-f]{7} .*rom_a=[0-9A-Fa-f]{7} .*rom_b=[0-9A-Fa-f]{7} .*db=[0-9A-Fa-f]{7}' || { echo "OSD addresses not found: $ADDRS"; exit 1; }
 verilator --binary --timing -O3 -Wno-fatal -Wno-lint -Wno-style \

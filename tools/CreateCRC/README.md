@@ -19,7 +19,7 @@ Without a database:
 ## Do I need to build it?
 
 **No, as a user you do not.** The repository contains a ready-made `vampier.db`; copy it to the SD
-card (`/media/fat/games/MSX1/`) and load it with Load DB MAPPERS.
+card (`/media/fat/games/MSX/`) and load it with Load DB MAPPERS.
 
 Rebuild it when the online database has new ROMs, when you want to change the mapper of a ROM, or
 after a new mapper was added to the core.

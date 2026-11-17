@@ -19,7 +19,7 @@ Bez databáze:
 ## Musím ji vyrábět?
 
 **Ne, jako uživatel ne.** V repozitáři je hotový `vampier.db`; zkopíruj ho na SD kartu
-(`/media/fat/games/MSX1/`) a nahraj přes Load DB MAPPERS.
+(`/media/fat/games/MSX/`) a nahraj přes Load DB MAPPERS.
 
 Znovu ji vyrob, když online databáze obsahuje nové ROM, když chceš změnit mapper některé ROM, nebo
 po přidání nového mapperu do jádra.

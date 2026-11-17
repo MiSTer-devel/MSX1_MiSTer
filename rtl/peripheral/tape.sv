@@ -1,5 +1,5 @@
 //============================================================================
-//  MSX1 CAS Player
+//  MSX CAS Player
 //  Copyright (C) 2022 molekula
 //
 //  This program is free software; you can redistribute it and/or modify it

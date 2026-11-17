@@ -100,7 +100,7 @@ reset_sync rst_sync_sdram (.clk(clk_sdram), .arst(~locked_sdram),          .rst(
 // (the OSD is redrawn when the mask changes)
 `include "build_id.v"
 localparam CONF_STR = {
-   "MSX1;UART115200,MIDI;",
+   "MSX;UART115200,MIDI;",
    "-;",
    // load addresses = MSX::DDR3_* (package.sv)
    "FC1,MSX,Load ROM PACK,30000000;",

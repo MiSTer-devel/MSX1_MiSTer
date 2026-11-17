@@ -16,7 +16,7 @@ Helper tools of the MSX core for MiSTer. Back to the [main Readme](../Readme.md)
 
 ## Quick start for users
 
-Copy these files to the SD card into `/media/fat/games/MSX1/`:
+Copy these files to the SD card into `/media/fat/games/MSX/`:
 
 | File | Required? | Made by | OSD item |
 |---|---|---|---|
@@ -31,7 +31,7 @@ Steps:
 3. In `tools/CreateMSXpack` run `python createComp.py` and `python createDev.py`; the packs appear
    in `MSX/`. Details and the meaning of the console messages are in the
    [CreateMSXpack README](CreateMSXpack/README.md).
-4. Copy the contents of `MSX/` and `tools/CreateCRC/vampier.db` to `/media/fat/games/MSX1/`.
+4. Copy the contents of `MSX/` and `tools/CreateCRC/vampier.db` to `/media/fat/games/MSX/`.
 5. In the OSD load the FW pack, the database (optional) and the machine pack.
 
 Game ROMs (`*.rom`) are loaded straight from the SD card in the OSD (slot 1/slot 2 = ROM); they

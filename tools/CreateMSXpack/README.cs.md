@@ -410,7 +410,7 @@ Vždy čte `Extension/` a zapisuje do `MSX/`, měnit jde jen složka s ROM. Neex
 
 ## Kopírování na SD kartu
 
-Na MiSTeru kopírujte do `/media/fat/games/MSX1/`:
+Na MiSTeru kopírujte do `/media/fat/games/MSX/`:
 
 - obsah `MSX/` (složky výrobců s packy počítačů `.msx`) a jeden ze souborů `CART_FW_EN.msx` / `CART_FW_JP.msx`,
 - `tools/CreateCRC/vampier.db` (databáze mapperů, viz [../CreateCRC/README.md](../CreateCRC/README.md)).

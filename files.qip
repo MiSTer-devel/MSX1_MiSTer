@@ -1,3 +1,3 @@
 set_global_assignment -name QIP_FILE rtl/files.qip
-set_global_assignment -name SDC_FILE MSX1.sdc
-set_global_assignment -name SYSTEMVERILOG_FILE MSX1.sv
+set_global_assignment -name SDC_FILE MSX.sdc
+set_global_assignment -name SYSTEMVERILOG_FILE MSX.sv

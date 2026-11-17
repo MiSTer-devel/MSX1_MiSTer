@@ -11,6 +11,7 @@ Helper tools of the MSX core for MiSTer. Back to the [main Readme](../Readme.md)
 | [CreateKeyMap](CreateKeyMap/README.md) | Builds the PS/2 to MSX keyboard tables | developers |
 | [vdptest](vdptest/README.md) | VDP timing test ROMs | developers and testers |
 | [miditest](miditest/README.md) | MIDI output test ROM (MT32-pi, MidiLink) | testers |
+| [vdpcmd](vdpcmd/README.md) | bengalack's vdpcmd (VDP command speed) as a ROM, without MSX-DOS | developers and testers |
 
 ## Quick start for users
 
@@ -82,6 +83,16 @@ The ROM is built and in the repository; load it as a game ROM into slot A, best 
 Start: `sh tools/miditest/build.sh` (rebuild only).
 Documentation: [README](miditest/README.md) | [README.cs](miditest/README.cs.md).
 
+### vdpcmd
+
+bengalack's [vdpcmd](https://github.com/bengalack/vdpcmd) as a cartridge ROM (`vdpcmd.rom`): it
+measures how many pixels the VDP command engine handles in one frame and compares them with real
+machines. The original DOS program runs unchanged inside the ROM, so no MSX-DOS is needed. The ROM
+is built and in the repository; load it as a game ROM into slot A.
+
+Start: `sh tools/vdpcmd/build.sh` (rebuild only).
+Documentation: [README](vdpcmd/README.md) | [README.cs](vdpcmd/README.cs.md).
+
 ## For developers
 
 - **New machine model or extension cartridge:** see
@@ -89,7 +100,7 @@ Documentation: [README](miditest/README.md) | [README.cs](miditest/README.cs.md)
   ([Česky](CreateMSXpack/DEVELOPERS.cs.md)).
 - **New keyboard layout:** [CreateKeyMap](CreateKeyMap/README.md).
 - **Mapper of a specific ROM (override) or a new mapper name:** [CreateCRC](CreateCRC/README.md).
-- **VDP timing checks:** [vdptest](vdptest/README.md).
+- **VDP timing checks:** [vdptest](vdptest/README.md), [vdpcmd](vdpcmd/README.md).
 - **MIDI output checks:** [miditest](miditest/README.md).
 
 The Python scripts use only the standard library, except the debugging helper

@@ -11,6 +11,7 @@ Pomocné nástroje jádra MSX pro MiSTer. Zpět na [hlavní Readme](../Readme.md
 | [CreateKeyMap](CreateKeyMap/README.cs.md) | Vyrobí tabulky PS/2 → klávesnicová matice MSX | vývojáři |
 | [vdptest](vdptest/README.cs.md) | Testovací ROM pro časování VDP | vývojáři a testeři |
 | [miditest](miditest/README.cs.md) | Testovací ROM pro výstup MIDI (MT32-pi, MidiLink) | testeři |
+| [vdpcmd](vdpcmd/README.cs.md) | vdpcmd od bengalacka (rychlost příkazů VDP) jako ROM, bez MSX-DOS | vývojáři a testeři |
 
 ## Rychlý start pro uživatele
 
@@ -80,6 +81,16 @@ ROM je přeložená v repozitáři; nahraje se jako ROM hry do slotu A, nejlépe
 Spuštění: `sh tools/miditest/build.sh` (jen pro nový překlad).
 Dokumentace: [README](miditest/README.cs.md) | [README (EN)](miditest/README.md).
 
+### vdpcmd
+
+[vdpcmd](https://github.com/bengalack/vdpcmd) od bengalacka jako cartridge ROM (`vdpcmd.rom`):
+měří, kolik pixelů zvládne příkazový engine VDP za snímek, a porovná to se skutečnými stroji.
+Originální program pro DOS běží uvnitř ROM beze změny, MSX-DOS tedy není potřeba. ROM je
+přeložená v repozitáři; nahraje se jako ROM hry do slotu A.
+
+Spuštění: `sh tools/vdpcmd/build.sh` (jen pro nový překlad).
+Dokumentace: [README](vdpcmd/README.cs.md) | [README (EN)](vdpcmd/README.md).
+
 ## Pro vývojáře
 
 - **Nový model stroje nebo rozšiřující cartridge:** viz
@@ -87,7 +98,7 @@ Dokumentace: [README](miditest/README.cs.md) | [README (EN)](miditest/README.md)
   ([English](CreateMSXpack/DEVELOPERS.md)).
 - **Nové rozložení klávesnice:** [CreateKeyMap](CreateKeyMap/README.cs.md).
 - **Mapper konkrétní ROM (přepis) nebo nové jméno mapperu:** [CreateCRC](CreateCRC/README.cs.md).
-- **Kontrola časování VDP:** [vdptest](vdptest/README.cs.md).
+- **Kontrola časování VDP:** [vdptest](vdptest/README.cs.md), [vdpcmd](vdpcmd/README.cs.md).
 - **Kontrola výstupu MIDI:** [miditest](miditest/README.cs.md).
 
 Pythonové skripty používají jen standardní knihovnu, kromě ladicí pomůcky

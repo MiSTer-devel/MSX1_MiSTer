@@ -25,9 +25,9 @@ mapper database (`AB` header at offset 0, see [vdptest](../vdptest/README.md)).
 ## Running
 
 **FPGA**, machine **Panasonic FS-A1GT** (MSX-MIDI built in):
-1. Load the `Panasonic_FS-A1GT.msx` pack and the FW pack (`CART_FW_EN.msx`).
+1. Load the `Panasonic_FS-A1GT.msx` pack and the FW pack (`CART_FW_EN.msx` or `CART_FW_JP.msx`).
 2. Firmware switch off (otherwise the firmware starts instead of the cartridge).
-3. `miditest.rom` into slot A (Cartridge = ROM).
+3. `miditest.rom` into slot A (OSD **Slot1** = ROM).
 4. OSD, MIDI page: *User Port* = MT32-pi (default). For MidiLink: UART in MIDI mode.
 
 Another machine: any MSX with the MSX-MIDI cartridge in slot B (OSD Slot2 = MSX-MIDI) and the

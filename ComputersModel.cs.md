@@ -14,8 +14,8 @@ Jádro není svázáno s jedním počítačem: každý stroj níže je definice 
 | MSX turbo R | 2 |
 | 1chipMSX / OCM (třída MSX2+) | 1 |
 
-159 z nich přibylo v listopadu 2026 převodem popisů strojů z openMSX (`share/machines`).
-Stroje, které potřebují hardware, jaký jádro nemá, jsou na konci.
+160 z nich vzniklo v listopadu 2026 převodem popisů strojů z openMSX (`share/machines`).
+Stroje z openMSX, které zatím podporované nejsou, jsou na konci.
 
 **Obrazy ROM nejsou součástí.** ROM si dodáte sami a balíčky si sestavíte nástrojem [CreateMSXpack](tools/CreateMSXpack/README.cs.md) (viz též [Nástroje](tools/README.cs.md)). Bez vlastních ROM lze sestavit jen oba stroje C-BIOS a 1chipMSX. **1chipMSX** navíc potřebuje `OCM-BIOS.DAT` jako první soubor v obrazu SD karty (VHD) s FAT16.
 
@@ -34,7 +34,7 @@ Poznámky k tabulkám:
 |---|---|---|---|
 | [AX170](https://www.msx.org/wiki/Sakhr_AX-170) | MSX1 | Rozšířený arabský MSX1 s vestavěnou arabskou ROM. | 64 KB RAM, arabská ROM |
 | [AX230](https://www.msx.org/wiki/Sakhr_AX-230) | MSX1 | Arabský MSX1 s vestavěnými hrami. | 64 KB RAM, arabská ROM, ROM s hrami, jeden slot pro cartridge |
-| [AX370](https://www.msx.org/wiki/Sakhr_AX-370) | MSX2 | Arabský MSX2 odvozený od Sanyo PHC-70FD, s disketovou mechanikou a vestavěným softwarem. | mapper 128 KB, RTC, FDC TC8566AF + 1 mechanika, ROM Al Alamiah BASIC 2.03, Sakhr Word Processor, Sakhr BASIC, Painter |
+| [AX370](https://www.msx.org/wiki/Sakhr_AX-370) | MSX2 | Arabský MSX2 odvozený od Sanyo PHC-70FD, s disketovou mechanikou a vestavěným softwarem. | V9958, mapper 128 KB, RTC, FDC TC8566AF + 1 mechanika, ROM Al Alamiah BASIC 2.03, Sakhr Word Processor, Sakhr BASIC, Painter |
 
 ## Bawareth
 | Model | Gen. | Popis | Klíčový vestavěný hardware |
@@ -77,7 +77,7 @@ Poznámky k tabulkám:
 | Model | Gen. | Popis | Klíčový vestavěný hardware |
 |---|---|---|---|
 | [CPC-300](https://www.msx.org/wiki/Daewoo_CPC-300) | MSX2 | Korejský MSX2 s podporou hangulu. | mapper 128 KB, RTC, ROM hangul |
-| [CPC-300E](https://www.msx.org/wiki/Daewoo_CPC-300E) | MSX2 | Vzdělávací verze CPC-300. | mapper 64 KB |
+| [CPC-300E](https://www.msx.org/wiki/Daewoo_CPC-300E) | MSX2 | Vzdělávací verze CPC-300. | mapper 64 KB, ROM Hangul |
 | [CPC-400S](https://www.msx.org/wiki/Daewoo_CPC-400S) | MSX2 | Korejský stolní MSX2 s podporou hangulu a disketovou mechanikou. | mapper 128 KB, RTC, ROM a font hangul (zařízení Kanji), FDC + 1 mechanika |
 | [CPC-51 Zemmix V](https://www.msx.org/wiki/Daewoo_CPC-51) | MSX1 | Korejská herní konzole MSX1. | 64 KB RAM, jeden slot pro cartridge |
 | [CPC-61 Zemmix Super V](https://www.msx.org/wiki/Daewoo_CPC-61) | MSX2 | Korejská herní konzole MSX2. | mapper 64 KB, RTC, jeden slot pro cartridge |
@@ -362,7 +362,7 @@ Poznámky k tabulkám:
 ## Yamaha
 | Model | Gen. | Popis | Klíčový vestavěný hardware |
 |---|---|---|---|
-| [AX150](https://www.msx.org/wiki/Sakhr_AX-150) | MSX1 | Arabský MSX1 s vestavěným softwarem. | 64 KB RAM |
+| [AX150](https://www.msx.org/wiki/Sakhr_AX-150) | MSX1 | Arabský MSX1 s vestavěným softwarem. | 64 KB RAM, arabská ROM |
 | [AX200](https://www.msx.org/wiki/Sakhr_AX-200) | MSX1 (V9938) | Arabský MSX1 s vestavěným softwarem a modulem SFG-05. | V9938, 64 KB RAM, SFG-05 (OPM + MIDI YM2148) |
 | [AX350II](https://www.msx.org/wiki/Sakhr_AX-350II) | MSX2 | Arabský MSX2 prodávaný Al Alamiah, s mechanikou a vestavěným softwarem. | mapper 128 KB, RTC, FDC + 1 mechanika, ROM Sakhr Word Processor, Sakhr Files fragment, Painter |
 | [AX350IIF](https://www.msx.org/wiki/Sakhr_AX-350II) † | MSX2 | Arabsko-francouzský MSX2 vyrobený Yamahou pro Al Alamiah, s mechanikou a vestavěným softwarem. | mapper 128 KB, RTC, arabská ROM, textový procesor, Painter, FDC + 1 mechanika |
@@ -397,7 +397,7 @@ Poznámky k tabulkám:
 
 ## Nepodporováno
 
-Tyto stroje z openMSX potřebují hardware, který jádro zatím nemá:
+Tyto stroje z openMSX zatím podporované nejsou:
 
 | Model | Chybí |
 |---|---|
@@ -406,4 +406,4 @@ Tyto stroje z openMSX potřebují hardware, který jádro zatím nemá:
 | [Toshiba HX-34](https://www.msx.org/wiki/Toshiba_HX-34) | zapojení řadiče disket Toshiba (registry 7FF0–7FF7) |
 | [Victor HC-90A](https://www.msx.org/wiki/Victor_HC-90), [HC-95A](https://www.msx.org/wiki/Victor_HC-95) | zapojení řadiče disket Victor, systémový registr 7FFD |
 | [Panasonic FS-A1FM](https://www.msx.org/wiki/Panasonic_FS-A1FM) | mappery firmwaru a modemu FS-A1FM |
-| [Aucnet NIA-2001](https://www.msx.org/wiki/Aucnet_NIA-2001) | ROM mapper MSX-DOS2 |
+| [Aucnet NIA-2001](https://www.msx.org/wiki/Aucnet_NIA-2001) | jen definice stroje (ROM mapper MSX-DOS2 v jádře je) |

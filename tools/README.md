@@ -26,7 +26,7 @@ Copy these files to the SD card into `/media/fat/games/MSX1/`:
 Steps:
 1. Install Python 3.
 2. Put the BIOS/firmware ROM dumps into `tools/CreateMSXpack/ROM/` (you must supply them yourself;
-   only the C-BIOS ROMs are included).
+   only the C-BIOS ROMs and the 1chipMSX (OCM) IPL ROM are included).
 3. In `tools/CreateMSXpack` run `python createComp.py` and `python createDev.py`; the packs appear
    in `MSX/`. Details and the meaning of the console messages are in the
    [CreateMSXpack README](CreateMSXpack/README.md).
@@ -104,5 +104,6 @@ Documentation: [README](vdpcmd/README.md) | [README.cs](vdpcmd/README.cs.md).
 - **MIDI output checks:** [miditest](miditest/README.md).
 
 The Python scripts use only the standard library, except the debugging helper
-`CreateKeyMap/scancode_debugger.py` (needs the `keyboard` package). The scripts must be run from
-their own folder, because they open their data files by relative name.
+`CreateKeyMap/scancode_debugger.py` (needs the `keyboard` package). `createKeyMap.py`,
+`createComp.py` and `createDev.py` must be run from their own folder, because they open their data
+files by relative name.

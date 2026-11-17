@@ -28,7 +28,7 @@ Assembler je `pasmo.exe` z `tools/vdptest`. ROM se spustí bez záznamu v datab�
 
 ## Spuštění
 
-Libovolný stroj MSX2, MSX2+ nebo turbo R: `vdpcmd.rom` do slotu A (Cartridge = ROM). Program se
+Libovolný stroj MSX2, MSX2+ nebo turbo R: `vdpcmd.rom` do slotu A (OSD **Slot1** = ROM). Program se
 spustí hned po startu, několik sekund měří (obraz se střídá mezi SCREEN 8 a vypnutým obrazem)
 a pak vypíše tabulku v 80 sloupcích. Mezerník pustí měření znovu.
 

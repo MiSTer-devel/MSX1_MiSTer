@@ -1,4 +1,4 @@
-# MSX1/MSX2/turbo R pro [MiSTer Board](https://github.com/MiSTer-devel/Main_MiSTer/wiki)
+# MSX1/MSX2/MSX2+/turbo R pro [MiSTer Board](https://github.com/MiSTer-devel/Main_MiSTer/wiki)
 
 [English](Readme.md) | **Česky**
 
@@ -10,6 +10,7 @@ Jádro (na MiSTeru se stále jmenuje `MSX1`, proto složka `games/MSX1`) není p
 
 - stroje **MSX1** (VDP řady TMS9918),
 - stroje **MSX2** (Yamaha V9938, RTC, paměťový mapper),
+- stroje **MSX2+** (Yamaha V9958 s barevnými režimy YJK a vodorovným posunem; Panasonic, Sanyo, Sony a CIEL Expert Turbo; ROM Kanji, MSX-MUSIC a turbo 5,37 / 7,16 MHz tam, kde je stroj má),
 - **MSX turbo R** Panasonic FS-A1ST a FS-A1GT (V9958, S1990, režim R800 – jeho rychlost viz [Známá omezení](#známá-omezení)),
 - **1chipMSX** (ve stylu OCM-PLD, třída MSX2+, V9958), který zavádí BIOS z obrazu SD karty.
 
@@ -30,7 +31,7 @@ Třetím konfiguračním souborem je **databáze ROM podle CRC32** (*DB MAPPERS*
 | MSX turbo R | 2 (Panasonic FS-A1ST, FS-A1GT) |
 | 1chipMSX / OCM (třída MSX2+) | 1 |
 
-Sedm strojů z openMSX potřebuje hardware, který jádro zatím nemá; jsou vypsané na konci seznamu modelů. Obrazy ROM strojů nejsou součástí tohoto repozitáře, viz [Začínáme](#začínáme).
+Sedm strojů z openMSX zatím podporováno není: šest potřebuje hardware, který jádro nemá, Aucnet NIA-2001 jen nemá definici; jsou vypsané na konci seznamu modelů. Obrazy ROM strojů nejsou součástí tohoto repozitáře, viz [Začínáme](#začínáme).
 
 ## Začínáme
 Jádro potřebuje **alespoň balíček stroje** (ROM PACK). Zbytek závisí na tom, co chcete spustit. Soubory dejte na SD kartu MiSTeru do `/media/fat/games/MSX1/`:
@@ -90,6 +91,7 @@ Se SDRAM stačí modul 32 MB. Největší stroj (1chipMSX) potřebuje asi 8 MB, 
 | Tape Rewind | Přetočí obraz pásky na začátek. |
 | Firmware switch | Off / On, jen u strojů, které přepínač mají: turbo R a stroje Panasonic, National a Sanyo se zařízením Matsushita (switched I/O). |
 | R800 speed | Real (rychlost skutečného R800) / T-states (počty taktů Z80, jeden na takt 21,5 MHz) / 10.7MHz (počty taktů Z80 na 10,7 MHz). Zobrazuje se s přepínačem firmwaru, používá ho turbo R; projeví se při příštím zapnutí R800. |
+| Mouse | Port 1 (výchozí) / Port 2: joystickový port, který myš PS/2 převezme, když se pohne; joystick na tom portu ho vrátí. |
 | MIDI | **User Port**: MT32-pi (výchozí; [MT32-pi](https://github.com/dwhinham/mt32-pi) nebo jen MIDI OUT na pinu 1), MIDI In/Out (adaptér MIDI: OUT na pinu 1, IN na pinu 0), Off. Jakmile se MT32-pi najde, objeví se jeho volby: Use MT32-pi, Show Info (No / Yes: zpráva při změně jeho režimu / LCD-On / LCD-Auto: jeho displej v levém horním rohu obrazu, stále nebo 3 s po změně), výchozí Synth (Munt, FluidSynth), Munt ROM, SoundFont a Reset Hanging Notes. |
 | Video | Poměr stran, scandoubler (None, HQ2x, CRT 25/50/75 %), Vertical Crop, Scale (Normal, V-Integer, Narrower/Wider HV-Integer, HV-Integer), Border (platí pro VDP TMS i V99xx). |
 | Pause when OSD open | No (výchozí) / Yes: stroj stojí, dokud je OSD otevřené (CPU drženo, zvuk ztlumený, obraz na HDMI zamrzne). |
@@ -98,7 +100,7 @@ Se SDRAM stačí modul 32 MB. Největší stroj (1chipMSX) potřebuje asi 8 MB, 
 | Reset and close OSD | Reset a zavření menu. |
 | SRAM Save / SRAM Load | Zobrazují se, má-li cartridge SRAM, ale **nic nedělají** (viz [Známá omezení](#známá-omezení)). |
 
-1chipMSX má navíc blok: CPU speed (Normal / Turbo, přepíná F11), CPU type (Z80 / R800 – jen násobicí instrukce R800), Slot1, Slot2, Internal Mapper (2048 / 4096 KB), Joysticks Swap, Mouse Port 1/2, Reset after Mount.
+1chipMSX má navíc blok: CPU speed (Normal / Turbo, přepíná F11), CPU type (Z80 / R800 – jen násobicí instrukce R800), Slot1, Slot2, Internal Mapper (2048 / 4096 KB), Joysticks Swap, Reset after Mount.
 
 ### Chybová hlášení OSD
 Když načtení selže, informační řádek OSD zobrazí jedno z těchto hlášení. Po **No CRC32 DB**, **Not find CRC32 in DB**, **SMALL MEMORY** a **ROM too big** zůstane jádro v resetu do dalšího načtení.
@@ -111,7 +113,7 @@ Když načtení selže, informační řádek OSD zobrazí jedno z těchto hláš
 | BAD MSX FW CONF | Soubor načtený jako FW PACK není FW balíčkem. |
 | NOT FW CONF | FW balíček není načten, ale vybraná cartridge jej potřebuje (každý typ cartridge včetně obyčejné ROM), nebo v FW balíčku chybí ROM, kterou cartridge potřebuje (např. `yrw801.rom` pro MoonSound). |
 | DEVICE MISSING | Konfigurace potřebuje víc kopií zařízení, než jádro obsahuje, např. FM-PAC v obou slotech na stroji s MSX-MUSIC, MoonSound v obou slotech. |
-| Device not in this core build | Konfigurace potřebuje zařízení, které tento build jádra vůbec neobsahuje. |
+| Device not in this core build | Cartridge FDC ve slotu 2 nebo pozice FDC, kterou tento build jádra nemá. |
 | No CRC32 DB | ROM větší než 64 KB potřebuje mapper, ale databáze mapperů není načtena. |
 | Not find CRC32 in DB | ROM větší než 64 KB není v databázi mapperů. |
 | FDC already in machine | Dva FDC na stejné pozici – chyba definice stroje. |
@@ -150,7 +152,7 @@ Jádro obsahuje tyto hardwarové moduly:
 Neimplementováno: MSX-AUDIO, V9990 / GFX9000, tiskárna, pádla, světelná pistole, RS-232.
 
 ## Podporované ROM mappery
-ROM cartridge se k mapperu přiřazují podle databáze CRC32 (`vampier.db`, 8151 záznamů, vytvořená nástrojem [tools/CreateCRC](tools/CreateCRC/README.cs.md) z dumpu [romdb.vampier.net](https://romdb.vampier.net/)). ROM, které v databázi nejsou a mají do 64 KB, se umístí jako obyčejná ROM (první řádky tabulky).
+ROM cartridge se k mapperu přiřazují podle databáze CRC32 (`vampier.db`, vytvořená nástrojem [tools/CreateCRC](tools/CreateCRC/README.cs.md) z dumpu [romdb.vampier.net](https://romdb.vampier.net/)). ROM, které v databázi nejsou a mají do 64 KB, se umístí jako obyčejná ROM (první řádky tabulky).
 
 | Mapper (název v DB) | Popis |
 |---|---|
@@ -179,9 +181,9 @@ ROM cartridge se k mapperu přiřazují podle databáze CRC32 (`vampier.db`, 815
 | `Synthesizer` | obyčejná ROM s DAC Konami Synthesizer |
 | `MSXDOS2` | cartridge MSX-DOS2: banka 16 KB v 4000-7FFF přepínaná na 6000h. Online databáze ROM MSX-DOS2 nemá: CRC32 ROM doplňte do [tools/CreateCRC/mappersOverride.txt](tools/CreateCRC/mappersOverride.txt) a databázi znovu sestavte. MSX-DOS 2.20 upravený pro mapper ASCII8 tam už je. Potřebuje disketovou mechaniku: počítač s řadičem, nebo FDC cartridge ve slotu 1 a MSX-DOS2 ve slotu 2 |
 
-Typy ROM z databáze, pro které jádro nemá konfiguraci, se do `vampier.db` nezapisují (27 typů, 71 ROM, např. Yamanooto, MatraCompilation, Namco, Manbow2). Taková ROM do 64 KB poběží jako obyčejná ROM, větší skončí hláškou *Not find CRC32 in DB*. Úplný seznam s počty je v [tools/CreateCRC/report.md](tools/CreateCRC/report.md). Nepodporován je také MU-PACK.
+Typy ROM z databáze, pro které jádro nemá konfiguraci, se do `vampier.db` nezapisují (např. MatraCompilation, Namco, Manbow2, cartridge Halnote). Taková ROM do 64 KB poběží jako obyčejná ROM, větší skončí hláškou *Not find CRC32 in DB*. Úplný seznam s počty je v [tools/CreateCRC/report.md](tools/CreateCRC/report.md). Nepodporován je také MU-PACK.
 
-Mappery uvnitř stroje (National FS-4600F, Yamaha SFG, Panasonic turbo R, paměťový mapper, ESE RAM) vycházejí z definice stroje a nelze je volit.
+Mappery uvnitř stroje (National FS-4600F, Yamaha SFG, Panasonic turbo R, firmwarový mapper Halnote u Sony HB-F1XDJ / HB-F1XV, paměťový mapper, ESE RAM) vycházejí z definice stroje a nelze je volit.
 
 ## Podporované rozšiřující cartridge
 OSD nabízí v **Slot1** a **Slot2** tyto typy:
@@ -209,7 +211,7 @@ OSD nabízí v **Slot1** a **Slot2** tyto typy:
 Jádro se integruje s MiSTerFPGA a podporuje tyto funkce platformy:
 - `Joystick` – dva joystickové porty MSX (čtyři směry a dvě tlačítka, v mapování tlačítek MiSTeru pojmenovaná Fire 1 / Fire 2) z prvních dvou joysticků MiSTeru; volba prohození joysticků existuje jen na 1chipMSX
 - `Klávesnice` – klávesnice PS/2, maticové rozložení pro každý stroj (`kbd_layout` v definici stroje, generuje [CreateKeyMap](tools/CreateKeyMap/README.cs.md)); klávesa Pause pozastaví stroj (CPU drženo, zvuk ztlumený, obraz na HDMI zamrzne; u turbo R ji jako na skutečném stroji čte BIOS z portu A7h), F11 = turbo na 1chipMSX
-- `Myš` – myš PS/2 jako myš MSX, jen 1chipMSX
+- `Myš` – myš PS/2 jako myš MSX na všech strojích, v joystickovém portu 1 nebo 2 (OSD **Mouse**); port převezme, když se pohne, joystick na tom portu ho vrátí
 - `Kazeta` – přehrávání souborů `.CAS` (musí být zapnutý motor MSX) nebo skutečná páska přes analogový vstup MiSTeru (ADC); páska je slyšet. Výstup na pásku neexistuje.
 - `MIDI` – MIDI IN i MIDI OUT u YM2148 (stroje Yamaha) a MSX-MIDI, dvěma cestami:
   - UART MiSTeru v režimu MIDI (31250 Bd): MidiLink posílá MIDI OUT do USB MIDI zařízení nebo softwarového syntezátoru (MUNT, FluidSynth) a přivádí MIDI IN z USB MIDI zařízení
@@ -223,13 +225,13 @@ Jádro se integruje s MiSTerFPGA a podporuje tyto funkce platformy:
 ## Známá omezení
 - **Nic se neukládá trvale:** SRAM cartridge (FM-PAC, Game Master 2, KOEI, ASCII se SRAM), zápisy do flash (MegaFlashROM, ASCII16-X, Konami Ultimate Collection, Yamanooto), SRAM strojů (SRAM mapperů Panasonic a National, SRAM zařízení Matsushita a S1985) a CMOS RTC začínají při každém načtení s hodnotou FFh. Položky **SRAM Save / SRAM Load** nic nedělají.
 - **Disky:** jen surové obrazy `.DSK` (720K, 640K, 360K, 320K); žádné 40stopé, 1,44 MB, XSA, D88, HFE ani DMK. Cartridge FDC funguje jen ve slotu 1 a jen na strojích bez FDC; cartridge s TC8566AF neexistuje.
-- **Páska:** jen přehrávání, žádné ukládání; konec souboru se nedetekuje (po posledním bloku se přehrávají nesmyslná data).
+- **Páska:** jen přehrávání, žádné ukládání.
 - **R800:** R800 u turbo R běží rychlostí skutečného čipu (zlom stránky, vnitřní ROM a externí sloty, I/O, násobení, refresh DRAM a odstup přístupů k VDP jako v openMSX). Kód, který pracuje jen v registrech, je o 7 až 26 % pomalejší než na skutečném R800. Nedokumentované chování (bity příznaků 3 a 5, SLL, DD / FD před běžnou instrukcí) má jako Z80. Chybí mikrofon turbo R.
-- **ROM:** ROM nad 64 KB potřebuje záznam v databázi, mapper se z hlavičky ROM nerozpoznává. Zrcadla ROM Konami SCC nejsou hotová.
+- **ROM:** ROM nad 64 KB potřebuje záznam v databázi, mapper se z hlavičky ROM nerozpoznává.
 - **V99x8:** chybí sprity v overscanu a okno FH v textových režimech. Nastavení rychlosti VDP a hlasitosti na 1chipMSX se ukládají bez účinku.
 - **1chipMSX:** bez MoonSound, bez zvláštních kláves PrintScreen/ScrollLock (Pause je obecná pauza stroje).
 - **Pauza:** stojí jen CPU; kazeta (CAS) a řadiče disket běží dál, takže pauza během nahrávání může skončit chybou čtení.
-- Žádná hlasitost ani ztlumení po zdrojích v OSD, chybí deform bity 0/1 SCC+, žádné V9990.
+- Žádná hlasitost ani ztlumení po zdrojích v OSD, žádné V9990.
 
 ## Poděkování
 Velký dík patří komunitě MSX na Discordu za testování na skutečném hardware, hlášení chyb a rady;

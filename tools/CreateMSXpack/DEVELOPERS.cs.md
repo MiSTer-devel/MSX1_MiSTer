@@ -18,7 +18,7 @@ ROM/ (by SHA1)      ├─ createDev.py  ─> MSX/CART_FW_EN.msx / _JP.msx (head
 CreateCRC: vampier.db (CRC32 -> FW ID)                                          ─ Load DB MAPPERS ────┘
 ```
 
-- `createComp.py` převádí XML počítače (`<msxConfig>`) na binární seznam 8bajtových záznamů (bloky, zařízení, rozložení klávesnice) následovaný daty ROM. Zavaděč jádra `memory_upload.sv` ho přečte a naplní své tabulky slotů, paměti a zařízení.
+- `createComp.py` převádí XML počítače (`<msxConfig>`) na binární seznam 8bajtových záznamů (bloky, zařízení, rozložení klávesnice); za každým záznamem bloku ROM a zařízení KANJI hned následují jeho data. Zavaděč jádra `memory_upload.sv` ho přečte a naplní své tabulky slotů, paměti a zařízení.
 - `createDev.py` převádí `Extension/*.xml` (`<fwConfig>`) na tabulku konfigurací cartridgí indexovanou ID („FW ID“). Při naplnění slotu cartridge zavaděč vyhledá konfiguraci zvolené cartridge. U souboru ROM se vyhledá CRC32 v databázi mapperů a DB vrátí FW ID.
 - `tools.py` obsahuje sdílené pomocné funkce: prohledání složky ROM podle SHA1, čtení čísel, načítání JSON a kódování parametrů zařízení.
 - Tabulky JSON obsahují číselná ID. **Musí přesně odpovídat výčtům (enum) v RTL.**
@@ -27,9 +27,9 @@ CreateCRC: vampier.db (CRC32 -> FW ID)                                          
 |---|---|---|
 | `conf.json` | `conf_t` | typy záznamů (BLOCK 0, DEVICE 1, KEYBOARD_LAYOUT 2, CARTRIGE 3, END 7) |
 | `block.json` | `block_t` | typy bloků 0-11 |
-| `device.json` | `device_t` (5 bitů) | názvy zařízení 0-22 (MEM_MAPPER = `DEV_MSX2_RAM`, TMS99xx = `DEV_VDP_TMS`, V99xx = `DEV_VDP_V99xx`) |
-| `mapper.json` | `mapper_typ_t` (6 bitů) | názvy mapperů 0-43 (psaní `GENRIC_16KB`/`GENRIC_8KB` je shodné s RTL) |
-| `cart_device.json` | `cart_typ_t` | FW ID: 0-13 cartridge z nabídky, 20-60 mappery ROM vybírané podle DB |
+| `device.json` | `device_t` (5 bitů) | názvy zařízení 0-26 (MEM_MAPPER = `DEV_MSX2_RAM`, TMS99xx = `DEV_VDP_TMS`, V99xx = `DEV_VDP_V99xx`) |
+| `mapper.json` | `mapper_typ_t` (6 bitů) | názvy mapperů 0-46 (psaní `GENRIC_16KB`/`GENRIC_8KB` je shodné s RTL) |
+| `cart_device.json` | `cart_typ_t` | FW ID: 0-14 cartridge z nabídky, 20-60 mappery ROM vybírané podle DB |
 | `deviceParams.json` | použití `io_device.param` v modulu každého zařízení | pojmenované parametry zařízení, viz oddíl 2.6 |
 
 Všechny nástroje spouštějte zevnitř `tools/CreateMSXpack`: tabulky JSON a `ROM` (není-li `--rom-dir`), `Extension`, `MSX` se otevírají relativním názvem (`createDev.py` navíc používá dočasný `ROM.bin` v aktuální složce).
@@ -80,19 +80,19 @@ Zařízení nejvyšší úrovně bez `shared_slot` se zapisují první, zaříze
 - **Expander (registr podslotů FFFFh) se zapne automaticky**, když je některý `<secondary slot>` větší než 0, nebo ho vynutí `expander="1"`. `expander_init` je hodnota FFFFh po resetu (1chipMSX používá `0x2B`). `expander_wo` se uloží, ale RTL ho zatím ignoruje.
 - **Nemíchejte `<block>` a `<secondary>` v jednom `<primary>`**: zapíšou se jen přímé bloky.
 - Sloty se zapisují v pořadí v XML. Externí sloty (`<cart>`) patří nakonec: blok `FLASH` (oddíl 3.2) rozšiřuje paměť přidělenou jako poslední a tou musí být ROM cartridge.
-- Limity jádra: nejvýše 64 bloků (4 sloty x 4 podsloty x 4 stránky), 16 paměťových záznamů, 8 záznamů zařízení mapovaných do paměti.
+- Limity jádra: nejvýše 64 bloků (4 sloty x 4 podsloty x 4 stránky), 16 paměťových záznamů, 7 zařízení vázaných na blok (8 paměťových oken zařízení).
 
 ### 2.4 `<block>`
 
-Atributy: `start` (první 16kB stránka 0-3, výchozí 0) a `count` (počet stránek, výchozí 4, ořízne se na `4 - start`). Přijímá se i potomek `<count>`, ale žádný soubor ho nepoužívá; neuvádějte obojí.
+Atributy: `start` (první 16kB stránka 0-3, výchozí 0) a `count` (počet stránek, výchozí 4, ořízne se na `4 - start`). Použijte atribut: potomek `<count>` se nepodporuje (createComp skončí chybou).
 
 Potomci, každý nejvýše jednou na blok (kromě `<device>`, který se smí opakovat, např. OPM + YM2148 v jednom bloku). Zapisují se v tomto pořadí: memory, shared_memory, mapper, sram, cart, device, ref.
 
 | Potomek | Atributy a obsah | Účinek |
 |---|---|---|
 | `<memory>ROM</memory>` | `SHA1` (malá hexadecimální písmena, povinný), `filename` (informativní, vypíše se ve zprávě „not found“), `skip` a `size` (bajty, desítkově nebo hexadecimálně, vyříznou úsek z dumpu), `exactFilename` (cesta, obchází hledání podle SHA1; podporováno, nepoužito) | blok ROM. V packu je doplněn FF na násobek 16 kB |
-| `<memory>RAM</memory>` | `size` (bajty, výchozí = stránky x 16 kB), `pattern` (výplň, výchozí 1) | blok RAM. 4 MB se kóduje jako 0. `size="8192"` v bloku o jedné stránce: 8 kB v horní polovině stránky, dolní polovina nezapojená (Casio PV-7: E000-FFFF). Vzory výplně: 1 = FF, 2 = 00, 3/4/5 = pruhy jako po zapnutí DRAM (0 = „data z DDR“, pro RAM nepoužívat). Počítače používají 1, 2, 3, 4 |
-| `<shared_memory>` | text `ROM` = jen pro čtení, cokoli jiného čtení/zápis; `slot`, `subslot`, `block` (zdroj), `offset`, `size` (bajty) | okno do paměti jiného bloku. Zdrojový blok už musí v packu existovat. K `offset` viz úskalí v oddíle 6 |
+| `<memory>RAM</memory>` | `size` (bajty, výchozí = stránky x 16 kB), `pattern` (výplň, výchozí 1) | blok RAM. 4 MB se kóduje jako 0. `size="8192"` v bloku o jedné stránce: 8 kB v horní polovině stránky, dolní polovina nezapojená (Casio PV-7: E000-FFFF). Vzory výplně: 1 = FF, 2 = 00, 3/4/5 = pruhy jako po zapnutí DRAM (0 = „data z DDR“, pro RAM nepoužívat). Počítače používají 1-5 |
+| `<shared_memory>` | text `ROM` = jen pro čtení, cokoli jiného čtení/zápis; `slot`, `subslot`, `block` (zdroj), `offset`, `size` (bajty) | okno do paměti jiného bloku. Zdrojový blok už musí v packu existovat. `offset` a `size` se použijí v celých 16kB jednotkách (zaokrouhleno dolů) |
 | `<mapper>NAME</mapper>` | název z `mapper.json`; volitelný `param` 0-3 | záznam MAPPER. `param` používá `DRAM` (která 16kB stránka horních 64 kB RAM), `MSXDOS2` (registr banky: 0 6000-6FFF, 1 7FF0, 2 7FFE) a `PANASONIC` (1 = SRAM zrcadlená přes banky 80h-87h, FS-A1WX / WSX). Blok ROM bez mapperu je v jádře lineární (`MAPPER_OFFSET`) |
 | `<sram>SIZE</sram>` | bajty, násobek 1024, pod 256 kB | SRAM s baterií mapperu bloku: Panasonic (FS-A1ST 16384, FS-A1GT 32768, FS-A1WX / WSX 16384), National (FS-4600F 4096) a Halnote (HB-F1XDJ / XV 16384). Při každém nahrání packu se vyplní FFh, neukládá se |
 | `<cart>A</cart>` | `A`/`a`/`0` nebo `B`/`b`/`1` | označí blok jako slot cartridge A nebo B (záznam SLOT). Obvykle `<block start="0">` (všechny 4 stránky) |
@@ -107,8 +107,8 @@ Počítač má nejvýše jedno `<sram>` (položka 3 lookup_SRAM). Paměť RTC, 2
 
 - Jádro má **jednu pozici FDC** (a jeden TC8566AF). Druhý FDC na obsazené pozici vyvolá chybu OSD `FDC already in machine`.
 - **Vnitřní FDC má přednost před FDC cartridge.** Má-li počítač FDC a uživatel zvolí FDC cartridge ve slotu A, zavaděč tiše zopakuje načtení bez cartridge A. Není to chyba.
-- FDC jako cartridge ve slotu (`VY0010`) je možné **jen ve slotu A a s 1 mechanikou**. Ve slotu B, nebo když pozice FDC není v jádře sestavena, je chyba `Device not in this core build`.
-- Limity počtu kopií zařízení (`MSX::N_*` v `rtl/package.sv`, počítá se přes počítač i obě cartridge): OPLL 2, OPM 1, SCC 2, PSG 1, DAC 2, LATCH_PORT 2, MEM_MAPPER 2, RESET_STATUS 1, OPL4 1, pozice FDC 1, TC8566AF 1; ostatní 1. Překročení limitu dá `Device not in this core build`.
+- FDC jako cartridge ve slotu (`VY0010`) je možné **jen ve slotu A** (FW pack ho nastavuje s 1 mechanikou). Ve slotu B, nebo když pozice FDC není v jádře sestavena, je chyba `Device not in this core build`.
+- Limity počtu kopií zařízení (`MSX::N_*` v `rtl/package.sv`, počítá se přes počítač i obě cartridge): OPLL 2, OPM 1, SCC 2, PSG 2, DAC 2, LATCH_PORT 2, MEM_MAPPER 2, RESET_STATUS 1, OPL4 1, pozice FDC 1, TC8566AF 1; ostatní 1. Překročení limitu dá `DEVICE MISSING`.
 
 ### 2.6 Kódování parametrů zařízení (`deviceParams.json`)
 
@@ -134,6 +134,10 @@ U zařízení se záznamem každý pojmenovaný atribut přispívá bity a výsl
 | OPL4 | `sampleram` v bajtech, děleno 131072, 0..16 | bity 4:0 | `opl4.sv` |
 | YM2148 | `variant` SFG-01/SFG-05 | bit 0 | `ym2148.sv` |
 | OPM | `variant` YM2151/YM2164 | bit 0 | `opm.sv` (YM2164: testovací registr 09h, časovač B poloviční rychlostí) |
+| DAC | `mapper` | bit 0 | `dac.sv` (strobováno zápisem do mapperu, KUC) |
+| KANJI | `hangul` | bit 0 | `kanji.sv` |
+| | `level_2_via` read/write/interlocked_write_read/only_level_1 | bity 3:2 = 0/1/2/3 | |
+| MATSUSHITA | `turbo`, `sram` | bit 0, bit 1 | `matsushita.sv` |
 
 Zařízení bez záznamu berou surový atribut `param` (8 bitů, výchozí 0).
 
@@ -212,13 +216,13 @@ Kořen `<fwConfig>`, potomci `<fw name="X">`. `X` musí být klíčem v `cart_de
 | `<expander>` | záznam expanderu pro slot cartridge; text `expander_wo` nastaví příznak jen pro zápis |
 | `<io_device>` | přijímá se a ignoruje |
 
-**V XML rozšíření se čísla čtou funkcí `int()`: hexadecimální hodnoty se nepřijímají.**
+**V XML rozšíření se atributy `<block>` (`start`, `count`, `offset`, `fix_offset`) a `slot` u `<secondary>` čtou funkcí `int()`: jen desítkově.** Hodnoty elementů, `skip`/`size` u `<SHA1>` a `port`/`mask` zařízení berou i hex `0x`.
 
 ### 3.2 Potomci `<block>`
 
 | Potomek | Význam |
 |---|---|
-| `<SHA1 [skip] [size]>sha1</SHA1>` | ROM bloku ze složky ROM (skip/size desítkově) |
+| `<SHA1 [skip] [size]>sha1</SHA1>` | ROM bloku ze složky ROM |
 | `<filename>` | informativní |
 | `<mapper>` | název z `mapper.json` |
 | `<device [port] [mask] [param] [named params] [memory="block"]>NAME</device>` | zařízení; může se opakovat, všechna zařízení bloku sdílejí jeho referenci zařízení (KUC: SCC + DAC, Yamanooto: SCC + PSG). Pojmenované parametry se kódují přes `deviceParams.json`. `memory="block"` znamená, že zařízení používá paměť bloku (vlnová ROM/RAM OPL4). Chybějící paměť bloku dá v jádře `NOT FW CONF` |
@@ -236,7 +240,7 @@ Hodnota položky OSD se převede na `cart_typ_t` v `rtl/msx_config.sv` a zavadě
 
 | Nabídka slotu A | Nabídka slotu B | `cart_typ_t` = FW ID | Název v `cart_device.json` |
 |---|---|---|---|
-| ROM | ROM | 11 `CART_TYP_ROM` | žádný (přes DB, ID 20-59) |
+| ROM | ROM | 11 `CART_TYP_ROM` | žádný (přes DB, ID 20-60) |
 | FDC | není k dispozici | 5 | `VY0010` |
 | SCC | SCC | 0 | `SCC` |
 | SCC+ | SCC+ | 1 | `SCC+` |
@@ -252,9 +256,9 @@ Hodnota položky OSD se převede na `cart_typ_t` v `rtl/msx_config.sv` a zavadě
 | MSX-MIDI | MSX-MIDI | 14 | `MSX_MIDI` |
 | není v nabídce | není v nabídce | 10 `CART_TYP_UNUSED10` | volné (1chipMSX používá mapper MEGARAM přímo ve svém XML) |
 
-- `CART_TYP_ROM` (11) je zvláštní: zavaděč spočítá CRC32 načtené ROM a zeptá se DB. Záznam DB dá FW ID (20-59). ROM o velikosti nejvýše 64 kB, která v DB není, běží jako prostá ROM s FW ID 20/21/22 zvoleným podle hlavičky `AB`.
+- `CART_TYP_ROM` (11) je zvláštní: zavaděč spočítá CRC32 načtené ROM a zeptá se DB. Záznam DB dá FW ID (20-60). ROM o velikosti nejvýše 64 kB, která v DB není, běží jako prostá ROM s FW ID 20/21/22 zvoleným podle hlavičky `AB`.
 - `CART_TYP_EMPTY` (12) nemá záznam `<fw>`; jeho položka v tabulce míří na prázdnou konfiguraci. Proto i prázdný slot potřebuje FW pack.
-- **Volná FW ID**: 10, 14 a 15 pro nové cartridge z nabídky (`cart_typ_t` i pole stavu mají 4 bity). Pro mappery z DB: 38-48 kromě 40-42 a 61 výše.
+- **Volná FW ID**: 10 a 15 pro nové cartridge z nabídky (`cart_typ_t` i pole stavu mají 4 bity). Pro mappery z DB: 38-48 kromě 40-42 a 61 výše.
 - Text nabídky: `CONF_STR_SLOT_A` / `CONF_STR_SLOT_B` v `rtl/msx_config.sv`.
 
 ## 4. Postupy
@@ -273,7 +277,7 @@ Hodnota položky OSD se převede na `cart_typ_t` v `rtl/msx_config.sv` a zavadě
 
 ### 4.2 Nová cartridge v nabídce
 
-1. `cart_device.json`: přidejte název s ID 14 nebo 15 (musí se rovnat nové hodnotě `cart_typ_t`).
+1. `cart_device.json`: přidejte název s ID 10 nebo 15 (musí se rovnat nové hodnotě `cart_typ_t`).
 2. Přidejte `<fw name="...">` do **obou** souborů `CART_FW_EN.xml` a `CART_FW_JP.xml`.
 3. RTL: přidejte hodnotu do `cart_typ_t` (`rtl/package.sv`) na tu pozici. V `rtl/msx_config.sv` přidejte text nabídky do `CONF_STR_SLOT_A` / `_B` a řádky `case`. Pole stavu mají 4 bity: nejvýše 16 položek.
 4. Znovu sestavte FW pack (`python createDev.py`) a zkopírujte ho na SD kartu.
@@ -310,7 +314,7 @@ Hodnota položky OSD se převede na `cart_typ_t` v `rtl/msx_config.sv` a zavadě
 | 0 | RAM | p0 = velikost/16 kB (0 = 256 = 4 MB), p1 = vzor výplně, p2 bit 0 = 8 kB v horní polovině stránky (p0 = 1) |
 | 1 | ROM | p0, p1 = ceil(velikost/16 kB), dolní a horní bajt; následují data |
 | 2 | SRAM | p0 = velikost/1 kB. FW pack: SRAM cartridge (lookup_SRAM 1 / 2), pack počítače: SRAM počítače (3) |
-| 3 | DEVICE | p0 = id zařízení, p1 = param |
+| 3 | DEVICE | p0 = id zařízení, p1 = param; FW pack: p2 bit 0 = zařízení používá paměť bloku (`memory="block"`) |
 | 4 | MAPPER | p0 = id mapperu, p1 = (param&3)<<2 |
 | 5 | SLOT (cartridge) | p0 = 0 (A) / 1 (B) |
 | 6 | REF_MEM | p0 = to_block |
@@ -325,7 +329,7 @@ Hodnota položky OSD se převede na `cart_typ_t` v `rtl/msx_config.sv` a zavadě
 - 16bajtová hlavička: `'M' 's' 'X' 00`, uint32 LE s offsetem tabulky ROM v souboru, uint32 LE s offsetem tabulky jmen (0 = žádná), 4 nulové bajty. Jádro čte jen bajty 0–7.
 - Na 0x10: 256 x uint32 LE offset konfigurace N v souboru (N = FW ID). Nepoužitá ID míří na prázdnou konfiguraci (jediný záznam END).
 - Konfigurace je seznam 6bajtových záznamů `type addr block_type p1 p2 p3` zakončený `07 00 00 00 00 00`. Bity slotu v `addr` jsou 0, slot cartridge doplní jádro operací OR.
-- Tabulka ROM je uint32 LE offset pro každou odlišnou ROM (deduplikace podle skip, size a SHA1), následují obrazy ROM doplněné FF na 16 kB.
+- Tabulka ROM je uint32 LE offset pro každou odlišnou ROM (jeden záznam na blok ROM), následují obrazy ROM doplněné FF na 16 kB.
 - Za obrazy ROM následuje tabulka jmen. Je pro Main_MiSTer (`docs/MSX1/Configuration.txt`, oddíl 9), ne pro jádro: `'N' 'A' 'M' '1'`, pak tři seznamy, mappery (`mapper.json`), zařízení (`device.json`) a FW konfigurace (`cart_device.json`, 256 položek). Každý seznam je uint16 LE počet a tolik ASCII jmen zakončených NUL, indexovaných číslem; nepoužité číslo má prázdné jméno.
 
 ## 6. Úskalí
@@ -333,7 +337,7 @@ Hodnota položky OSD se převede na `cart_typ_t` v `rtl/msx_config.sv` a zavadě
 1. **Chybějící pojmenovaný parametr se kóduje jako 0**, ne jako jeho `default` (např. WD2793 bez `fdd_count` nedá žádné bity povolení mechaniky).
 2. **MEM_MAPPER `size` 4 MB: atribut vynechte.** `size="4194304"` dá 256 segmentů, což je nad maximem 255, takže se vypíše varování a použije se výchozí hodnota (1 segment, 16 kB). Chybějící znamená 256 segmentů.
 3. **V XML rozšíření dostane zařízení s `port` surový `param`**, ne zakódované pojmenované parametry (záznam IO_DEVICE se zapíše se surovým atributem a v jádře přepíše param zařízení DEVICE). Spoléhá na to MegaFlashROM SCC+ SD: MEM_MAPPER `param="32"` = 32 x 16 kB = 512 kB. createComp naproti tomu zapisuje do IO_DEVICE zakódovanou hodnotu.
-4. Hexadecimální čísla fungují v XML počítače, ale **ne v XML rozšíření**.
+4. Hexadecimální čísla fungují v XML počítače, ale **ne v atributech `<block>` a v `slot` u `<secondary>` v XML rozšíření**.
 5. Nemíchejte `<block>` a `<secondary>` v jednom `<primary>`.
 6. SHA1 v XML musí být malými hexadecimálními písmeny.
 7. createComp sestaví pack v paměti a zapíše ho, jen když nechybí žádná ROM a nenastala výjimka; jinak existující `.msx` toho počítače smaže. Chybějící ROM (`SHA1` / `exactFilename` bloku, `ROM_SHA1` zařízení) se sbírají za celý počítač, takže report vypíše všechny. Ostatní chyby jsou v reportu jen varování. Test: `py -m unittest discover tests`.
@@ -349,9 +353,8 @@ Hodnota položky OSD se převede na `cart_typ_t` v `rtl/msx_config.sv` a zavadě
 | Zpráva | Kde | Význam |
 |---|---|---|
 | `Missing SHA1 for ROM in slot s/ss` | createComp | `<memory>ROM</memory>` bez `SHA1` i bez `exactFilename` |
-| `Error, block contain multiple count` | createComp | zadán atribut `count` i potomek `<count>` |
 | `Processing unknown element: <tag>` | createComp | neznámý potomek `<primary>` |
-| `Error: missing attribut ... in shared_memory` | createComp | zbytek toho slotu se zahodí |
+| `Error: missing attribut ... in shared_memory` | createComp | zbytek bloků toho podslotu se přeskočí; pack se přesto zapíše |
 | `Device 'X' parameter 'p' value v ... setting to default` | tools.py | chybný pojmenovaný parametr, použit default |
 | `Unknown mapper type`, `Unknown device type`, `Tag name: X SKIP` | createDev | název není v tabulkách JSON, nebo neznámá značka |
 

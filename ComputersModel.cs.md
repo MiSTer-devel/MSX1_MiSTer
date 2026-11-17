@@ -4,13 +4,13 @@
 
 Zpět na [Readme](Readme.cs.md).
 
-Jádro není svázáno s jedním počítačem: každý stroj níže je definice (soubor XML v `tools/CreateMSXpack/Computer/`), která se převede na ROM PACK (`.msx`). Je zde **225 definic** od 36 výrobců:
+Jádro není svázáno s jedním počítačem: každý stroj níže je definice (soubor XML v `tools/CreateMSXpack/Computer/`), která se převede na ROM PACK (`.msx`). Je zde **227 definic** od 36 výrobců:
 
 | Generace | Počet |
 |---|---|
 | MSX1 | 135 (124 s VDP TMS99xx, 11 s V9938 a BIOSem MSX1) |
 | MSX2 | 80 |
-| MSX2+ | 7 |
+| MSX2+ | 9 |
 | MSX turbo R | 2 |
 | 1chipMSX / OCM (třída MSX2+) | 1 |
 
@@ -298,7 +298,9 @@ Poznámky k tabulkám:
 | [HB-F1](https://www.msx.org/wiki/Sony_HB-F1) | MSX2 | Japonský MSX2 s vestavěným softwarem (regulátor rychlosti není emulován). | mapper 64 KB, RTC, ROM firmware |
 | HB-F1II | MSX2 | Zlevněný HB-F1 s vestavěným softwarem (ovládání rychlosti se neemuluje). | 64 KB RAM, RTC, ROM firmware |
 | HB-F1XD | MSX2 | Japonský MSX2 s vestavěnou disketovou mechanikou (ovládání rychlosti se neemuluje). | 64 KB RAM, RTC, FDC + 1 mechanika |
+| HB-F1XDJ | MSX2+ | Japonský MSX2+ s vestavěnou disketovou mechanikou, MSX-MUSIC a převodem na kanji MSX-JE (Ren-Sha Turbo a ovládání rychlosti se neemulují). | V9958, mapper 64 KB, RTC, MSX-MUSIC, Kanji ROM, FDC + 1 mechanika, ROM MSX-JE (mapper Halnote), SRAM MSX-JE (neukládá se) |
 | [HB-F1XDmk2](https://www.msx.org/wiki/Sony_HB-F1XDmk2) | MSX2 | Zlevněný HB-F1XD: japonský MSX2 s vestavěnou disketovou mechanikou. | mapper 64 KB, RTC, FDC + 1 mechanika |
+| HB-F1XV | MSX2+ | Poslední MSX od Sony, technicky shodný s HB-F1XDJ. | V9958, mapper 64 KB, RTC, MSX-MUSIC, Kanji ROM, FDC + 1 mechanika, ROM MSX-JE (mapper Halnote), SRAM MSX-JE (neukládá se) |
 | [HB-F5](https://www.msx.org/wiki/Sony_HB-F5) | MSX2 | První MSX2 od Sony s vestavěným softwarem Personal Databank. | 64 KB RAM, RTC, ROM firmware |
 | HB-F500 | MSX2 | První stolní MSX2 od Sony s oboustrannou mechanikou; neobvyklé rozložení paměti. | 64 KB RAM, RTC, Kanji ROM, FDC + 1 mechanika |
 | HB-F500 (v2) | MSX2 | Druhá verze HB-F500 s jednodušším rozložením paměti. | 64 KB RAM, RTC, Kanji ROM, FDC + 1 mechanika |
@@ -404,5 +406,4 @@ Tyto stroje z openMSX potřebují hardware, který jádro zatím nemá:
 | Toshiba HX-34 | zapojení řadiče disket Toshiba (registry 7FF0–7FF7) |
 | Victor HC-90A, HC-95A | zapojení řadiče disket Victor, systémový registr 7FFD |
 | Panasonic FS-A1FM | mappery firmwaru a modemu FS-A1FM |
-| Sony HB-F1XDJ, HB-F1XV | mapper Halnote (firmware MSX-JE) |
 | Aucnet NIA-2001 | ROM mapper MSX-DOS2 |

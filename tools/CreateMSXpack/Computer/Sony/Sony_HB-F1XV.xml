@@ -1,0 +1,75 @@
+<?xml version="1.0" ?>
+<!-- Sony HB-F1XV (MSX2+), converted from openMSX share/machines.
+     Not in the core: PrinterPort. The SRAM of the MSX-JE is emulated but not saved. -->
+<msxConfig>
+  <cpu>Z80</cpu>                   <!-- Z80 --> 
+  <wait_count>1</wait_count>       <!-- 0 - 3 -->  
+  <cpu_frequency>0</cpu_frequency> <!-- 0-3.58, 1-5.37, 2-10.7, 3-7.16 MHz -->  
+  <engine>S1985</engine>         <!-- MSX-Engine, NMOS Z80 outside -->
+  <device mask="0xF0" port="0x40">S1985</device>   <!-- switched I/O FEh: 16 bytes backup RAM, colour / pattern register -->
+  <device mask="0xFC" port="0x98" VDP_ID="V9958">V99xx</device>
+  <device mask="0xF8" port="0xA0" system="true">PSG</device>
+  <device mask="0xF8" port="0xA8">PPI</device>
+  <device mask="0xFE" port="0xB4">RTC</device>
+  <device mask="0xFE" port="0x7C">OPLL</device>                     <!-- MSX-MUSIC -->
+  <device mask="0xFF" port="0xF4">RESET_STATUS</device>
+  <device mask="0xFC" port="0xD8" ROM_SHA1="218d91eb6df2823c924d3774a9f455492a10aecb" level_2_via="read">KANJI</device>
+  <kbd_layout>/yX/cWdlZv//ZP//cHMh////YP9hRgH///9XUCZUAv//MFUxMgQD//+AUzNRRwX//0MnNTRWBv///0I3UgcQ//8iQDZEABH//yMkQRdFEv///yD/FRP//2Ngdxb/FP//////////df///////////////////3L/dv//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////Yv//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////hIH///+Cg4b/h4X///////90//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////8=</kbd_layout>
+  <primary slot="0">
+    <secondary slot="0">
+      <block start="0" count="2">  <!-- MSX BIOS with BASIC ROM -->
+        <memory SHA1="f2a1d326d72d4c70ea214d7883838de8847a82b7" filename="Sony_HB-F1XV.rom" size="32768">ROM</memory>
+      </block>
+    </secondary>
+    <secondary slot="3">
+      <block start="0">  <!-- HB-F1XV MSX-JE -->
+        <memory SHA1="ade0c5ba5574f8114d7079050317099b4519e88f" filename="hb-f1xv.rom">ROM</memory>
+        <mapper>HALNOTE</mapper>
+        <sram>16384</sram>              <!-- Halnote mapper SRAM (MSX-JE dictionary) -->
+      </block>
+    </secondary>
+  </primary>
+  <primary slot="3">
+    <secondary slot="0">
+      <block start="0">  <!-- Main RAM -->
+        <memory size="65536" pattern="4">RAM</memory>
+        <mapper>MSX2_RAM</mapper>
+        <device mask="0xFC" port="0xFC" size="65536">MEM_MAPPER</device>
+      </block>
+    </secondary>
+    <secondary slot="1">
+      <block start="0" count="1">  <!-- MSX Sub ROM -->
+        <memory SHA1="f2a1d326d72d4c70ea214d7883838de8847a82b7" filename="Sony_HB-F1XV.rom" skip="0x8000" size="16384">ROM</memory>
+      </block>
+      <block start="1" count="2">  <!-- MSX Kanji Driver with BASIC -->
+        <memory SHA1="f2a1d326d72d4c70ea214d7883838de8847a82b7" filename="Sony_HB-F1XV.rom" skip="0x10000" size="32768">ROM</memory>
+      </block>
+    </secondary>
+    <secondary slot="2">
+      <block start="1" count="1">  <!-- Memory Mapped FDC -->
+        <memory SHA1="f2a1d326d72d4c70ea214d7883838de8847a82b7" filename="Sony_HB-F1XV.rom" skip="0xC000" size="16384">ROM</memory>
+        <device style="Sony" fdd_count="1">WD2793</device>
+      </block>
+    </secondary>
+    <secondary slot="3">
+      <block start="1" count="1">  <!-- MSX Music -->
+        <memory SHA1="f2a1d326d72d4c70ea214d7883838de8847a82b7" filename="Sony_HB-F1XV.rom" skip="0x18000" size="16384">ROM</memory>
+      </block>
+    </secondary>
+  </primary>
+  <!-- Location of external slots at the end of the XML definition -->
+  <primary slot="1">
+    <secondary slot="0">
+      <block start="0">
+        <cart>A</cart>
+      </block>
+    </secondary>
+  </primary>
+  <primary slot="2">
+    <secondary slot="0">
+      <block start="0">
+        <cart>B</cart>
+      </block>
+    </secondary>
+  </primary>
+</msxConfig>

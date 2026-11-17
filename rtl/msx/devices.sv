@@ -327,13 +327,12 @@ module devices  #(parameter sysCLK)
         .data(psg_data),
         .joy(joy_sw),
         .ps2_mouse(ps2_mouse),
-        .mouse_en(ocm_present),
         .mouse_port(msx_user_config.mouse_port),
         .tape_in(tape_in),
         .psg_echo(psg_echo)
     );
 
-    // OCM: joystick swap and PS/2 mouse (OSD options shown only for OCM)
+    // OCM: joystick swap (OSD option shown only for OCM)
     wire       ocm_present = io_device[DEV_OCM_BOOT][0].enable;
     wire       joy_swap    = ocm_present && msx_user_config.joy_swap;
     wire [5:0] joy_sw[2];

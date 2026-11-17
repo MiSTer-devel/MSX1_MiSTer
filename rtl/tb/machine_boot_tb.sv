@@ -36,6 +36,7 @@
 // +osd_ms=<ms>: the OSD opens at that time with "Pause when OSD open" off (the machine runs),
 // 200 ms later the option goes on (paused), 400 ms later the OSD closes (runs again).
 // Paused (CPU held, also the turbo R hardware pause) = msx_system `pause` (HDMI freeze) on.
+// +mouse_ms=<ms>: the PS/2 mouse moves at that time; 100 ms later port 1 of the PSG must be the mouse.
 // +reset_ms=<ms>: Reset from the OSD (status[21], 1 ms) at that time; +expect counts only once the
 // screen has been without it after the reset.
 // Run: wsl.exe -- bash rtl/tb/run_machine_boot.sh <machine.msx> <image.dsk> [expected text]
@@ -78,6 +79,7 @@ wire    [7:0] ddr3_dout, ddr3_din;
 
 block_device_if block_device_FDD[2*MSX::N_FDC]();
 block_device_if block_device_SD();
+logic    [24:0] ps2_mouse = '0;                          // +mouse_ms: {toggle, dy, dx, flags}
 logic    [10:0] ps2_key = '0;                           // +key: {toggle, down, extended, code}
 ext_sd_card_if  ext_SD_card_bus();
 memory_bus_if   sd_ch1(), sd_ch2(), sd_ch3();
@@ -87,7 +89,7 @@ wire            cpu_phase;
 msx_system sys (
     .clock_bus(clock_bus), .rst_core_async(rst_core_async), .reset(reset),
     .status(status), .status_menumask(status_menumask), .info_req(info_req), .info(info),
-    .ps2_key(ps2_key), .ps2_mouse(25'd0), .joy(joy), .ioctl_download(ioctl_download), .ioctl_index(ioctl_index),
+    .ps2_key(ps2_key), .ps2_mouse(ps2_mouse), .joy(joy), .ioctl_download(ioctl_download), .ioctl_index(ioctl_index),
     .ioctl_addr(ioctl_addr), .rtc(65'd0), .sdram_sz(16'h8002), .uart_speed(32'd115200),
     .img_readonly(1'b0), .img_size(64'd0), .sd_img_mounted(1'b0),
     .block_device_FDD(block_device_FDD), .msx_config(msx_config),
@@ -660,7 +662,7 @@ endtask
 initial begin
     string pack_name, dsk_name, expect_txt = "", last = "", now, dump, fname;
     int frame_ms = 0, frame_every = 0, frame_n = 10;
-    int fd, c, errors = 0, run_ms = 15000, found_ms = -1, key_ms = 8000, pause_ms = -1, fw = 0, m1_paused = 0;
+    int fd, c, errors = 0, run_ms = 15000, found_ms = -1, key_ms = 8000, pause_ms = -1, mouse_ms = -1, fw = 0, m1_paused = 0;
     int slota = 0, slotb = 0, want_err = 0, osd_ms = -1, reset_ms = -1, key_from = 0, key2_from = -1, key2_every = 0, key2_until = 0, k2 = 0, key3_from = -1, key3_ms = 0, reglog_ms = -1;
     logic [8:0] key3 = 9'h174;
     logic [8:0] key = '0;
@@ -684,6 +686,7 @@ initial begin
     void'($value$plusargs("satlog=%d", satlog_ms));
     use_key = $value$plusargs("key=%h", key);
     void'($value$plusargs("pause_ms=%d", pause_ms));
+    void'($value$plusargs("mouse_ms=%d", mouse_ms));
     void'($value$plusargs("osd_ms=%d", osd_ms));
     void'($value$plusargs("reset_ms=%d", reset_ms));
     expect_armed = reset_ms < 0;
@@ -832,6 +835,14 @@ initial begin
             if (ms == osd_ms + 500) begin pause_window = 0; check_paused("OSD open, option on", m1_paused, errors); end
             if (ms == osd_ms + 600) begin osd_status = 0; m1_paused = m1_all; $display("%0t %0d ms: OSD closed", $time, ms); end
             if (ms == osd_ms + 800) check_running("OSD closed", m1_paused, errors);
+        end
+        if (mouse_ms >= 0 && ms == mouse_ms) begin
+            ps2_mouse = {~ps2_mouse[24], 8'd0, 8'd4, 8'h00};
+            $display("%0t %0d ms: mouse moves", $time, ms);
+        end
+        if (mouse_ms >= 0 && ms == mouse_ms + 100) begin
+            if (sys.MSX.devices.dev_psg.use_mouse) $display("ok   mouse on PSG port 1");
+            else begin $display("FAIL mouse ignored, PSG port 1 stays joystick"); errors++; end
         end
         if (ms == reset_ms) begin
             $display("%0t %0d ms: Reset from the OSD", $time, ms);

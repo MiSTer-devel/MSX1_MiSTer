@@ -17,7 +17,7 @@ logic [5:0] joy[2] = '{6'd0, 6'd0};
 logic       echo = 0;
 
 dev_psg dut (.cpu_bus(cpu_bus), .clock_bus(clock_bus), .io_device(io_device), .sound(sound),
-             .joy(joy), .ps2_mouse(25'd0), .mouse_en(1'b0), .mouse_port(1'b0),
+             .joy(joy), .ps2_mouse(25'd0), .mouse_port(1'b0),
              .tape_in(1'b0), .psg_echo(echo), .data(data));
 
 logic [15:0] addr = '0;

@@ -28,6 +28,7 @@
 // Pause key (hps_io event 377h) at that time and checks that the BIOS lights the pause LED (A7h
 // bit 0) and turns it off after a second press 500 ms later. The FS-A1ST BIOS pauses BASIC in
 // software (A7h = 81h); when it enables the hardware pause (bit 1) the CPU must stop as well.
+// +pcmlog=<file>: every write to the PCM ports A4h / A5h (time, port, data, last M1).
 // Other machines: +pause_ms=<ms> the Pause key pauses the machine (CPU stopped, sound muted,
 // pause LED), the second press 500 ms later resumes it.
 // +ch1_lat=2: SDRAM read data of the CPU valid on the 2nd clk_core edge (worst case of the
@@ -302,6 +303,10 @@ logic        r800_q = 0, dram_q = 0, hold_q = 0;
 logic  [1:0] sel_q = '0;
 int          sel_log = 0, io_holds = 0;
 
+// +pcmlog=<file>: every write to the turbo R PCM (A4h / A5h): time, port, data, last M1
+int          pcmlog_fd = 0;
+initial begin string f; if ($value$plusargs("pcmlog=%s", f)) pcmlog_fd = $fopen(f, "w"); end
+
 // +sramlog=<n>: the first n writes to the SRAM of a mapper (CPU address, SRAM offset, data)
 int   sramlog_n = 0, sram_wr = 0;
 initial void'($value$plusargs("sramlog=%d", sramlog_n));
@@ -353,6 +358,9 @@ always @(posedge clk_core) begin
         s1990_wr++;
         if (s1990_wr <= 40) $display("%0t S1990 E5 <= %02h (last M1 %04h)", $time, sys.MSX.cpu_bus.data, last_m1);
     end
+    if (pcmlog_fd != 0 && access && sys.MSX.cpu_bus.iorq && !sys.MSX.cpu_bus.m1 && sys.MSX.cpu_bus.wr
+        && sys.MSX.cpu_bus.addr[7:1] == 7'h52)
+        $fwrite(pcmlog_fd, "%0t %02h %02h %04h\n", $time, sys.MSX.cpu_bus.addr[7:0], sys.MSX.cpu_bus.data, last_m1);
     if (access && sys.MSX.msx_slots.main_cs) begin
         if (sys.MSX.cpu_bus.wr) main_wr++; else main_rd++;
     end
@@ -896,6 +904,7 @@ initial begin
         errors++; $display("FAIL sound output %0d .. %0d, expected a swing of %0d", audio_lo, audio_hi, audio_min);
     end
     if (audio_fd != 0) $fclose(audio_fd);
+    if (pcmlog_fd != 0) $fclose(pcmlog_fd);
     if (expect_txt != "") begin
         if (found_ms < 0) begin errors++; $display("FAIL \"%s\" not on the screen", expect_txt); end
         else $display("\"%s\" on the screen at %0d ms", expect_txt, found_ms);

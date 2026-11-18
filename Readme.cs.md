@@ -89,6 +89,7 @@ Se SDRAM stačí modul 32 MB. Největší stroj (1chipMSX) potřebuje asi 8 MB, 
 | Cas File (`.CAS`) | Obraz pásky, zobrazuje se při Tape Input = File. |
 | Tape Rewind | Přetočí obraz pásky na začátek. |
 | Firmware switch | Off / On, jen u strojů, které přepínač mají: turbo R a stroje Panasonic, National a Sanyo se zařízením Matsushita (switched I/O). |
+| R800 speed | Real (rychlost skutečného R800) / T-states (počty taktů Z80, jeden na takt 21,5 MHz) / 10.7MHz (počty taktů Z80 na 10,7 MHz). Zobrazuje se s přepínačem firmwaru, používá ho turbo R; projeví se při příštím zapnutí R800. |
 | MIDI | **User Port**: MT32-pi (výchozí; [MT32-pi](https://github.com/dwhinham/mt32-pi) nebo jen MIDI OUT na pinu 1), MIDI In/Out (adaptér MIDI: OUT na pinu 1, IN na pinu 0), Off. Jakmile se MT32-pi najde, objeví se jeho volby: Use MT32-pi, Show Info (No / Yes: zpráva při změně jeho režimu / LCD-On / LCD-Auto: jeho displej v levém horním rohu obrazu, stále nebo 3 s po změně), výchozí Synth (Munt, FluidSynth), Munt ROM, SoundFont a Reset Hanging Notes. |
 | Video | Poměr stran, scandoubler (None, HQ2x, CRT 25/50/75 %), Vertical Crop, Scale (Normal, V-Integer, Narrower/Wider HV-Integer, HV-Integer), Border (platí pro VDP TMS i V99xx). |
 | Pause when OSD open | No (výchozí) / Yes: stroj stojí, dokud je OSD otevřené (CPU drženo, zvuk ztlumený, obraz na HDMI zamrzne). |
@@ -223,7 +224,7 @@ Jádro se integruje s MiSTerFPGA a podporuje tyto funkce platformy:
 - **Nic se neukládá trvale:** SRAM cartridge (FM-PAC, Game Master 2, KOEI, ASCII se SRAM), zápisy do flash (MegaFlashROM, ASCII16-X, Konami Ultimate Collection, Yamanooto), SRAM strojů (SRAM mapperů Panasonic a National, SRAM zařízení Matsushita a S1985) a CMOS RTC začínají při každém načtení s hodnotou FFh. Položky **SRAM Save / SRAM Load** nic nedělají.
 - **Disky:** jen surové obrazy `.DSK` (720K, 640K, 360K, 320K); žádné 40stopé, 1,44 MB, XSA, D88, HFE ani DMK. Cartridge FDC funguje jen ve slotu 1 a jen na strojích bez FDC; cartridge s TC8566AF neexistuje.
 - **Páska:** jen přehrávání, žádné ukládání; konec souboru se nedetekuje (po posledním bloku se přehrávají nesmyslná data).
-- **R800:** R800 u turbo R vykonává počty taktů Z80 na 10,7 MHz, tedy asi 3x rychleji než Z80; skutečný potřebuje na instrukci méně taktů a je ještě rychlejší. I/O, násobení a odstup přístupů k VDP trvají jako na skutečném stroji. Chybí mikrofon turbo R.
+- **R800:** R800 u turbo R běží rychlostí skutečného čipu (zlom stránky, vnitřní ROM a externí sloty, I/O, násobení, refresh DRAM a odstup přístupů k VDP jako v openMSX). Kód, který pracuje jen v registrech, je o 7 až 26 % pomalejší než na skutečném R800. Nedokumentované chování (bity příznaků 3 a 5, SLL, DD / FD před běžnou instrukcí) má jako Z80. Chybí mikrofon turbo R.
 - **ROM:** ROM nad 64 KB potřebuje záznam v databázi, mapper se z hlavičky ROM nerozpoznává. Zrcadla ROM Konami SCC nejsou hotová.
 - **V99x8:** chybí sprity v overscanu a okno FH v textových režimech. Nastavení rychlosti VDP a hlasitosti na 1chipMSX se ukládají bez účinku.
 - **1chipMSX:** bez MoonSound, bez zvláštních kláves PrintScreen/ScrollLock (Pause je obecná pauza stroje).

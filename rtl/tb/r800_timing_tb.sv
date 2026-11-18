@@ -58,6 +58,7 @@ msx_cpu dut (
     .vdp_wr_wait(wr_wait),
     .io_hold   (io_hold),
     .r800_memdelay(memdelay),
+    .r800_fast (2'd2),
     .acc_start (),
 `else
     .turbor    (turbor),

@@ -31,7 +31,7 @@
 // the other one loaded in that clk, so the fetch already uses the new PC. Every reset starts
 // the R800 context from 0000h (the BIOS cold path, doc/turboR.md chapter 6).
 //
-// R800 (R800_FAST = 1 or 2): the core runs one T state per clk (TV80a FAST, 21.48 M T states
+// R800 (r800_fast = 1 or 2): the core runs one T state per clk (TV80a FAST, 21.48 M T states
 // per second). The SDRAM has the data on the 3rd clk edge after the address, so an opcode fetch
 // gets one wait state and a data read is used in its T3 (3 clk = one cycle of the 7.16 MHz
 // R800). 1: the T states of the Z80 (M1 = 5 clk). 2: without the idle ones (TV80 TRIM: M1 =
@@ -42,7 +42,7 @@
 // core is ahead of that. Where the core needs more clk than the R800 (an instruction in the
 // registers: 4 clk against 3), it runs behind and catches up in instructions that leave it
 // slack. R800_REFRESH = 0 leaves the DRAM refresh out (test benches).
-// R800_FAST = 0 is the former R800: T states at 10.7 MHz, I/O with 3 wait states, MULUB /
+// r800_fast = 0 is the former R800: T states at 10.7 MHz, I/O with 3 wait states, MULUB /
 // MULUW stretched to 14 / 36 cycles.
 //
 // VDP ports (98-9B):
@@ -53,7 +53,7 @@
 // An access that comes too early is held back: io_hold masks the bus strobes (msx.sv) and
 // /WAIT stops the CPU in T2, so the device sees the access when the gap is over.
 
-module msx_cpu #(parameter R800_FAST = 2, R800_REFRESH = 1) (
+module msx_cpu #(parameter R800_REFRESH = 1) (
     clock_bus_if.base_mp clock_bus,
     input                reset,
     input          [1:0] clock_sel,     // 00 3.58 MHz, 01 10.7 MHz, 10 5.37 MHz, 11 7.16 MHz
@@ -63,6 +63,7 @@ module msx_cpu #(parameter R800_FAST = 2, R800_REFRESH = 1) (
     input                ext_wait,      // level wait request from the bus (MegaSD SPI, OPLL busy)
     input                r800,          // R800 instructions MULUB / MULUW (OCM CPU type)
     input                r800_sel,      // CPU selected by the S1990 (1 = R800)
+    input          [1:0] r800_fast,     // R800 bus: 0 T states at 10.7 MHz, 1 one T state per clk, 2 and no idle ones
     input          [1:0] r800_memdelay, // R800: memory at the address on the bus (0 RAM, 1 internal ROM, 2 external slot)
     input                cmos_z80,      // CMOS Z80 (Toshiba MSX-Engine): OUT (C),0 = FFh, SCF / CCF keep Y
     input                vdp_io_wait,   // T9769: one more wait state on the VDP ports (Z80)
@@ -86,7 +87,10 @@ module msx_cpu #(parameter R800_FAST = 2, R800_REFRESH = 1) (
     output         [7:0] dout
 );
 
-    wire fast = R800_FAST != 0 && r800_active;   // single phase bus
+    // taken over while the Z80 runs: the bus does not change under the R800
+    logic [1:0] fast_lvl = 2'd0;
+    always_ff @(posedge clock_bus.clk) if (~r800_active) fast_lvl <= r800_fast;
+    wire fast = r800_active && fast_lvl != 2'd0;    // single phase bus
 
     logic ce_sel;
     always_comb begin
@@ -99,7 +103,7 @@ module msx_cpu #(parameter R800_FAST = 2, R800_REFRESH = 1) (
         endcase
     end
 
-    // R800 at 10.7 MHz (R800_FAST = 0) multiply: MULUB 14 and MULUW 36 cycles of 7.16 MHz
+    // R800 at 10.7 MHz (r800_fast = 0) multiply: MULUB 14 and MULUW 36 cycles of 7.16 MHz
     // (42 / 108 clk); the core needs 11 / 13 T states (22 / 26 clk), the CPU clock stops for the rest
     localparam logic [6:0] MULUB_STOP = 7'd42 - 7'd22, MULUW_STOP = 7'd108 - 7'd26;
     wire  [1:0] core_mulu;
@@ -294,7 +298,7 @@ module msx_cpu #(parameter R800_FAST = 2, R800_REFRESH = 1) (
         .IntCycle_n(core_intcycle_n),
         .MULU      (core_mulu),
         .FAST      (fast),
-        .TRIM      (R800_FAST >= 2),
+        .TRIM      (fast_lvl[1]),
         .HOLD      (pace_stall),
         .ACC_START (acc_start),
         .DATA_FREE (mem_free),
@@ -323,7 +327,7 @@ endmodule
 //     read-modify-write of (HL) and (IX+d), RRD / RLD, CPI / CPD 1; (IX+d) address 1;
 //     MULUB 12, MULUW 34;
 //   - DRAM refresh: after 210 cycles the next instruction end takes 25 more (not after EI).
-module r800_pace #(parameter DEBT = 255, REFRESH = 1) (
+module r800_pace #(parameter logic signed [11:0] DEBT = 12'sd255, parameter REFRESH = 1) (
     input        clk,
     input        en,            // R800 on the single phase bus
     input        fetch,         // 1 clk at the start of an access: opcode / operand fetch

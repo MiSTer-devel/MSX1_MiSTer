@@ -8,6 +8,7 @@ set clk_sdram [get_clocks {emu|pll|pll_inst|altera_pll_i|general[0].gpll~PLL_OUT
 
 # SDRAM ch1 request (CPU address decode, clk_core combinational logic) is sampled by
 # sdram.sv only on the 2nd clk_sdram edge after a clk_core edge (ch1_sample).
+# The same holds for cpu_phase_next and ch1_free (registers ch1_ph_free, ch1_lat_free).
 set sdram_ch1_capture [get_registers {emu:emu|sdram:sdram|ch1_*}]
 set_multicycle_path -setup -end 2 -from $clk_core -to $sdram_ch1_capture
 set_multicycle_path -hold  -end 1 -from $clk_core -to $sdram_ch1_capture

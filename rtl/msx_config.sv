@@ -92,6 +92,8 @@ assign msx_user_config.mouse_port            = HPS_status[14];
 assign msx_user_config.ocm_dip  = {1'b1, HPS_status[11], HPS_status[24:23], HPS_status[22], 2'b11, HPS_status[15]};
 assign msx_user_config.ocm_r800 = ocmMode && HPS_status[16];
 assign msx_user_config.firmware_sw = HPS_status[26];
+// OSD R800 speed: Real, T-states, 10.7MHz
+assign msx_user_config.r800_fast   = HPS_status[56:55] == 2'd0 ? 2'd2 : HPS_status[56:55] == 2'd1 ? 2'd1 : 2'd0;
 
 logic [1:0] osd_sync = '0;
 always_ff @(posedge clk) osd_sync <= {osd_sync[0], osd_status};

@@ -448,6 +448,7 @@ package MSX;
         logic           mouse_port;     // OCM: PS/2 mouse on port 1 (0) / 2 (1)
         logic           ocm_r800;       // OCM: CPU type R800 (MULUB / MULUW)
         logic           firmware_sw;    // firmware switch on (turbo R S1990 register 5, Matsushita 41h)
+        logic     [1:0] r800_fast;      // R800 bus of msx_cpu: 2 speed of a real R800, 1 Z80 T states per clk, 0 at 10.7 MHz
         logic           osd_pause;      // OSD open and "Pause when OSD open" on
     } user_config_t;    
     

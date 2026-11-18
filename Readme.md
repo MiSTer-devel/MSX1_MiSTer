@@ -89,6 +89,7 @@ With SDRAM, a 32 MB module is enough. The largest machine (1chipMSX) needs about
 | Cas File (`.CAS`) | Tape image, shown when Tape Input is File. |
 | Tape Rewind | Rewinds the tape image. |
 | Firmware switch | Off / On, only on machines that have one: turbo R and the Panasonic, National and Sanyo machines with the Matsushita switched I/O. |
+| R800 speed | Real (speed of a real R800) / T-states (Z80 cycle counts, one per 21.5 MHz clock) / 10.7MHz (Z80 cycle counts at 10.7 MHz). Shown with the firmware switch, used by the turbo R; takes effect the next time the R800 is switched on. |
 | MIDI | **User Port**: MT32-pi (default; a [MT32-pi](https://github.com/dwhinham/mt32-pi) or just MIDI OUT on pin 1), MIDI In/Out (MIDI adapter: OUT on pin 1, IN on pin 0), Off. Once a MT32-pi is found, its options appear: Use MT32-pi, Show Info (No / Yes: a message when its mode changes / LCD-On / LCD-Auto: its display in the top left corner of the picture, always or for 3 s after a change), the default Synth (Munt, FluidSynth), Munt ROM, SoundFont, and Reset Hanging Notes. |
 | Video | Aspect ratio, scandoubler (None, HQ2x, CRT 25/50/75 %), Vertical Crop, Scale (Normal, V-Integer, Narrower/Wider HV-Integer, HV-Integer), Border (applies to the TMS and V99xx VDP). |
 | Pause when OSD open | No (default) / Yes: the machine stops while the OSD is open (CPU held, sound muted, HDMI picture frozen). |
@@ -223,7 +224,7 @@ The core integrates with MiSTerFPGA and supports the following features provided
 - **Nothing is persistent:** cartridge SRAM (FM-PAC, Game Master 2, KOEI, ASCII with SRAM), flash writes (MegaFlashROM, ASCII16-X, Konami Ultimate Collection, Yamanooto), the SRAM of the machines (Panasonic and National mapper SRAM, Matsushita and S1985 SRAM) and the RTC CMOS start as FFh on every load. The **SRAM Save / SRAM Load** items do nothing.
 - **Disks:** only raw `.DSK` images (720K, 640K, 360K, 320K); no 40-track, 1.44 MB, XSA, D88, HFE or DMK. The FDC cartridge works only in slot 1 and only in machines without an FDC; there is no TC8566AF cartridge.
 - **Tape:** playback only, no saving; the end of the file is not detected (garbage is played after the last block).
-- **R800:** the R800 of the turbo R runs the Z80 cycle counts at 10.7 MHz, about 3x the Z80 speed; the real one needs fewer cycles per instruction and is faster still. I/O, multiplication and the spacing of VDP accesses take their real time. No turbo R microphone.
+- **R800:** the R800 of the turbo R is paced to the speed of a real one (page breaks, internal ROM and external slots, I/O, multiplication, DRAM refresh and the spacing of VDP accesses as in openMSX). Code that only works in the registers is 7 to 26 % slower than on a real R800. Its undocumented behaviour (flag bits 3 and 5, SLL, DD / FD in front of a plain instruction) is that of the Z80. No turbo R microphone.
 - **ROMs:** a ROM over 64 KB needs an entry in the database, there is no mapper detection from the ROM header. Konami SCC ROM mirrors are not done.
 - **V99x8:** sprites in the overscan and the FH window in text modes are not done. The VDP speed and volume settings of the 1chipMSX are stored without effect.
 - **1chipMSX:** no MoonSound, no special keys PrintScreen/ScrollLock (Pause is the general machine pause).

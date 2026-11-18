@@ -24,5 +24,8 @@ else
     for s in 0 2 1; do
         "$OUT/Vcpu_switch_tb" +sel=$s | grep -E "PASS|FAIL"
     done
+    for f in 1 0; do                    # R800 bus of msx_cpu (default 2)
+        "$OUT/Vcpu_switch_tb" +sel=0 +fast=$f | grep -E "PASS|FAIL"
+    done
 fi
 rm -rf "$OUT"

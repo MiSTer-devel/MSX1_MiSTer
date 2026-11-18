@@ -1,5 +1,5 @@
-// R800 on the single phase bus of msx_cpu (R800_FAST = 1 and 2) against the two phase one
-// (R800_FAST = 0): both run the image of z80_timing_prog.py (every instruction, interrupts) and
+// R800 on the single phase bus of msx_cpu (r800_fast = 1 and 2) against the two phase one
+// (r800_fast = 0): both run the image of z80_timing_prog.py (every instruction, interrupts) and
 // every bus transaction must be the same in both, in the same order: opcode fetch, memory
 // read / write, port read / write, interrupt acknowledge, with address and written data.
 // The memory of the single phase CPU answers like the SDRAM: the data is there for the 3rd clk
@@ -27,7 +27,7 @@ localparam logic [2:0] K_F = 3'd0, K_R = 3'd1, K_W = 3'd2, K_I = 3'd3, K_O = 3'd
     logic NAME``_m1_n, NAME``_mreq_n, NAME``_iorq_n, NAME``_rd_n, NAME``_wr_n, NAME``_rfsh_n, NAME``_acc;  \
     logic NAME``_active, NAME``_int = 0;                                                                    \
     logic [15:0] NAME``_a; logic [7:0] NAME``_do, NAME``_di;                                               \
-    msx_cpu #(.R800_FAST(FASTP), .R800_REFRESH(0)) NAME (.clock_bus(clock_bus.base_mp), .reset(reset), .clock_sel(2'd0),     \
+    msx_cpu #(.R800_REFRESH(0)) NAME (.r800_fast(2'(FASTP)),.clock_bus(clock_bus.base_mp), .reset(reset), .clock_sel(2'd0),     \
         .m1_wait(3'd1), .mem_wait(4'd0), .io_wait(4'd0), .ext_wait(1'b0), .r800(1'b0), .r800_sel(1'b1),    \
         .r800_memdelay(2'd0), .cmos_z80(1'b0), .vdp_io_wait(1'b0), .vdp_wr_hold(1'b0), .vdp_wr_wait(1'b0), \
         .io_hold(), .r800_active(NAME``_active), .bus_phase(), .bus_phase_next(), .acc_start(NAME``_acc),  \
@@ -90,9 +90,9 @@ always @(negedge clk) begin
     stopc++;
     if ((slow_idx >= N_CASES - 2 && fast_idx >= N_CASES - 2) || errors > 10 || stopc > 4000000) begin
         if (errors == 0 && slow_idx >= N_CASES - 2 && fast_idx >= N_CASES - 2)
-            $display("PASS r800_bus_tb R800_FAST=%0d lat=%0d: %0d transactions, %0d cases", FAST_LEVEL, lat, n, N_CASES - 2);
+            $display("PASS r800_bus_tb r800_fast=%0d lat=%0d: %0d transactions, %0d cases", FAST_LEVEL, lat, n, N_CASES - 2);
         else
-            $display("FAILED r800_bus_tb R800_FAST=%0d lat=%0d: %0d errors, %0d transactions, cases %0d / %0d of %0d", FAST_LEVEL, lat, errors, n, slow_idx, fast_idx, N_CASES);
+            $display("FAILED r800_bus_tb r800_fast=%0d lat=%0d: %0d errors, %0d transactions, cases %0d / %0d of %0d", FAST_LEVEL, lat, errors, n, slow_idx, fast_idx, N_CASES);
         $finish;
     end
 end

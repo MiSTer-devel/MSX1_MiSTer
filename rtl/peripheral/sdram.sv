@@ -57,7 +57,7 @@ module sdram
 	output reg        ch3_done,
 
     // ch4: sample memory of the OPL4, word read / byte write. Lowest priority and started only
-    // where it cannot hold up ch1 (see ph_free).
+    // where it cannot hold up ch1 (see ch1_ph_free).
     input      [26:0] ch4_addr,
     output reg [15:0] ch4_dout,
     input       [7:0] ch4_din,
@@ -89,9 +89,11 @@ wire ch1_sample = core_phase_1 ^ core_phase_2;
 // sample point of a cycle with cpu_phase_next = 0: it is over before the next ch1 request can
 // be captured, so a CPU access never waits (also while the CPU speed changes). Without a CPU
 // clock every cycle is free.
-reg ph_free = 1'b0, lat_free = 1'b0;
-always @(posedge clk) ph_free  <= ch1_sample & ~cpu_phase_next;
-always @(posedge clk) lat_free <= ch1_sample & ch1_free;
+// (named ch1_*: both take clk_core signals at ch1_sample only, as the capture registers of
+// ch1 in MSX1.sdc)
+reg ch1_ph_free = 1'b0, ch1_lat_free = 1'b0;
+always @(posedge clk) ch1_ph_free  <= ch1_sample & ~cpu_phase_next;
+always @(posedge clk) ch1_lat_free <= ch1_sample & ch1_free;
 
 assign SDRAM_nCS  = chip;
 assign SDRAM_nRAS = command[2];
@@ -230,7 +232,7 @@ always @(posedge clk) begin
     SDRAM_DQ <= 16'bz;
 
     // no CPU access under way or due (a read of ch2 - ch4 uses the data register of ch1)
-    share_go = (~ch1_req_1 | lat_free) & ph_free;
+    share_go = (~ch1_req_1 | ch1_lat_free) & ch1_ph_free;
 
     command <= CMD_NOP;
     case (state)
@@ -285,7 +287,7 @@ always @(posedge clk) begin
         STATE_IDLE: begin
             // refresh in a cycle the CPU cannot use; at once only when there was none for long
             // (ROM download: requests one after another)
-            if (refresh_count > refresh_overdue || (refresh_count > cycles_per_refresh && ph_free && ~ch1_rq)) begin
+            if (refresh_count > refresh_overdue || (refresh_count > cycles_per_refresh && ch1_ph_free && ~ch1_rq)) begin
                 state         <= STATE_RFSH;
                 command       <= CMD_AUTO_REFRESH;
                 refresh_count <= refresh_count - cycles_per_refresh + 1'd1;
@@ -306,7 +308,7 @@ always @(posedge clk) begin
                 state      <= STATE_WAIT;
                 memory_bus_ch1.sdram_ready  <= 0;
             end
-            else if(ch2_rq & ph_free & (~ch2_rnw_1 | share_go)) begin
+            else if(ch2_rq & ch1_ph_free & (~ch2_rnw_1 | share_go)) begin
 				if (ch2_rnw_1)      // captured, as saved_wr (DQM must match the command)
                     {cas_addr[12:9],SDRAM_BA,SDRAM_A,cas_addr[8:0]} <= {2'b00, 1'b1, ch2_addr_1[25:1]};
                 else
@@ -321,7 +323,7 @@ always @(posedge clk) begin
                 state      <= STATE_WAIT;
 				ch2_ready  <= 0;
             end
-            else if(ch3_rq & ph_free & (~ch3_rnw_1 | share_go)) begin
+            else if(ch3_rq & ch1_ph_free & (~ch3_rnw_1 | share_go)) begin
                 chip       <= ch3_addr_1[26];
                 saved_data <= {ch3_din_1,ch3_din_1};
                 saved_wr   <= ~ch3_rnw_1;

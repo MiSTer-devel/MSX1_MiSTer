@@ -137,6 +137,7 @@ localparam CONF_STR = {
    // firmware switch (hC): machines with the S1990 or the Matsushita switched I/O
    "hC-;",
    "hCO[26],Firmware switch,Off,On;",
+   "hCO[56:55],R800 speed,Real,T-states,10.7MHz;",
    "H3-;",
    "H3O[40],Tape Input,File,ADC;",
    "H3O[42],Tape Monitor,On,Off;",

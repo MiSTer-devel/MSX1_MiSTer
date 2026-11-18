@@ -57,6 +57,7 @@ msx_cpu dut (
     .io_hold   (),
     .r800_active(r800_active),
     .r800_memdelay(2'd0),
+    .r800_fast (fast_lvl),
     .acc_start (acc_start),
 `endif
     .int_rq    (int_rq),
@@ -114,6 +115,8 @@ logic act_q = 0, active_q = 0, sw_seen = 0, in_chg = 0, arm = 0;
 
 wire act = (~mreq_n & rfsh_n & (~rd_n | ~wr_n)) | (~iorq_n & (~rd_n | ~wr_n)) | int_ack;
 wire acc_start;         // R800: a read starts although the strobes stayed low
+logic [1:0] fast_lvl = 2'd2;    // +fast=<0..2>: R800 bus of msx_cpu
+initial begin int f; if ($value$plusargs("fast=%d", f)) fast_lvl = f[1:0]; end
 `ifdef OLD_CPU
 assign acc_start = 1'b0;
 `endif
@@ -194,8 +197,8 @@ task automatic do_reset();
 endtask
 
 task automatic report();
-    $display("%s cpu_switch_tb sel=%0d (switches %0d, E5 writes %0d, IM1 R800 %0d, IM2 Z80 %0d, errors %0d)",
-             errors == 0 ? "PASS" : "FAILED", sel, n_sw, n_e5, im1_r800, im2_z80, errors);
+    $display("%s cpu_switch_tb sel=%0d r800_fast=%0d (switches %0d, E5 writes %0d, IM1 R800 %0d, IM2 Z80 %0d, errors %0d)",
+             errors == 0 ? "PASS" : "FAILED", sel, fast_lvl, n_sw, n_e5, im1_r800, im2_z80, errors);
     $finish;
 endtask
 

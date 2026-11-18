@@ -180,6 +180,7 @@ msx_cpu cpu (
    .ext_wait  (sd_wait || opll_wait || opl4_wait || pause),
    .r800      (msx_config.cpu == R800 || msx_user_config.ocm_r800),
    .r800_sel  (turbor_r800),
+   .r800_fast (msx_user_config.r800_fast),
    .r800_memdelay(r800_memdelay),
    .cmos_z80  (msx_config.cmos_z80),
    .vdp_io_wait(msx_config.vdp_io_wait),

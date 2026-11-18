@@ -285,7 +285,7 @@ memory_bus_if    memory_bus_sdram_ch1();
 memory_bus_if    memory_bus_sdram_ch2();
 memory_bus_if    memory_bus_sdram_ch3();
 wave_bus_if      wave_bus_sdram_ch4();
-wire             cpu_phase_next;
+wire             cpu_phase_next, cpu_acc_start, cpu_mem_free;
 wire             pause;
 wire       [5:0] joy[2];
 
@@ -339,6 +339,8 @@ msx_system msx_system
    .wave_bus_sdram_ch4(wave_bus_sdram_ch4),
    .cpu_phase(),
    .cpu_phase_next(cpu_phase_next),
+   .cpu_acc_start(cpu_acc_start),
+   .cpu_mem_free(cpu_mem_free),
    .ddr3_addr(ddr3_addr),
    .ddr3_rd(ddr3_rd),
    .ddr3_we(ddr3_we),
@@ -603,7 +605,9 @@ sdram sdram
    .ch4_req  (wave_bus_sdram_ch4.req),
    .ch4_rnw  (~wave_bus_sdram_ch4.we),
    .ch4_done (wave_bus_sdram_ch4.ack),
-   .cpu_phase_next(cpu_phase_next)
+   .cpu_phase_next(cpu_phase_next),
+   .ch1_new(cpu_acc_start),
+   .ch1_free(cpu_mem_free)
 );
 
 endmodule

@@ -56,6 +56,8 @@ msx_cpu dut (
     .vdp_wr_wait(1'b0),
     .io_hold   (),
     .r800_active(r800_active),
+    .r800_memdelay(2'd0),
+    .acc_start (acc_start),
 `endif
     .int_rq    (int_rq),
     .di        (di),
@@ -111,6 +113,10 @@ int n_sw = 0, n_e5 = 0, im1_r800 = 0, im2_z80 = 0, marker = 0, phase = 0;
 logic act_q = 0, active_q = 0, sw_seen = 0, in_chg = 0, arm = 0;
 
 wire act = (~mreq_n & rfsh_n & (~rd_n | ~wr_n)) | (~iorq_n & (~rd_n | ~wr_n)) | int_ack;
+wire acc_start;         // R800: a read starts although the strobes stayed low
+`ifdef OLD_CPU
+assign acc_start = 1'b0;
+`endif
 
 always @(posedge clk) begin
     ttype_t t;
@@ -119,7 +125,7 @@ always @(posedge clk) begin
     active_q <= active;
     sw_now   = !reset && active != active_q;
     if (sw_now) sw_seen <= 1;
-    if (!reset && act && !act_q) begin
+    if (!reset && act && (!act_q || acc_start)) begin
         t = int_ack ? T_INTA : ~iorq_n ? (~rd_n ? T_IORD : T_IOWR) :
             ~m1_n ? T_M1 : (~rd_n ? T_MRD : T_MWR);
         case (t)

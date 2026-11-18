@@ -23,7 +23,7 @@ TV80a #(.Mode(0), .R800_MULU(1), .IOWait(1)) cpu (
     .M1_n(m1_n), .MREQ_n(mreq_n), .IORQ_n(iorq_n), .RD_n(rd_n), .WR_n(wr_n), .RFSH_n(rfsh_n),
     .HALT_n(), .BUSAK_n(), .A(a), .DI(di), .DO(dout), .MC(), .TS(), .IntCycle_n(), .MULU(),
 `ifdef TV80_FAST
-    .FAST(1'b0), .LAST_T(), .ACC_START(),
+    .FAST(1'b0), .ACC_START(), .HINT(),
 `endif
     .REG(), .DIRSet(1'b0), .DIR('0));
 logic [7:0] mem [0:65535];

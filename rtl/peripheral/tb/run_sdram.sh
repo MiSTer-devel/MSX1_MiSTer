@@ -8,6 +8,7 @@ DUT=${1:-../sdram.sv}
 DEFS=""; [ -n "$OLD" ] && DEFS="+define+OLD"
 [ -n "$OLDPH" ] && DEFS="$DEFS +define+OLDPH"
 [ -n "$1" ] && [ -z "$CH4" ] && DEFS="$DEFS +define+NO_CH4"    # other sdram.sv: without ch4 unless CH4=1
+grep -q 'ch1_new' "$DUT" || DEFS="$DEFS +define+NO_CH1NEW"    # before the R800 single phase bus
 OUT=$(mktemp -d)
 # C6: SDRAM_DQ may feed one register only (ch1_saved_data, placed in the I/O cell)
 NDQ=$(grep -cE '<=\s*SDRAM_DQ\s*;' "$DUT" || true)

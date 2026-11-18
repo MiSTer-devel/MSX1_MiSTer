@@ -57,6 +57,9 @@ sdram dut (
     .cpu_phase(cpu_phase)
 `else
     .cpu_phase_next(cpu_phase_next)
+`ifndef NO_CH1NEW
+    , .ch1_new(ch1_new), .ch1_free(ch1_free)
+`endif
 `endif
 `endif
 );
@@ -102,7 +105,7 @@ end
 
 // ---------------- ch1 driver (clk_core domain) ----------------
 logic [7:0]  ref_mem [int];
-logic        cs = 0, rnw = 1;
+logic        cs = 0, rnw = 1, ch1_new = 0, ch1_free = 0;
 logic [26:0] addr = 0;
 logic  [7:0] din = 0;
 assign bus.ram_cs  = cs;
@@ -186,7 +189,8 @@ endtask
 // and the CPU clock stops now and then.
 int tlen = 6, tcnt = 0;
 bit phase_on = 1, vary = 0, stop = 0, hold_phase = 0;
-assign cpu_phase_next = phase_on && tcnt >= tlen - 1;
+bit r8_mode = 0, r8_next = 0;       // R800 single phase bus (below) announces its accesses itself
+assign cpu_phase_next = r8_mode ? r8_next : phase_on && tcnt >= tlen - 1;
 always @(posedge clk_core) begin
     if (!stop && !(hold_phase && cpu_phase_next)) tcnt <= tcnt >= tlen - 1 ? 0 : tcnt + 1;
     cpu_phase <= cpu_phase_next;
@@ -301,6 +305,57 @@ initial forever begin
 end
 `endif
 
+// ---------------- R800 single phase bus (msx_cpu R800_FAST, TV80a FAST) ----------------
+// One T state per clk_core. A read holds the strobes from T1 and may follow the access before
+// it without a gap (ch1_new marks its first clk); the CPU takes the data on the 3rd edge after
+// the start. An opcode fetch is T1, T2, Tw with the strobes and T3 without; a data read T1 - T3;
+// a write T1 without and T2, T3 with the strobes. cpu_phase_next as msx_cpu.bus_phase_next: the
+// last T state of a cycle, T1 of a write, the last clk of a held T1. ch1_free from the 3rd clk
+// of a read: the CPU takes the data at its end, also when the cycle goes on.
+logic [7:0] cpu_q;
+logic       free_q = 0;
+always @(posedge clk_core) begin
+    free_q <= ch1_free;
+    if (ch1_free && !free_q) cpu_q <= bus.q;            // the 3rd edge
+end
+int r8_reads = 0, r8_late = 0;
+task automatic r8_check(input int a);
+    r8_reads++;
+    if (cpu_q !== ref_mem[a]) begin
+        r8_late++;
+        if (r8_late < 10) $display("FAIL R800 bus read %06h: %02h on the 3rd edge, expected %02h", a, cpu_q, ref_mem[a]);
+    end
+endtask
+task automatic r8_fetch(input int a);
+    addr = 27'(a); rnw = 1; cs = 1; ch1_new = 1; r8_next = 0; ch1_free = 0;
+    core(1); ch1_new = 0;
+    core(1); ch1_free = 1;                              // Tw: the data is taken at its end
+    if ($urandom % 16 == 0) core(1 + $urandom % 6);     // /WAIT holds the fetch, the data was taken
+    core(1); r8_check(a);
+    cs = 0; r8_next = 1; ch1_free = 0;                  // T3
+    core(1);
+endtask
+task automatic r8_fetch_or_read(input int a);          // operand or data read, T1 - T3
+    addr = 27'(a); rnw = 1; cs = 1; ch1_new = 1; r8_next = 0; ch1_free = 0;
+    core(1); ch1_new = 0;
+    core(1); r8_next = 1; ch1_free = 1;
+    core(1); r8_check(a);
+    ch1_free = 0;
+endtask
+task automatic r8_write(input int a, input logic [7:0] v);
+    cs = 0; rnw = 1; r8_next = 1;                       // T1
+    core(1);
+    addr = 27'(a); din = v; rnw = 0; cs = 1; r8_next = 0;
+    ref_mem[a] = v;
+    core(1); r8_next = 1;
+    core(1);
+endtask
+task automatic r8_idle(input int n);                    // T1 of the next fetch held by the pacing
+    cs = 0; rnw = 1; r8_next = 0;
+    core(n - 1); r8_next = 1;
+    core(1);
+endtask
+
 initial begin
     core(5);
     init = 0;
@@ -382,6 +437,33 @@ initial begin
     phase_on = 0; ch4_ops = 0; ch4_run = 1; core(4000); ch4_run = 0; core(40);
     if (ch4_ops < 500) begin errors++; $display("FAIL ch4 without a CPU clock: %0d accesses", ch4_ops); end
     $display("ch4 alone: %0d accesses in 4000 clk_core", ch4_ops);
+`endif
+`ifndef NO_CH1NEW
+`ifndef NO_CH4
+    // R800 on the single phase bus of msx_cpu: random instructions next to ch2 - ch4 and the refresh
+    phase_on = 1; r8_mode = 1; core(8);
+    for (int reg_only = 0; reg_only < 2; reg_only++) begin
+        r8_reads = 0; r8_late = 0; rf_n = 0; rf_max = 0;
+        ch4_run = 1; c23_run = 1; ch4_ops = 0; c23_ops = 0;
+        for (int i = 0; i < 12000; i++) begin
+            r8_fetch(27'h010000 + ($urandom % 3000));
+            if (!reg_only) begin
+                for (int k = $urandom % 3; k > 0; k--) r8_fetch_or_read(27'h010000 + ($urandom % 3000));
+                for (int k = $urandom % 3; k > 0; k--) r8_write(27'h010000 + ($urandom % 3000), 8'($urandom));
+                if ($urandom % 3 == 0) r8_idle(1 + $urandom % 9);
+            end
+        end
+        cs = 0; r8_next = 0; ch4_run = 0; c23_run = 0; core(40);
+        $display("R800 bus%s: %0d reads, %0d not there on the 3rd edge, ch4 accesses %0d, ch2/ch3 reads %0d, refresh %0d (gap at most %0d clk)",
+                 reg_only ? " (opcode fetches only)" : "", r8_reads, r8_late, ch4_ops, c23_ops, rf_n, rf_max);
+        if (r8_late != 0) begin errors++; $display("FAIL R800 bus: %0d reads without the data on the 3rd clk_core edge", r8_late); end
+        if (rf_n < 100 || rf_max > 671) begin errors++; $display("FAIL R800 bus refresh: %0d, longest gap %0d clk", rf_n, rf_max); end
+        if (ch4_ops < 1000) begin errors++; $display("FAIL R800 bus: ch4 starved, %0d accesses", ch4_ops); end
+        if (c23_ops < 100) begin errors++; $display("FAIL R800 bus: ch2/ch3 reads starved, %0d", c23_ops); end
+    end
+    r8_mode = 0;
+    for (int i = 0; i < 3000; i += 7) cpu_read(27'h010000 + i, 8);     // what the R800 bus wrote
+`endif
 `endif
     if (errors == 0) $display("PASS sdram_tb");
     else             $display("FAILED sdram_tb: %0d errors", errors);

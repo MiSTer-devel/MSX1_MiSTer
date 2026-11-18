@@ -1,6 +1,7 @@
 #!/bin/bash
-# CPU speed and VDP port timing of msx_cpu (Verilator --timing): R800 7.16 MHz without M1 wait,
-# VDP access spacing (R800, Matsushita turbo), T9769 wait, Z80 at 5.37 and 7.16 MHz.
+# CPU speed and VDP port timing of msx_cpu (Verilator --timing): R800 on the single phase bus
+# with the R800 pacing, VDP access spacing (R800, Matsushita turbo), T9769 wait, Z80 at 5.37 and
+# 7.16 MHz.
 #   wsl.exe -- bash rtl/tb/run_r800_timing.sh            turbor = 1 and 0
 #   wsl.exe -- bash rtl/tb/run_r800_timing.sh +v         single verbose run
 # ALT=<dir> takes tv80.sv, tv80a.sv, tv80_reg.sv and msx_cpu.sv from <dir> and builds the tb

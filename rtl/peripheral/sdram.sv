@@ -64,7 +64,13 @@ module sdram
     input             ch4_req,     // held until ch4_done
     input             ch4_rnw,     // 1 - read, 0 - write
     output reg        ch4_done,    // cleared when ch4_req falls
-    input             cpu_phase_next // the CPU can start a bus access in the next clk_core cycle
+    input             cpu_phase_next, // the CPU can start a bus access in the next clk_core cycle
+    // a new ch1 access starts in this clk_core cycle although ram_cs stayed high (R800: a read
+    // follows the access before it without a gap)
+    input             ch1_new,
+    // the CPU has taken the data of its ch1 read although ram_cs is still high (R800: on the 3rd
+    // clk_core edge after the start): ch2 - ch4 may read
+    input             ch1_free
 );
 
 // ch1 is driven by clk_core combinational logic (CPU address decode, longer than one clk
@@ -83,8 +89,9 @@ wire ch1_sample = core_phase_1 ^ core_phase_2;
 // sample point of a cycle with cpu_phase_next = 0: it is over before the next ch1 request can
 // be captured, so a CPU access never waits (also while the CPU speed changes). Without a CPU
 // clock every cycle is free.
-reg ph_free = 1'b0;
-always @(posedge clk) ph_free <= ch1_sample & ~cpu_phase_next;
+reg ph_free = 1'b0, lat_free = 1'b0;
+always @(posedge clk) ph_free  <= ch1_sample & ~cpu_phase_next;
+always @(posedge clk) lat_free <= ch1_sample & ch1_free;
 
 assign SDRAM_nCS  = chip;
 assign SDRAM_nRAS = command[2];
@@ -167,7 +174,7 @@ always @(posedge clk) begin
 
     if (ch1_sample) begin
         ch1_req_1 <= memory_bus_ch1.ram_cs;
-        if (memory_bus_ch1.ram_cs & ~ch1_req_1) begin
+        if (memory_bus_ch1.ram_cs & (~ch1_req_1 | ch1_new)) begin
             ch1_rq     <= 1;
             ch1_rnw_1  <= memory_bus_ch1.rnw;
             ch1_addr_1 <= memory_bus_ch1.addr;
@@ -223,7 +230,7 @@ always @(posedge clk) begin
     SDRAM_DQ <= 16'bz;
 
     // no CPU access under way or due (a read of ch2 - ch4 uses the data register of ch1)
-    share_go = ~ch1_req_1 & ph_free;
+    share_go = (~ch1_req_1 | lat_free) & ph_free;
 
     command <= CMD_NOP;
     case (state)

@@ -1,11 +1,13 @@
 // CPU speed and VDP port timing of msx_cpu (doc/cpu.md, doc/turboR.md chapter 3 and 6):
 //   - Z80 3.58 MHz with one M1 wait: NOP 5 T = 30 clk; T9769 (vdp_io_wait): one more wait
 //     state on the VDP ports (98-9B);
-//   - R800: Z80 T states at 10.7 MHz, no M1 wait state (NOP 4 T = 8 clk); I/O cycles with
-//     3 wait states (OUT (n),A 14 T = 28 clk = 9.3 cycles of 7.16 MHz); MULUB 14 and MULUW 36
-//     cycles of 7.16 MHz (42 / 108 clk); two accesses to the VDP ports start exactly 62 R800
-//     cycles (186 clk) apart when they come sooner (openMSX VDPIODelay), reads and writes;
-//     other ports not delayed;
+//   - R800 (single phase bus, r800_pace without the DRAM refresh): an opcode fetch 4 clk (NOP
+//     behind the real R800 by 1 clk each); where the R800 is slower the instruction takes
+//     exactly its R800 time: MULUB 14 and MULUW 36 cycles of 7.16 MHz (42 / 108 clk),
+//     LD A,(HL) 3 cycles the first and 4 the following ones (page breaks), OUT (n),A 9 or
+//     10 cycles; memory kinds: a NOP from the internal ROM 3 cycles, from an external slot 4;
+//     two accesses to the VDP ports start exactly 62 R800 cycles (186 clk) apart when they
+//     come sooner (openMSX VDPIODelay), reads and writes; other ports not delayed;
 //   - the Z80 timing is back after the switch to the Z80;
 //   - Matsushita turbo (5.37 MHz, vdp_wr_wait): two VDP writes start 46 cycles of 5.37 MHz
 //     apart, reads are not delayed (openMSX MSXMatsushita);
@@ -13,7 +15,7 @@
 // "Start" is what the devices see: the bus strobes masked by io_hold, as in msx.sv.
 // Zero-latency memory, r800_sel driven directly (the S1990 is not part of the test). Program
 // (both CPUs start at 0000h): LD A,0; OUT (98h),A x2; OUT (A0h),A x2; IN A,(98h) x2;
-// MULUB A,B; MULUW HL,BC (NOPs on the Z80); 16 x NOP; JP 0000h.
+// MULUB A,B; MULUW HL,BC (NOPs on the Z80); 4 x LD A,(HL); 12 x NOP; JP 0000h.
 // Plusargs: +turbor=0 (no T9769 wait), +v verbose. OLD_CPU (run_r800_timing.sh ALT=<dir>): the
 // msx_cpu before io_hold (port turbor), must fail.
 // Run: wsl.exe -- bash rtl/tb/run_r800_timing.sh
@@ -33,8 +35,13 @@ logic [15:0] addr;
 logic  [7:0] dout, di;
 logic        active;                        // CPU running now (1 = R800)
 logic        io_hold;
+logic  [1:0] memdelay = 2'd0;               // R800: kind of the memory
 
+`ifndef OLD_CPU
+msx_cpu #(.R800_REFRESH(0)) dut (
+`else
 msx_cpu dut (
+`endif
     .clock_bus (clock_bus.base_mp),
     .reset     (reset),
     .clock_sel (clock_sel),
@@ -50,6 +57,8 @@ msx_cpu dut (
     .vdp_wr_hold(wr_hold),
     .vdp_wr_wait(wr_wait),
     .io_hold   (io_hold),
+    .r800_memdelay(memdelay),
+    .acc_start (),
 `else
     .turbor    (turbor),
 `endif
@@ -68,7 +77,7 @@ assign io_hold = 1'b0;
 
 // ---------------- memory ----------------
 logic [7:0] mem [0:255];
-localparam logic [15:0] NOP_FIRST = 16'h0012, NOP_LAST = 16'h0021;
+localparam logic [15:0] NOP_FIRST = 16'h0017, NOP_LAST = 16'h0021;      // 0016h is the first NOP
 initial begin
     foreach (mem[i]) mem[i] = 8'h00;
     {mem[0], mem[1]} = {8'h3E, 8'h00};                      // LD A,0
@@ -76,7 +85,8 @@ initial begin
     {mem[6], mem[7], mem[8], mem[9]} = {8'hD3, 8'hA0, 8'hD3, 8'hA0};    // OUT (A0h),A x2
     {mem[10], mem[11], mem[12], mem[13]} = {8'hDB, 8'h98, 8'hDB, 8'h98}; // IN A,(98h) x2
     {mem[14], mem[15], mem[16], mem[17]} = {8'hED, 8'hC1, 8'hED, 8'hC3}; // MULUB A,B; MULUW HL,BC
-    {mem[34], mem[35], mem[36]} = {8'hC3, 8'h00, 8'h00};    // JP 0000h (0012h-0021h: NOP)
+    {mem[18], mem[19], mem[20], mem[21]} = {8'h7E, 8'h7E, 8'h7E, 8'h7E}; // LD A,(HL) x4 (reads 00h)
+    {mem[34], mem[35], mem[36]} = {8'hC3, 8'h00, 8'h00};    // JP 0000h (0016h-0021h: NOP)
 end
 assign di = (~mreq_n && ~rd_n) ? mem[addr[7:0]] : 8'h00;    // IN reads 00h (A stays 0)
 
@@ -87,14 +97,15 @@ always @(posedge clk) cyc++;
 // per phase: NOP M1 interval (min / max), I/O cycle lengths (IORQ low, waits included), the
 // gap between the ends of the two OUT cycles of a pair (98h, A0h) and the starts of the four
 // VDP accesses as the devices see them (OUT, OUT, IN, IN)
-typedef struct { int nop_min, nop_max, len98_1, len98_2, lenA0, gap98, gapA0, loops, mulub, muluw; int s98[4]; } meas_t;
+typedef struct { int nop_min, nop_max, len98_1, len98_2, lenA0, gap98, gapA0, loops, mulub, muluw; int s98[4]; int ld[5]; } meas_t;
 meas_t m;
 task automatic clear_meas();
     m = '{nop_min: 1 << 30, nop_max: 0, len98_1: -1, len98_2: -1, lenA0: -1, gap98: -1, gapA0: -1, loops: 0,
-          mulub: -1, muluw: -1, s98: '{-1, -1, -1, -1}};
+          mulub: -1, muluw: -1, s98: '{-1, -1, -1, -1}, ld: '{-1, -1, -1, -1, -1}};
 endtask
 
 logic        m1_q = 0, io_q = 0, dev_q = 0, measure = 0;
+logic  [7:0] io_port = 0;                   // the R800 bus drops the address with the strobe
 int          t_m1 = 0, t_io_start = 0, t_98 = -1, t_A0 = -1, t_mul = 0;
 int          n98 = 0, nA0 = 0, d98 = 0;
 wire         m1_act  = ~m1_n && ~mreq_n;
@@ -111,6 +122,8 @@ always @(posedge clk) begin
         end
         if (measure && addr == 16'h0010) m.mulub = cyc - t_mul;     // MULUB: 000Eh to 0010h
         if (measure && addr == 16'h0012) m.muluw = cyc - t_mul;     // MULUW: 0010h to 0012h
+        for (int i = 0; i < 5; i++)                                 // LD A,(HL) x4 and the first NOP
+            if (measure && int'(addr) == 'h13 + i) m.ld[i] = cyc - t_m1;
         if (addr == 16'h000E || addr == 16'h0010) t_mul = cyc;
         if (addr == 16'h0000) begin
             if (measure) m.loops++;
@@ -122,13 +135,13 @@ always @(posedge clk) begin
         if (measure && d98 < 4) m.s98[d98] = cyc;
         d98++;
     end
-    if (io_act && !io_q) t_io_start = cyc;                  // I/O cycle starts
+    if (io_act && !io_q) begin t_io_start = cyc; io_port <= addr[7:0]; end   // I/O cycle starts
     if (!io_act && io_q && measure) begin                   // I/O cycle ends
-        if (addr[7:0] == 8'h98) begin
+        if (io_port == 8'h98) begin
             n98++;
             if (n98 == 1) begin m.len98_1 = cyc - t_io_start; t_98 = cyc; end
             if (n98 == 2) begin m.len98_2 = cyc - t_io_start; m.gap98 = cyc - t_98; end
-        end else if (addr[7:0] == 8'hA0) begin
+        end else if (io_port == 8'hA0) begin
             nA0++;
             m.lenA0 = cyc - t_io_start;
             if (nA0 == 1) t_A0 = cyc;
@@ -187,14 +200,25 @@ initial begin
     expect_eq("Z80 ED C3 is a NOP", m.muluw, 10 * 6);
     if (active) fail("R800 active without a request");
 
-    // --- R800 (10.7 MHz, no M1 wait): NOP 4 T = 8 clk, I/O with 3 wait states, MULUB / MULUW
-    // 14 / 36 cycles of 7.16 MHz, VDP accesses start 62 such cycles = 186 clk apart
+    // --- R800: an opcode fetch 4 clk; MULUB / MULUW 14 / 36 cycles of 7.16 MHz, LD A,(HL) 3 and
+    // 4 cycles, OUT (n),A 9 or 10 cycles (to an even cycle), VDP accesses start 62 cycles apart
     r800_sel = 1;
     @(posedge clk); wait (active); if (verbose) $display("%0t R800 active", $time);
     run_loops("R800", 4);
+`ifdef OLD_CPU
     expect_eq("R800 NOP interval min", m.nop_min, 8);
     expect_eq("R800 NOP interval max", m.nop_max, 8);
     expect_eq("R800 gap of the OUT (A0) pair", m.gapA0, (11 + 3) * 2);          // OUT (n),A = 11 T + 3 waits
+`else
+    expect_eq("R800 NOP interval min", m.nop_min, 4);
+    expect_eq("R800 NOP interval max", m.nop_max, 4);
+    if (m.gapA0 != 9 * 3 && m.gapA0 != 10 * 3) fail($sformatf("R800 gap of the OUT (A0) pair: %0d (expected 27 or 30)", m.gapA0));
+    expect_eq("R800 first LD A,(HL)", m.ld[0], 3 * 3);                          // fetch, page break, read
+    expect_eq("R800 second LD A,(HL)", m.ld[1], 4 * 3);                         // page break of the fetch too
+    expect_eq("R800 third LD A,(HL)", m.ld[2], 4 * 3);
+    expect_eq("R800 fourth LD A,(HL)", m.ld[3], 4 * 3);
+    expect_eq("R800 NOP after a data read", m.ld[4], 2 * 3);
+`endif
     expect_eq("R800 MULUB", m.mulub, 14 * 3);
     expect_eq("R800 MULUW", m.muluw, 36 * 3);
     expect_eq("R800 first OUT (98) not delayed", m.len98_1, m.lenA0);
@@ -203,6 +227,19 @@ initial begin
     expect_eq("R800 VDP read after read", m.s98[3] - m.s98[2], 62 * 3);
     if (m.len98_2 <= m.lenA0) fail("R800 second OUT (98) not stretched by wait states");
     check_window("R800");
+
+`ifndef OLD_CPU
+    // --- R800, code in the internal ROM (2 cycles more per access) and in an external slot (3)
+    memdelay = 2'd1;
+    run_loops("R800 ROM", 3);
+    expect_eq("R800 NOP from the internal ROM min", m.nop_min, 3 * 3);
+    expect_eq("R800 NOP from the internal ROM max", m.nop_max, 3 * 3);
+    memdelay = 2'd2;
+    run_loops("R800 external", 3);
+    expect_eq("R800 NOP from an external slot min", m.nop_min, 4 * 3);
+    expect_eq("R800 NOP from an external slot max", m.nop_max, 4 * 3);
+    memdelay = 2'd0;
+`endif
 
     // --- back to the Z80
     r800_sel = 0;

@@ -33,6 +33,8 @@ module msx #(parameter sysCLK)
    wave_bus_if.device_mp    wave_bus,             // OPL4 sample memory
    output                   cpu_phase,            // clk in which the CPU may start a bus access
    output                   cpu_phase_next,       // cpu_phase one clk ahead
+   output                   cpu_acc_start,        // R800: first clk of a read that follows an access without a gap
+   output                   cpu_mem_free,         // R800: the CPU has taken the data of its read
    //I/O
    output            [15:0] audio_L,
    output            [15:0] audio_R,
@@ -144,7 +146,8 @@ assign cpu_bus.rd      = ~rd_n && ~io_hold;
 assign cpu_bus.wr      = ~wr_n && ~io_hold;
 assign cpu_bus.rfsh    = ~rfsh_n;
 assign cpu_bus.int_rq  = cpu_interrupt;
-assign cpu_bus.req     = ~((iorq_n & mreq_n) | (wr_n & rd_n) | iack | io_hold);
+// R800: MREQ / RD may stay low from one access to the next read, cpu_acc_start marks its first clk
+assign cpu_bus.req     = ~((iorq_n & mreq_n) | (wr_n & rd_n) | (iack & ~cpu_acc_start) | io_hold);
 
 always_ff @(posedge cpu_bus.clk) begin
    if (cpu_bus.reset)
@@ -159,6 +162,14 @@ always_ff @(posedge cpu_bus.clk) begin
 end
 
 
+// R800: speed of the memory at the address on the bus, as openMSX R800.hh for the turbo R
+// machines: slots 1 and 2 external (2), slot 3-0 RAM (0), the rest internal ROM (1); in DRAM
+// mode the BIOS, BASIC, SUB-ROM and Kanji driver pages (0-0 and 3-1, pages 0 and 1) are RAM.
+wire [1:0] r800_memdelay = (layout_id[5:4] == 2'd1 || layout_id[5:4] == 2'd2)  ? 2'd2 :
+                           (layout_id[5:2] == 4'b1100)                         ? 2'd0 :
+                           (turbor_dram && ~layout_id[1] &&
+                            (layout_id[5:2] == 4'b0000 || layout_id[5:2] == 4'b1101)) ? 2'd0 : 2'd1;
+
 msx_cpu cpu (
    .clock_bus (clock_bus),
    .reset     (reset),
@@ -169,6 +180,7 @@ msx_cpu cpu (
    .ext_wait  (sd_wait || opll_wait || opl4_wait || pause),
    .r800      (msx_config.cpu == R800 || msx_user_config.ocm_r800),
    .r800_sel  (turbor_r800),
+   .r800_memdelay(r800_memdelay),
    .cmos_z80  (msx_config.cmos_z80),
    .vdp_io_wait(msx_config.vdp_io_wait),
    .vdp_wr_hold(cpu_speed.vdp_wr_hold),
@@ -177,6 +189,8 @@ msx_cpu cpu (
    .r800_active(),
    .bus_phase (cpu_phase),
    .bus_phase_next(cpu_phase_next),
+   .acc_start (cpu_acc_start),
+   .mem_free  (cpu_mem_free),
    .int_rq    (cpu_interrupt),
    .di        (d_to_cpu),
    .m1_n      (m1_n),

@@ -65,6 +65,7 @@
 //  +m02 : Single clock CLK with clock enables CE_p (former posedge) / CE_n (former negedge)
 //  +m03 : Savestate REG / DIRSet / DIR (MiSTer T80 layout) and MC / TS / IntCycle_n outputs
 //         for the Z80 / R800 context switch in msx_cpu
+//  +m05 : FAST: single phase bus, one clk per T state (R800 in msx_cpu)
 //  +m04 : Interrupt acknowledge IORQ ends with M1; I/O cycle IORQ, RD and WR go active together
 //         (Sord M5 core, doc/sordm5-opravy.md Z4 / Z5)
 
@@ -98,6 +99,18 @@ module TV80a#(
     output    [2:0] TS,             // T state
     output          IntCycle_n,     // 0 = interrupt acknowledge cycle
     output    [1:0] MULU,           // R800 multiply running (bit 0), MULUW (bit 1)
+    // FAST: one clk per T state (CE_p only). Read strobes from T1 to the latch of the data, write
+    // strobes in T2 and T3, no refresh cycle; the data bus is read at the end of T3 (T2 for an
+    // opcode). ACC_START marks the first clk of a read, which may follow the cycle before it
+    // without a gap in MREQ / RD. The data of a memory read is taken on the 3rd clk edge after
+    // its start, also when /WAIT holds the cycle longer; DATA_FREE: from that 3rd clk on the
+    // memory may change the data (SDRAM: its data register is free for the other channels).
+    input           FAST,
+    output          DATA_FREE,
+    input           TRIM,           // with FAST: no idle T states (see TV80)
+    input           HOLD,           // FAST: T1 of an M1 is held (CE_p off), the fetch starts after it
+    output          ACC_START,
+    output   [14:0] HINT,           // see TV80
     output  [211:0] REG,            // savestate, see TV80
     input           DIRSet,
     input   [211:0] DIR
@@ -131,16 +144,49 @@ module TV80a#(
     assign RD_n_i  = ~RD || Req_Inhibit;
     assign WR_n_j  = WR_n_i;
 
-    assign MREQ_n  = MREQ_n_i;
+    // ---- single phase bus
+    logic f_t1q, f_t2q;             // the state before the last CE_p was T1 / T2 as well
+    wire  f_m1    = MCycle == 3'd1;
+    wire  f_fetch = f_m1 && IntCycle_n && (TState == 3'd1 || TState == 3'd2) && ~HOLD && ~DIRSet;
+    wire  f_read  = ~f_m1 && ~NoRead && ~Write && ~IORQ && TState >= 3'd1 && TState <= 3'd3;
+    wire  f_write = ~f_m1 && Write && ~IORQ && (TState == 3'd2 || TState == 3'd3);
+    wire  f_io    = ~f_m1 && IORQ && ~NoRead && ((TState == 3'd1 && f_t1q) || TState == 3'd2 || TState == 3'd3);
+    wire  f_inta  = f_m1 && ~IntCycle_n && TState == 3'd2 && f_t2q;
+    always_ff @(posedge CLK) begin
+        if (CE_p) begin
+            f_t1q <= TState == 3'd1;
+            f_t2q <= TState == 3'd2;
+        end
+    end
+    assign ACC_START = FAST && TState == 3'd1 && (f_fetch || f_read);
+
+    logic [1:0] f_cnt;              // clk since the start of the read (3 = data taken)
+    logic [7:0] f_dq;
+    always_ff @(posedge CLK) begin
+        if (~FAST || ACC_START)
+            f_cnt <= {1'b0, FAST};
+        else if (~(f_fetch || f_read))
+            f_cnt <= 2'd0;
+        else if (f_cnt == 2'd1)
+            f_cnt <= 2'd2;
+        else if (f_cnt == 2'd2) begin
+            f_cnt <= 2'd3;
+            f_dq  <= DI;
+        end
+    end
+    assign DATA_FREE = FAST && ~ACC_START && f_cnt[1];
+    wire [7:0] DI_f = (FAST && f_cnt == 2'd3) ? f_dq : DI;      // read data for the core
+
+    assign MREQ_n  = FAST ? ~(f_fetch || f_read || f_write) : MREQ_n_i;
     // Interrupt acknowledge: IORQ ends together with M1, as on the Z80 (IORQ_n_i alone stays
     // low until CE_n in T3, which looks like an I/O write to peripherals without a WR pin).
-    assign IORQ_n  = IORQ_n_i || (IReq_Inhibit && IntCycle_n) || (~IntCycle_n && M1_n);
+    assign IORQ_n  = FAST ? ~(f_io || f_inta) : IORQ_n_i || (IReq_Inhibit && IntCycle_n) || (~IntCycle_n && M1_n);
     // I/O cycle: IORQ, RD and WR are latched together on CE_n in T1 and held off by
     // IReq_Inhibit until CE_p, so all go active on the rising edge of T2 as on the Z80.
     wire   io_hold = ~IORQ_n_i && IReq_Inhibit && IntCycle_n;
-    assign RD_n    = RD_n_i || io_hold;
-    assign WR_n    = WR_n_j || io_hold;
-    assign RFSH_n  = RFSH_n_i;
+    assign RD_n    = FAST ? ~(f_fetch || f_read || (f_io && ~Write)) : RD_n_i || io_hold;
+    assign WR_n    = FAST ? ~(f_write || (f_io && Write))            : WR_n_j || io_hold;
+    assign RFSH_n  = RFSH_n_i || FAST;       // FAST: no refresh cycle
     assign A       = A_i;
     assign MC      = MCycle;
     assign TS      = TState;
@@ -167,7 +213,7 @@ module TV80a#(
         .Write(Write),
         .RFSH_n(RFSH_n_i),
         .HALT_n(HALT_n),
-        .WAIT_n(Wait_s),
+        .WAIT_n(FAST ? WAIT_n : Wait_s),
         .INT_n(INT_n),
         .NMI_n(NMI_n),
         .RESET_n(Reset_s),
@@ -175,22 +221,29 @@ module TV80a#(
         .BUSAK_n(BUSAK_n_i),
         .CLK_n(CLK),
         .A(A_i),
-        .DInst(DI),
-        .DI(DI_Reg),
+        .DInst(DI_f),
+        .DI((FAST && ~f_m1 && TState == 3'd3 && ~NoRead) ? DI_f : DI_Reg),  // FAST: read data used in T3 already
         .DO(DO),
         .MC(MCycle),
         .TS(TState),
         .IntCycle_n(IntCycle_n),
         .R800_mode(R800_mode),
         .CMOS(CMOS),
+        .TRIM(FAST && TRIM),
         .MULU(MULU),
+        .HINT(HINT),
         .REG(REG),
         .DIRSet(DIRSet),
         .DIR(DIR)
     );
 
     always_ff @(posedge CLK) begin
-        if (CE_n) begin
+        if (FAST) begin
+            // opcode at the end of T2 (as the IR), data and the interrupt vector as below
+            if (CE_p && ((f_m1 && IntCycle_n && TState == 3'd2 && WAIT_n) || (~f_m1 && TState == 3'd3 && ~NoRead) ||
+                         (TState == 3'd2 && ~IntCycle_n)))
+                DI_Reg <= DI_f;
+        end else if (CE_n) begin
             Wait_s <= WAIT_n;
             // not in a cycle without a read: RRD / RLD use the byte in the cycle after the read
             if (((TState == 3'd3 && IntCycle_n && ~NoRead) || (TState == 3'd2 && ~IntCycle_n)) && BUSAK_n_i == '1) begin
@@ -200,13 +253,17 @@ module TV80a#(
     end
 
     always_ff @(posedge CLK) begin
-        if (CE_p) begin
+        if (DIRSet)
+            IReq_Inhibit <= '1;
+        else if (CE_p) begin
             IReq_Inhibit <= ~IORQ;
         end
     end
 
     always_ff @(posedge CLK or negedge Reset_s) begin
         if (~Reset_s) begin
+            WR_n_i <= '1;
+        end else if (DIRSet) begin
             WR_n_i <= '1;
         end else if (CE_n) begin
             if (~IORQ) begin
@@ -228,6 +285,8 @@ module TV80a#(
     always_ff @(posedge CLK or negedge Reset_s) begin
         if (~Reset_s) begin
             Req_Inhibit <= '0;
+        end else if (DIRSet) begin
+            Req_Inhibit <= '0;
         end else if (CE_p) begin
             Req_Inhibit <= MCycle == 3'd1 && TState == 3'd2 && Wait_s;
         end
@@ -235,6 +294,8 @@ module TV80a#(
 
     always_ff @(posedge CLK or negedge Reset_s) begin
         if (~Reset_s) begin
+            MReq_Inhibit <= '0;
+        end else if (DIRSet) begin
             MReq_Inhibit <= '0;
         end else if (CE_n) begin
             MReq_Inhibit <= MCycle == 3'd1 && TState == 3'd2;
@@ -246,6 +307,11 @@ module TV80a#(
             RD <= '0;
             IORQ_n_i <= '1;
             MREQ <= '0;
+            IntA_T2 <= '0;
+        end else if (DIRSet) begin              // T1 of the first M1 of the loaded context
+            RD <= '1;
+            IORQ_n_i <= '1;
+            MREQ <= '1;
             IntA_T2 <= '0;
         end else if (CE_n) begin
             if (MCycle == 3'd1) begin

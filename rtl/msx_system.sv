@@ -63,6 +63,8 @@ module msx_system (
     wave_bus_if.device_mp       wave_bus_sdram_ch4,     // OPL4 sample memory
     output                      cpu_phase,              // clk in which the CPU may start a bus access
     output                      cpu_phase_next,         // cpu_phase one clk ahead (SDRAM)
+    output                      cpu_acc_start,          // R800: first clk of a read without a gap before it (SDRAM)
+    output                      cpu_mem_free,           // R800: the CPU has taken the data of its read (SDRAM)
     output             [27:0]   ddr3_addr,
     output                      ddr3_rd,
     output                      ddr3_we,
@@ -166,6 +168,8 @@ msx #(.sysCLK(sysCLK)) MSX
    .wave_bus(wave_bus),
    .cpu_phase(cpu_phase),
    .cpu_phase_next(cpu_phase_next),
+   .cpu_acc_start(cpu_acc_start),
+   .cpu_mem_free(cpu_mem_free),
    .audio_L(audio_L),
    .audio_R(audio_R),
    .ps2_key(ps2_key),

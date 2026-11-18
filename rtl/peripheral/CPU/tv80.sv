@@ -245,6 +245,7 @@ module TV80#( parameter Mode      = 0,
     wire               I_RLD;
     wire               I_RRD;
     wire               I_INRC;
+    wire               I_EXSP;
     wire               I_MULUB;
     wire               I_MULU;
     wire               SetDI;
@@ -313,6 +314,7 @@ module TV80#( parameter Mode      = 0,
         .I_RLD(I_RLD),
         .I_RRD(I_RRD),
         .I_INRC(I_INRC),
+        .I_EXSP(I_EXSP),
         .I_MULUB(I_MULUB),
         .I_MULU(I_MULU),
         .SetDI(SetDI),
@@ -426,7 +428,7 @@ module TV80#( parameter Mode      = 0,
                 Z16_r <= ISet == 2'b10 && ~ALU_Op[2] && ALU_Op[0] && MCycle == 3'd3;
 
                 if (MCycle == 3'd1 && ~TState[2]) begin
-                    if (TState == 3'd2 && Wait_i) begin
+                    if (TState == 3'd2 && Wait_i && ~Auto_Wait) begin   // not in the wait states of the acknowledge (R + 1 once)
                         if (Mode < 2) begin
                             A      <= {I, R};
                             R[6:0] <= R[6:0] + 7'b1;
@@ -785,6 +787,11 @@ module TV80#( parameter Mode      = 0,
             RegWEL = '1;
         end
 
+        if (I_EXSP && TState == 3'd3) begin                                     // EX (SP),HL: HL <= WZ
+            RegWEH = '1;
+            RegWEL = '1;
+        end
+
         if (IncDec_16[2] && ((TState == 3'd2 && Wait_i && MCycle != 3'd1) || (TState == 3'd3 && MCycle == 3'd1))) begin
             case (IncDec_16[1:0])
                 2'b00, 2'b01, 2'b10: begin
@@ -823,6 +830,11 @@ module TV80#( parameter Mode      = 0,
         if (IncDec_16[2] && ((TState == 3'd2 && MCycle != 3'd1) || (TState == 3'd3 && MCycle == 3'd1))) begin
             RegDIH = ID16[15:8];
             RegDIL = ID16[7:0];
+        end
+
+        if (I_EXSP && TState == 3'd3) begin
+            RegDIH = TmpAddr[15:8];
+            RegDIL = TmpAddr[7:0];
         end
     end
 
@@ -888,7 +900,7 @@ module TV80#( parameter Mode      = 0,
         if (~RESET_n)
             RFSH_n <= '1;
         else if (CEN) begin  // was CLK_n && CEN: clock must not be used as data
-            if (MCycle == 3'b001 && ((TState == 3'd2 && Wait_i) || TState == 3'd3))
+            if (MCycle == 3'b001 && ((TState == 3'd2 && Wait_i && ~Auto_Wait) || TState == 3'd3))
                 RFSH_n <= '0;
             else
                 RFSH_n <= '1;

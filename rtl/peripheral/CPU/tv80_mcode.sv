@@ -126,6 +126,7 @@ module TV80_MCode #(
     output              I_RLD,
     output              I_RRD,
     output              I_INRC,
+    output              I_EXSP,                                             // EX (SP),HL last cycle: HL <= WZ
     output              I_MULUB,
     output              I_MULU,
     output              SetDI,
@@ -234,6 +235,7 @@ module TV80_MCode #(
         I_RLD       = '0;
         I_RRD       = '0;
         I_INRC      = '0;
+        I_EXSP      = '0;
         I_MULUB     = '0;
         I_MULU      = '0;
         SetDI       = '0;
@@ -597,11 +599,12 @@ module TV80_MCode #(
                         if (Mode != 3) begin
                             MCycles = 3'd5;
                             case (MCycle)
+                                // Z80 order: read (SP), (SP+1) into WZ, write H, L, then HL <= WZ
                                 3'd1: Set_Addr_To = aSP;
-                                3'd2: begin Read_To_Reg = '1; Set_BusA_To = 4'b0101; Set_BusB_To = 4'b0101; Set_Addr_To = aSP; end
-                                3'd3: begin IncDec_16 = 4'b0111;Set_Addr_To = aSP; TStates = 3'd4; Write = '1; end
-                                3'd4: begin Read_To_Reg = '1; Set_BusA_To = 4'b0100; Set_BusB_To = 4'b0100; Set_Addr_To = aSP; end
-                                3'd5: begin IncDec_16 = 4'b1111; TStates = 3'd5; Write = '1; end
+                                3'd2: begin LDZ = '1; IncDec_16 = 4'b0111; Set_Addr_To = aSP; end
+                                3'd3: begin LDW = '1; TStates = 3'd4; Set_BusB_To = 4'b0100; Set_Addr_To = aSP; end
+                                3'd4: begin Write = '1; IncDec_16 = 4'b1111; Set_BusB_To = 4'b0101; Set_Addr_To = aSP; end
+                                3'd5: begin Write = '1; TStates = 3'd5; Set_BusA_To = 4'b0100; I_EXSP = '1; end
                                 default: ;
                             endcase
                         end
@@ -1847,11 +1850,9 @@ module TV80_MCode #(
                     8'b01101111: begin                                  // RLD
                         MCycles = 3'd4;
                         case (MCycle)
-                            3'd2: begin
-                                NoRead = '1;
-                                Set_Addr_To = aXY;
-                            end
+                            3'd1, 3'd2: Set_Addr_To = aXY;              // M2 reads (HL)
                             3'd3: begin
+                                NoRead = '1;                            // DI_Reg keeps the byte read in M2
                                 Read_To_Reg = '1;
                                 Set_BusB_To[2:0] = 3'b110;
                                 Set_BusA_To[2:0] = 3'b111;
@@ -1870,10 +1871,9 @@ module TV80_MCode #(
                     8'b01100111: begin                                  // RRD
                         MCycles = 3'd4;
                         case (MCycle)
-                            3'd2: begin
-                                Set_Addr_To = aXY;
-                            end
+                            3'd1, 3'd2: Set_Addr_To = aXY;              // M2 reads (HL)
                             3'd3: begin
+                                NoRead = '1;                            // DI_Reg keeps the byte read in M2
                                 Read_To_Reg = '1;
                                 Set_BusB_To[2:0] = 3'b110;
                                 Set_BusA_To[2:0] = 3'b111;
@@ -1970,6 +1970,7 @@ module TV80_MCode #(
                         MCycles = 3'd4;
                         case (MCycle)
                             3'd1: begin
+                                TStates = 3'd5;
                                 Set_Addr_To = aBC;
                                 Set_BusB_To = 4'b1010;
                                 Set_BusA_To = 4'b0000;
@@ -1988,7 +1989,6 @@ module TV80_MCode #(
                                 end else begin
                                     IncDec_16 = 4'b1110;
                                 end
-                                TStates = 3'd4;
                                 Write = '1;
                                 I_BTR = '1;
                             end

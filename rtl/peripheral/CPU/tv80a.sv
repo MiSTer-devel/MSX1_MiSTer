@@ -119,6 +119,7 @@ module TV80a#(
     logic           WR_n_j;
     logic           RFSH_n_i;
     logic           BUSAK_n_i;
+    logic           IntA_T2;        // interrupt acknowledge: T2 is over, the wait states follow
     logic    [15:0] A_i;
     logic     [7:0] DI_Reg;
     logic           Wait_s;
@@ -191,7 +192,8 @@ module TV80a#(
     always_ff @(posedge CLK) begin
         if (CE_n) begin
             Wait_s <= WAIT_n;
-            if (((TState == 3'd3 && IntCycle_n) || (TState == 3'd2 && ~IntCycle_n)) && BUSAK_n_i == '1) begin
+            // not in a cycle without a read: RRD / RLD use the byte in the cycle after the read
+            if (((TState == 3'd3 && IntCycle_n && ~NoRead) || (TState == 3'd2 && ~IntCycle_n)) && BUSAK_n_i == '1) begin
                 DI_Reg <= DI;
             end
         end
@@ -244,13 +246,20 @@ module TV80a#(
             RD <= '0;
             IORQ_n_i <= '1;
             MREQ <= '0;
+            IntA_T2 <= '0;
         end else if (CE_n) begin
             if (MCycle == 3'd1) begin
                 case (TState)
                     3'd1: begin
                         RD <= IntCycle_n;
                         MREQ <= IntCycle_n;
-                        IORQ_n_i <= IntCycle_n;
+                        IORQ_n_i <= '1;
+                        IntA_T2 <= '0;
+                    end
+                    3'd2: if (~IntCycle_n) begin        // IORQ from the falling edge of the first wait state
+                        IntA_T2 <= '1;
+                        if (IntA_T2)
+                            IORQ_n_i <= '0;
                     end
                     3'd3: begin
                         RD <= '0;

@@ -369,8 +369,10 @@ module VDP_REGISTER (
                 CLR_HSYNC_INT <= 1'b0;
             end
         end else if (VDPREGWRPULSE == 1'b1) begin
-            if (VDPREGPTR == 6'b010011 || (VDPREGPTR == 6'b000000 && VDPP1DATA[4] == 1'b1)) begin
-                CLR_HSYNC_INT <= 1'b1; // CLEAR HSYNC INTERRUPT BY WRITE R19, R0
+            // FH is cleared when R#0 turns IE1 off (it is latched only while IE1 is on); an R#19
+            // write or R#0 with IE1 on keeps it (openMSX VDP::changeRegister)
+            if (VDPREGPTR == 6'b000000 && VDPP1DATA[4] == 1'b0) begin
+                CLR_HSYNC_INT <= 1'b1;
             end else begin
                 CLR_HSYNC_INT <= 1'b0;
             end

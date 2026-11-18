@@ -12,6 +12,7 @@ Pomocné nástroje jádra MSX pro MiSTer. Zpět na [hlavní Readme](../Readme.md
 | [vdptest](vdptest/README.cs.md) | Testovací ROM pro časování VDP | vývojáři a testeři |
 | [miditest](miditest/README.cs.md) | Testovací ROM pro výstup MIDI (MT32-pi, MidiLink) | testeři |
 | [vdpcmd](vdpcmd/README.cs.md) | vdpcmd od bengalacka (rychlost příkazů VDP) jako ROM, bez MSX-DOS | vývojáři a testeři |
+| [pcmtest](pcmtest/README.cs.md) | PCM turbo R přehrávané jako ve hře Criterion, počítá přeskočené vzorky | vývojáři a testeři |
 
 ## Rychlý start pro uživatele
 
@@ -90,6 +91,15 @@ přeložená v repozitáři; nahraje se jako ROM hry do slotu A.
 
 Spuštění: `sh tools/vdpcmd/build.sh` (jen pro nový překlad).
 Dokumentace: [README](vdpcmd/README.cs.md) | [README (EN)](vdpcmd/README.md).
+
+### pcmtest
+
+Testovací ROM (`pcmtest.rom`) pro PCM turbo R: přehrává zvuky hry Criterion jejím vlastním
+přehrávačem (časovač S1990, 7990 Hz, zpožděné vzorky přeskočí), volitelně se zátěží VDP, a ukáže,
+kolik vzorků přehrála a kolik přeskočila. Zvuky jsou z ROM hry a v repozitáři nejsou.
+
+Spuštění: `python tools/pcmtest/mkraw.py <ROM Criterion>`, pak `sh tools/pcmtest/build.sh`.
+Dokumentace: [README](pcmtest/README.cs.md) | [README (EN)](pcmtest/README.md).
 
 ## Pro vývojáře
 

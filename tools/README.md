@@ -12,6 +12,7 @@ Helper tools of the MSX core for MiSTer. Back to the [main Readme](../Readme.md)
 | [vdptest](vdptest/README.md) | VDP timing test ROMs | developers and testers |
 | [miditest](miditest/README.md) | MIDI output test ROM (MT32-pi, MidiLink) | testers |
 | [vdpcmd](vdpcmd/README.md) | bengalack's vdpcmd (VDP command speed) as a ROM, without MSX-DOS | developers and testers |
+| [pcmtest](pcmtest/README.md) | turbo R PCM played as in the game Criterion, counts skipped samples | developers and testers |
 
 ## Quick start for users
 
@@ -92,6 +93,15 @@ is built and in the repository; load it as a game ROM into slot A.
 
 Start: `sh tools/vdpcmd/build.sh` (rebuild only).
 Documentation: [README](vdpcmd/README.md) | [README.cs](vdpcmd/README.cs.md).
+
+### pcmtest
+
+A test ROM (`pcmtest.rom`) for the turbo R PCM: plays sounds of the game Criterion with its own
+player (S1990 timer, 7990 Hz, late samples skipped), optionally with VDP load, and shows how many
+samples were played and skipped. The sounds come from the game ROM and are not in the repository.
+
+Start: `python tools/pcmtest/mkraw.py <Criterion ROM>`, then `sh tools/pcmtest/build.sh`.
+Documentation: [README](pcmtest/README.md) | [README.cs](pcmtest/README.cs.md).
 
 ## For developers
 

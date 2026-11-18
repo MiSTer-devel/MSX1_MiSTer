@@ -80,6 +80,9 @@ module TV80_ALU #(
     input         [7:0] BusA,
     input         [7:0] BusB,
     input         [7:0] F_In,
+    input               R800,           // BIT keeps S, P/V, C, X, Y (openMSX bit_N_R / bit_N_xhl)
+    input         [1:0] MP_YX,          // Z80 BIT (HL) / (IX+d): bits 13, 11 of MEMPTR (DDCB: of IX+d)
+    input               XY_Ind,         // DDCB: X / Y of every BIT form from MP_YX
     output logic  [7:0] Q,
     output logic  [7:0] F_Out
 
@@ -248,9 +251,15 @@ module TV80_ALU #(
                 end
                 F_Out[Flag_H] = '1;
                 F_Out[Flag_N] = '0;
-                F_Out[Flag_X] = '0;
-                F_Out[Flag_Y] = '0;
-                if (IR[2:0] != 3'b110) begin
+                if (R800) begin
+                    F_Out[Flag_S] = F_In[Flag_S];
+                    F_Out[Flag_P] = F_In[Flag_P];
+                    F_Out[Flag_X] = F_In[Flag_X];
+                    F_Out[Flag_Y] = F_In[Flag_Y];
+                end else if (IR[2:0] == 3'b110 || XY_Ind) begin
+                    F_Out[Flag_X] = MP_YX[0];
+                    F_Out[Flag_Y] = MP_YX[1];
+                end else begin
                     F_Out[Flag_X] = BusB[3];
                     F_Out[Flag_Y] = BusB[5];
                 end

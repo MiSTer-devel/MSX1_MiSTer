@@ -27,14 +27,16 @@ grep -E '%Error' "$OUT/build.log" || true
 if [ $# -gt 0 ]; then
     "$OUT/Vmsx_cpu_tb" "$@" | grep -E "RESULT|LEN|PASS|FAIL"
 else
-    # Golden hash (n=200000) from the derived-clock implementation before CE, identical for
+    # Golden hash (n=200000), identical for every speed/wait. Since 2026-11-18 (INI / OUTI flags
+    # as openMSX) the F pushed by the interrupt after OTIR / INIR differs: was b6e812a5.
+    # Before: from the derived-clock implementation before CE, identical for
     # every speed/wait. lat = memory read latency margin of the CE version: lat+1 fails.
     # (derived-clock version had margin +1: 11/12, 7/8, 3/4)
     # sel 0 3.58, 2 5.37, 1 10.7, 3 7.16 MHz
     # sel wait lat
     while read -r sel wait lat; do
         for l in 0 $lat; do
-            "$OUT/Vmsx_cpu_tb" +sel=$sel +wait=$wait +lat=$l +golden=b6e812a5 | grep -E 'PASS|FAIL' \
+            "$OUT/Vmsx_cpu_tb" +sel=$sel +wait=$wait +lat=$l +golden=ead18155 | grep -E 'PASS|FAIL' \
                 | sed "s/^/sel=$sel wait=$wait lat=$l: /"
         done
     done <<'EOF'
@@ -50,7 +52,7 @@ EOF
     # Run-time speed switching (OCM turbo) at the 10.7 MHz latency margin, with and
     # without memory / I/O wait states.
     for a in "+switch=40" "+switch=3" "+switch=200 +wait=1" "+switch=8 +wait=1 +mwait=2 +iowait=3"; do
-        "$OUT/Vmsx_cpu_tb" $a +lat=2 +golden=b6e812a5 | grep -E 'PASS|FAIL' | sed "s/^/$a lat=2: /"
+        "$OUT/Vmsx_cpu_tb" $a +lat=2 +golden=ead18155 | grep -E 'PASS|FAIL' | sed "s/^/$a lat=2: /"
     done
     # Wait states: strobe length in CPU clocks at 10.7 MHz, M1 wait 1 (base M1 3, MRD 2,
     # MWR 1, IORD/IOWR 2): memory +2 (M1 max(1,2)), I/O +3

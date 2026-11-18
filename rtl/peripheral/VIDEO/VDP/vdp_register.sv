@@ -343,9 +343,10 @@ module VDP_REGISTER (
                         4'b0001: DBI <= {2'b00, VDP_ID, ~REQ_HSYNC_INT_N}; // READ S#1
                         4'b0010: DBI <= {VDPCMDTR, VD, HD, VDPCMDBD, 2'b11, FIELD, VDPCMDCE};  // READ S#2
                         4'b0011: DBI <= VDPS3S4SPCOLLISIONX[7:0];  // READ S#3
-                        4'b0100: DBI <= {7'b0000000, VDPS3S4SPCOLLISIONX[8]};  // READ S#4
+                        // S#4 = FEh | X8, S#6 = FCh | Y8 as openMSX (OCM-PLD 52e6710 sets 1s too)
+                        4'b0100: DBI <= {7'b1111111, VDPS3S4SPCOLLISIONX[8]};  // READ S#4
                         4'b0101: DBI <= VDPS5S6SPCOLLISIONY[7:0];  // READ S#5
-                        4'b0110: DBI <= {7'b0000000, VDPS5S6SPCOLLISIONY[8]};  // READ S#6
+                        4'b0110: DBI <= {7'b1111110, VDPS5S6SPCOLLISIONY[8]};  // READ S#6
                         4'b0111: DBI <= VDPCMDCLR;  // READ S#7: THE COLOR REGISTER
                         4'b1000: DBI <= VDPCMDSXTMP[7:0];  // READ S#8: SXTMP LSB
                         4'b1001: DBI <= {7'b1111111, VDPCMDSXTMP[8]};  // READ S#9: SXTMP MSB

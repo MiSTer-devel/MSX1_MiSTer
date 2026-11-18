@@ -181,8 +181,9 @@ module vdp_sprite_y_tb;
         wait_frames(2); status(0); status(5);
         wait_frames(1); status(0); check_val("collision C after a frame", st[5], 1);
         status(3); check_val("S#3 collision X", st, 127);
-        status(4); check_val("S#4 collision X bit 8", st, 0);
-        status(6); check_val("S#6 collision Y bit 8", st, 0);
+        // unused bits read 1: S#4 = FEh | X8, S#6 = FCh | Y8 (openMSX VDP::peekStatusReg)
+        status(4); check_val("S#4 collision X bit 8, rest 1", st, 8'hFE);
+        status(6); check_val("S#6 collision Y bit 8, rest 1", st, 8'hFC);
         status(5); check_val("S#5 collision Y", st, 86);
         status(0); wait_frames(1); status(0); check_val("C again a frame later", st[5], 1);
         vram_wr(14'h1E00, '{8'd63, 8'd100, 8'd0, 8'd0, 8'd63, 8'd116, 8'd0, 8'd0, 8'd216});

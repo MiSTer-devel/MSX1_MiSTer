@@ -175,6 +175,9 @@ localparam CONF_STR = {
    "MT32-pi: SoundFont #0,MT32-pi: SoundFont #1,MT32-pi: SoundFont #2,MT32-pi: SoundFont #3,",
    "MT32-pi: SoundFont #4,MT32-pi: SoundFont #5,MT32-pi: SoundFont #6,MT32-pi: SoundFont #7,",
    "MT32-pi: MT-32 v1,MT32-pi: MT-32 v2,MT32-pi: CM-32L,MT32-pi: Unknown mode;",
+   // config version: a new number drops the saved OSD settings (MSX_v1.CFG). Last before V:
+   // the Main counts it as a menu item when it maps a selection, but does not draw it
+   "v,1;",
    "V,v",`BUILD_DATE
 };
 

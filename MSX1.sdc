@@ -13,6 +13,14 @@ set sdram_ch1_capture [get_registers {emu:emu|sdram:sdram|ch1_*}]
 set_multicycle_path -setup -end 2 -from $clk_core -to $sdram_ch1_capture
 set_multicycle_path -hold  -end 1 -from $clk_core -to $sdram_ch1_capture
 
+# CPU read data: ch1_saved_data is loaded on a clk_sdram edge that coincides with a clk_core
+# edge (2nd after the start of the access) and the CPU takes it on the next clk_core edge.
+# ch2 - ch4 load it only while the CPU does not take it (share_go). Only the CPU reads it in
+# clk_core (R800: straight from the register into the core, without DI_Reg).
+set sdram_ch1_data [get_registers {emu:emu|sdram:sdram|ch1_saved_data[*]}]
+set_multicycle_path -setup -start 4 -from $sdram_ch1_data -to $clk_core
+set_multicycle_path -hold  -start 3 -from $sdram_ch1_data -to $clk_core
+
 # Core I/O that cannot be timed against an internal clock (asynchronous or timed by the
 # protocol / board): UART RX on USER_IO (4-stage synchronizer in uart_rx), SD card SPI
 # (spi_divmmc), tape ADC (ltc2308, < 500 kHz).

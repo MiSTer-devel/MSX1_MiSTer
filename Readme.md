@@ -1,4 +1,4 @@
-# MSX1/MSX2/turbo R for [MiSTer Board](https://github.com/MiSTer-devel/Main_MiSTer/wiki)
+# MSX1/MSX2/MSX2+/turbo R for [MiSTer Board](https://github.com/MiSTer-devel/Main_MiSTer/wiki)
 
 **English** | [Česky](Readme.cs.md)
 
@@ -10,6 +10,7 @@ The core (its MiSTer name is still `MSX1`, hence the folder `games/MSX1`) is not
 
 - **MSX1** machines (TMS9918 family VDP),
 - **MSX2** machines (Yamaha V9938, RTC, memory mapper),
+- **MSX2+** machines (Yamaha V9958 with the YJK colour modes and horizontal scrolling; Panasonic, Sanyo, Sony and the CIEL Expert Turbo; Kanji ROM, MSX-MUSIC and the 5.37 / 7.16 MHz turbo where the machine has them),
 - the **MSX turbo R** Panasonic FS-A1ST and FS-A1GT (V9958, S1990, R800 mode – see [Known limitations](#known-limitations) for its speed),
 - the **1chipMSX** (OCM-PLD style, MSX2+ class, V9958), which loads its BIOS from an SD card image.
 
@@ -30,7 +31,7 @@ The third configuration file is a **CRC32-based ROM database** (the *DB MAPPERS*
 | MSX turbo R | 2 (Panasonic FS-A1ST, FS-A1GT) |
 | 1chipMSX / OCM (MSX2+ class) | 1 |
 
-Seven openMSX machines need hardware the core does not have yet; they are listed at the end of the model list. The ROM dumps of the machines are not part of this repository; see [Getting started](#getting-started).
+Seven openMSX machines are not supported yet: six need hardware the core does not have, the Aucnet NIA-2001 only lacks its definition; they are listed at the end of the model list. The ROM dumps of the machines are not part of this repository; see [Getting started](#getting-started).
 
 ## Getting Started
 The core needs **at least a machine pack** (ROM PACK). Everything else depends on what you want to run. Put the files on the MiSTer SD card into `/media/fat/games/MSX1/`:
@@ -90,6 +91,7 @@ With SDRAM, a 32 MB module is enough. The largest machine (1chipMSX) needs about
 | Tape Rewind | Rewinds the tape image. |
 | Firmware switch | Off / On, only on machines that have one: turbo R and the Panasonic, National and Sanyo machines with the Matsushita switched I/O. |
 | R800 speed | Real (speed of a real R800) / T-states (Z80 cycle counts, one per 21.5 MHz clock) / 10.7MHz (Z80 cycle counts at 10.7 MHz). Shown with the firmware switch, used by the turbo R; takes effect the next time the R800 is switched on. |
+| Mouse | Port 1 (default) / Port 2: the joystick port a PS/2 mouse takes over when it moves; a joystick on that port takes it back. |
 | MIDI | **User Port**: MT32-pi (default; a [MT32-pi](https://github.com/dwhinham/mt32-pi) or just MIDI OUT on pin 1), MIDI In/Out (MIDI adapter: OUT on pin 1, IN on pin 0), Off. Once a MT32-pi is found, its options appear: Use MT32-pi, Show Info (No / Yes: a message when its mode changes / LCD-On / LCD-Auto: its display in the top left corner of the picture, always or for 3 s after a change), the default Synth (Munt, FluidSynth), Munt ROM, SoundFont, and Reset Hanging Notes. |
 | Video | Aspect ratio, scandoubler (None, HQ2x, CRT 25/50/75 %), Vertical Crop, Scale (Normal, V-Integer, Narrower/Wider HV-Integer, HV-Integer), Border (applies to the TMS and V99xx VDP). |
 | Pause when OSD open | No (default) / Yes: the machine stops while the OSD is open (CPU held, sound muted, HDMI picture frozen). |
@@ -98,10 +100,10 @@ With SDRAM, a 32 MB module is enough. The largest machine (1chipMSX) needs about
 | Reset and close OSD | Reset and leave the menu. |
 | SRAM Save / SRAM Load | Shown when a cartridge has SRAM, but **they do nothing** (see [Known limitations](#known-limitations)). |
 
-1chipMSX has an extra block: CPU speed (Normal / Turbo, F11 toggles), CPU type (Z80 / R800 – only the R800 multiply instructions), Slot1, Slot2, Internal Mapper (2048 / 4096 KB), Joysticks Swap, Mouse Port 1/2, Reset after Mount.
+1chipMSX has an extra block: CPU speed (Normal / Turbo, F11 toggles), CPU type (Z80 / R800 – only the R800 multiply instructions), Slot1, Slot2, Internal Mapper (2048 / 4096 KB), Joysticks Swap, Reset after Mount.
 
 ### OSD error messages
-When a load fails, the OSD info line shows one of these. After **No CRC32 DB**, **Not find CRC32 in DB**, **SMALL MEMORY** and **ROM too big** the core stays in reset until the next load.
+When a load fails, the OSD info line shows one of these. After any of them the machine does not start: the core stays in reset until the next load (a new pack, ROM or cartridge selection).
 
 | Message | Meaning |
 |---|---|
@@ -111,7 +113,7 @@ When a load fails, the OSD info line shows one of these. After **No CRC32 DB**, 
 | BAD MSX FW CONF | The file loaded as FW PACK is not a FW pack. |
 | NOT FW CONF | The FW pack is not loaded but the selected cartridge needs it (every cartridge type, plain ROM included), or a ROM the cartridge needs is missing in the FW pack (e.g. `yrw801.rom` for MoonSound). |
 | DEVICE MISSING | The configuration needs more copies of a device than the core contains, e.g. FM-PAC in both slots on a machine with MSX-MUSIC, MoonSound in both slots. |
-| Device not in this core build | The configuration needs a device this core build does not contain at all. |
+| Device not in this core build | An FDC cartridge in slot 2, or an FDC position this core build does not have. |
 | No CRC32 DB | A ROM larger than 64 KB needs a mapper but no mapper database is loaded. |
 | Not find CRC32 in DB | A ROM larger than 64 KB is not in the mapper database. |
 | FDC already in machine | Two FDCs in the same position – an error of the machine definition. |
@@ -150,7 +152,7 @@ The core includes the following hardware modules:
 Not implemented: MSX-AUDIO, V9990 / GFX9000, printer, paddles, light gun, RS-232.
 
 ## Supported ROM Mappers
-Cartridge ROMs are assigned to a mapper by the CRC32 database (`vampier.db`, 8151 entries, built by [tools/CreateCRC](tools/CreateCRC/README.md) from the [romdb.vampier.net](https://romdb.vampier.net/) dump). ROMs not in the database and up to 64 KB are placed as plain ROM (see the first rows).
+Cartridge ROMs are assigned to a mapper by the CRC32 database (`vampier.db`, built by [tools/CreateCRC](tools/CreateCRC/README.md) from the [romdb.vampier.net](https://romdb.vampier.net/) dump). ROMs not in the database and up to 64 KB are placed as plain ROM (see the first rows).
 
 | Mapper (name in the DB) | Description |
 |---|---|
@@ -179,9 +181,9 @@ Cartridge ROMs are assigned to a mapper by the CRC32 database (`vampier.db`, 815
 | `Synthesizer` | plain ROM with the Konami Synthesizer DAC |
 | `MSXDOS2` | MSX-DOS2 cartridge: 16 KB bank in 4000-7FFF switched at 6000h. The online database has no MSX-DOS2 ROMs: add its CRC32 to [tools/CreateCRC/mappersOverride.txt](tools/CreateCRC/mappersOverride.txt) and rebuild the database. MSX-DOS 2.20 patched for the ASCII8 mapper is already there. Needs a disk drive: a machine with an FDC, or the FDC cartridge in slot 1 and MSX-DOS2 in slot 2 |
 
-ROM types of the database without a configuration in the core are not written into `vampier.db` (27 types, 71 ROMs, e.g. Yamanooto, MatraCompilation, Namco, Manbow2). Such a ROM up to 64 KB runs as plain ROM, a bigger one stops with *Not find CRC32 in DB*. The full list with counts is in [tools/CreateCRC/report.md](tools/CreateCRC/report.md). Also not supported: MU-PACK.
+ROM types of the database without a configuration in the core are not written into `vampier.db` (e.g. MatraCompilation, Namco, Manbow2, the Halnote cartridge). Such a ROM up to 64 KB runs as plain ROM, a bigger one stops with *Not find CRC32 in DB*. The full list with counts is in [tools/CreateCRC/report.md](tools/CreateCRC/report.md). Also not supported: MU-PACK.
 
-Machine-internal mappers (National FS-4600F, Yamaha SFG, Panasonic turbo R, memory mapper, ESE RAM) come from the machine definition and are not selectable.
+Machine-internal mappers (National FS-4600F, Yamaha SFG, Panasonic turbo R, the Halnote firmware mapper of the Sony HB-F1XDJ / HB-F1XV, memory mapper, ESE RAM) come from the machine definition and are not selectable.
 
 ## Supported Expansion Cartridges
 The OSD offers the following types in **Slot1** and **Slot2**:
@@ -209,7 +211,7 @@ The 1chipMSX has its own Slot1 (Empty, MegaSCC+ 1MB) and Slot2 (Empty, MegaSCC+ 
 The core integrates with MiSTerFPGA and supports the following features provided by the platform:
 - `Joystick input` – two MSX joystick ports (four directions and two buttons, named Fire 1 / Fire 2 in the MiSTer button mapping) from the first two MiSTer joysticks; the joystick swap option exists on the 1chipMSX only
 - `Keyboard input` – PS/2 keyboard, per-machine matrix layout (`kbd_layout` in the machine definition, generated by [CreateKeyMap](tools/CreateKeyMap/README.md)); Pause key pauses the machine (CPU held, sound muted, HDMI picture frozen; on the turbo R the BIOS reads it from port A7h as on the real machine), F11 = turbo on the 1chipMSX
-- `Mouse` – PS/2 mouse as MSX mouse, 1chipMSX only
+- `Mouse` – PS/2 mouse as MSX mouse on every machine, in joystick port 1 or 2 (OSD **Mouse**); it takes the port over when it moves, a joystick on that port takes it back
 - `Cassette` – playback of `.CAS` files (the MSX motor must be on) or real tape through the MiSTer analog input (ADC); the tape is audible. There is no tape output.
 - `MIDI` – MIDI IN and MIDI OUT of the YM2148 (Yamaha machines) and of the MSX-MIDI, two ways out:
   - MiSTer UART set to MIDI (31250 Bd): MidiLink sends MIDI OUT to a USB MIDI device or a software synthesizer (MUNT, FluidSynth) and brings MIDI IN from a USB MIDI device
@@ -223,13 +225,13 @@ The core integrates with MiSTerFPGA and supports the following features provided
 ## Known Limitations
 - **Nothing is persistent:** cartridge SRAM (FM-PAC, Game Master 2, KOEI, ASCII with SRAM), flash writes (MegaFlashROM, ASCII16-X, Konami Ultimate Collection, Yamanooto), the SRAM of the machines (Panasonic and National mapper SRAM, Matsushita and S1985 SRAM) and the RTC CMOS start as FFh on every load. The **SRAM Save / SRAM Load** items do nothing.
 - **Disks:** only raw `.DSK` images (720K, 640K, 360K, 320K); no 40-track, 1.44 MB, XSA, D88, HFE or DMK. The FDC cartridge works only in slot 1 and only in machines without an FDC; there is no TC8566AF cartridge.
-- **Tape:** playback only, no saving; the end of the file is not detected (garbage is played after the last block).
+- **Tape:** playback only, no saving.
 - **R800:** the R800 of the turbo R is paced to the speed of a real one (page breaks, internal ROM and external slots, I/O, multiplication, DRAM refresh and the spacing of VDP accesses as in openMSX). Code that only works in the registers is 7 to 26 % slower than on a real R800. Its undocumented behaviour (flag bits 3 and 5, SLL, DD / FD in front of a plain instruction) is that of the Z80. No turbo R microphone.
-- **ROMs:** a ROM over 64 KB needs an entry in the database, there is no mapper detection from the ROM header. Konami SCC ROM mirrors are not done.
+- **ROMs:** a ROM over 64 KB needs an entry in the database, there is no mapper detection from the ROM header.
 - **V99x8:** sprites in the overscan and the FH window in text modes are not done. The VDP speed and volume settings of the 1chipMSX are stored without effect.
 - **1chipMSX:** no MoonSound, no special keys PrintScreen/ScrollLock (Pause is the general machine pause).
 - **Pause:** only the CPU stops; a tape (CAS) and the floppy controllers keep running, so a pause during loading can end with a read error.
-- No per-source volume or mute in the OSD, SCC+ deform bits 0/1 missing, no V9990.
+- No per-source volume or mute in the OSD, no V9990.
 
 ## Acknowledgements
 Many thanks to the MSX community on Discord for testing on real hardware, for bug reports and for

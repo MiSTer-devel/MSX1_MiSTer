@@ -74,7 +74,8 @@ Then copy `vampier.db` to the SD card and load it with Load DB MAPPERS.
 4. `Mirrored` and `Normal` ROMs have no address in the dump. It comes from the first bytes of the
    ROM (`StartBytes` in the dump): `AB` + INIT in 8000h-BFFFh (or INIT 0 and a BASIC TEXT pointer
    at 8000h) → 8000h; INIT in 0001h-3FFFh → 0000h; otherwise 4000h. Without a header at offset 0
-   the ROM goes to 0000h, as the core does without a record (`--roms` gives the exact answer).
+   the ROM goes to 0000h, where the core without a record puts a ROM whose header is at 4000h (a
+   ROM without any header it puts at 4000h; `--roms` gives the exact answer).
 5. `mappersOverride.txt` is applied last.
 6. Records are written sorted by CRC32.
 

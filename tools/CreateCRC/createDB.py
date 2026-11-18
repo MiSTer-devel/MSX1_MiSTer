@@ -264,7 +264,7 @@ def main():
          f'added {len(set(new) - set(old))}, removed {len(set(old) - set(new))}, '
          f'changed {sum(1 for c in set(new) & set(old) if new[c] != old[c])})  ',
          f'Mirrored/Normal start address: {how["header"]} from the header, {how["guess"]} guessed (no header at 0, '
-         f'placed at 0000h like the core does without a record)  ',
+         f'placed at 0000h, where the core puts a ROM with its header at 4000h)  ',
          f'Overrides: {len(ov)} lines, {len(redundant)} give the same as the dump'
          + (' (removed)' if a.prune else ' (`--prune` removes them)'), '',
          '## Supported', '',

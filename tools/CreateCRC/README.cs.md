@@ -74,7 +74,8 @@ Pak zkopíruj `vampier.db` na SD kartu a nahraj přes Load DB MAPPERS.
 4. ROM typu `Mirrored` a `Normal` nemají v dumpu adresu. Ta se určí z prvních bajtů ROM
    (`StartBytes` v dumpu): `AB` + INIT v 8000h–BFFFh (nebo INIT 0 a ukazatel BASIC TEXT na 8000h)
    → 8000h; INIT v 0001h–3FFFh → 0000h; jinak 4000h. Bez hlavičky na offsetu 0 jde ROM na 0000h,
-   stejně jako to udělá jádro bez záznamu (`--roms` dá přesnou odpověď).
+   kam jádro bez záznamu dá ROM s hlavičkou na 4000h (ROM úplně bez hlavičky dá na 4000h; `--roms`
+   dá přesnou odpověď).
 5. Nakonec se uplatní `mappersOverride.txt`.
 6. Záznamy se zapíšou seřazené podle CRC32.
 

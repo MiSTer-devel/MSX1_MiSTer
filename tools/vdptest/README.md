@@ -35,14 +35,12 @@ The assembler is `pasmo.exe` 0.6.0 (copied from the Sord M5 project). The option
 
 ## Running
 
-**FPGA:** in the OSD load `vdptest.rom` into slot A (Cartridge = ROM).
-- The FW pack (`CART_FW_EN.msx`) must be loaded.
+**FPGA:** in the OSD load `vdptest.rom` into slot A (OSD **Slot1** = ROM).
+- The FW pack (`CART_FW_EN.msx` or `CART_FW_JP.msx`) must be loaded.
 - The mapper database does not have to be loaded: a ROM that the core does not find in it is
   started as a plain ROM according to its header (see [Supported ROM Mappers](../../Readme.md#supported-rom-mappers)).
 - If a database is loaded, vdptest must not be in it, otherwise the record from the database
   would be used.
-- Requires a core with commit `e5dc75c` (branch `ROM_no_db`). An older core starts only a ROM
-  with a database record: CRC32 + mapper "0x4000" (21), format in `tools/CreateCRC/createDB.py`.
 
 **openMSX** (machine chosen by VDP type):
 
@@ -55,8 +53,8 @@ openmsx -machine Panasonic_FS-A1WX -cart vdptest.rom    # V9958
 **Whole-machine simulation** (`rtl/tb/machine_boot_tb`, the pages go to the log as text):
 
 ```
-wsl.exe -- bash rtl/tb/run_machine_boot.sh <machine.msx> none \
-   (SIMARGS="+run_ms=20000 +fw=<CART_FW_EN.msx> +rom=tools/vdptest/vdptest_auto.rom")
+wsl.exe -- env SIMARGS="+run_ms=20000 +fw=<CART_FW_EN.msx> +rom=tools/vdptest/vdptest_auto.rom" \
+   bash rtl/tb/run_machine_boot.sh <machine.msx> none
 ```
 
 ## How the program measures
@@ -98,39 +96,29 @@ wsl.exe -- bash rtl/tb/run_machine_boot.sh <machine.msx> none \
 
 ## Results
 
-**Simulation** of the whole machine (`machine_boot_tb`, 2026-11-10, branch `VDP_fork` with VDP
-fixes). The openMSX column: Philips NMS 8245 (V9938 PAL),
-2026-11-10. The FPGA column: NMS 8245 on a MiSTer, 2026-11-10.
+**Measured on 2026-11-10**, before the VDP changes of 2026-11-14 to 2026-11-17 (sprites, command
+timing): simulation of the whole machine (`machine_boot_tb`), the FPGA column NMS 8245 on a MiSTer,
+the openMSX column Philips NMS 8245 (V9938 PAL). The VDP command speed of page 8 is not listed:
+it now follows the openMSX 2026 timing model, see [CMDBENCH](#cmdbench-v9938v9958-command-times)
+below and [vdpcmd](../vdpcmd/README.md).
 
 | Page | NMS 8245, V9938 PAL (sim.) | VG-8020, TMS (sim.) | FPGA | openMSX |
 |---|---|---|---|---|
-| 1 frame | 1268-1271 | 1268-1272 (after the PAL fix, before 1060-1064) | 1268-1272 | 1268-1272 |
+| 1 frame | 1268-1271 | 1268-1272 | 1268-1272 | 1268-1272 |
 | 3 VR | 485 / 780 / 1 | - | 484-485 / 780-781 / 1 | 485 / 780 / 1 |
 | 4 FH, R#19 = 0/100/191 | 492 / 899 / 1269 | - | 491-492 / 899 / 1269 | 491-492 / 899 / 1269 |
 | 5 FH | a) 1111; b) 899 / 0 / 0; c) 0000 | - | a) 1111; b) 899 / 0 / 0; c) 0000 | a) 1111; b) 899 / 0 / 0; c) 0000 |
 | 6 5S / C | 890 / 894 | 686 / 691-692 | 890 / 894 | 894 / 895 |
 | 7 collision | 11001 | 10001 | 11001 | 11001 |
-| 8 HMMV / LMMV / YMMM / HMMM / LMMM | 4553 / 18689 / 5675 / 5579 / 21737 | - | 4553 / 18648 / 5717 / 5537 / 21737 | 4561 / 18226 / 5495 / 7715 / 21280 |
-| 8 LINE 255,100 / 255,255 / HMMV off | 77 / 77 / 3262 | - | 77 / 77 / 3262 | 103 / 121 / 3996 |
 
 **Notes:**
-- **VG-8020 (PAL)** ran with the TMS in NTSC: `deviceParams.json` encodes PAL = 0, NTSC = 1 and
-  `dev_tms` sent `param[0]` directly to `is_pal_i`. Fixed in `9de13dc`.
-- **FPGA = simulation:** pages 1-7 agree (+-1 iteration), commands within 0.8 %.
+- **FPGA = simulation:** pages 1-7 agree (+-1 iteration).
 - **V9938 FPGA vs openMSX:** pages 1, 3, 4, 5 and 7 agree.
 - **5S (page 6)** arrives in ESE 4 iterations (~1 line) earlier, C 1 iteration earlier.
   - openMSX checks the sprites of the whole line at once at its end (comment in
     `SpriteChecker.hh`, `checkUntil`); ESE scans Y during the line before it and, according to the
     same comment, the chip most likely does it that way too.
   - So openMSX is not an exact reference for the 5S moment.
-- **VDP commands (page 8)**, ESE against openMSX:
-  - HMMV -0.2 %, LMMV +2.5 %, YMMM +3.3 %, LMMM +2.1 %: agreement;
-  - HMMM 28 % faster (7715 -> 5579);
-  - HMMV with the display off 18 % faster (3996 -> 3262);
-  - LINE 25-36 % faster and independent of the minor axis (openMSX 103 / 121, ESE 77 / 77).
-  - The earlier conclusion "logical commands 3x slower" was wrong: it compared against numbers
-    from the fork (openMSX HMMV there 722 lines, here 1120), which were measured with different
-    parameters.
 
 ## CMDBENCH (V9938/V9958 command times)
 
@@ -150,5 +138,5 @@ a table in 80 columns, one row per configuration. The results are also in RAM fr
 OPENMSX_USER_DATA=<dir with systemroms> CMDBENCH_OUT=result.txt   openmsx -machine Philips_NMS_8245 -cart cmdbench.rom -script cmdbench.tcl
 ```
 
-The output of openMSX 18.0 is the reference of the test
+The output of openMSX (master `e6883ff2a`, 2026 VDP timing model) is the reference of the test
 `rtl/peripheral/VIDEO/VDP/tb/run_vdp_cmd.sh` (`cmdbench_openmsx.txt`).

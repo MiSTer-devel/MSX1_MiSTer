@@ -72,7 +72,7 @@ reset_sync rst_sync_sdram (.clk(clk_sdram), .arst(~locked_sdram),          .rst(
 //  [11]     OCM internal mapper size
 //  [12]     OCM reset after SD mount
 //  [13]     OCM joysticks swap
-//  [14]     OCM mouse port
+//  [14]     mouse port
 //  [15]     OCM CPU speed
 //  [16]     OCM CPU type (R800: MULUB / MULUW)
 //  [20:17]  slot A cartridge type (not OCM)
@@ -133,7 +133,6 @@ localparam CONF_STR = {
    "h3O[11],Internal Mapper,2048KB RAM,4096KB RAM;",
    "h3-;",
    "h3O[13],Joysticks Swap,No,Yes;",
-   "h3O[14],Mouse,Port 1,Port 2;",
    // firmware switch (hC): machines with the S1990 or the Matsushita switched I/O
    "hC-;",
    "hCO[26],Firmware switch,Off,On;",
@@ -144,6 +143,7 @@ localparam CONF_STR = {
    "HBF5,CAS,Cas File,31700000;",
    "HBT9,Tape Rewind;",
    "-;",
+   "O[14],Mouse,Port 1,Port 2;",
    "P2,MIDI;",
    "P2O[44:43],User Port,MT32-pi,MIDI In/Out,Off;",
    "hDP2-;",

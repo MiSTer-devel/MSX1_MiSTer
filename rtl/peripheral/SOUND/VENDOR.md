@@ -1,7 +1,7 @@
 # Third-party sound cores
 
-Copied into the tree from upstream (formerly git submodules). Only the license, the README and
-the HDL sources are kept.
+Third-party code kept in the tree (jt51 and ikaopll were git submodules until `362d873d`, jt49 has
+always been here). Only the paths listed below are kept.
 
 | Directory | Upstream | Commit | Paths taken |
 |---|---|---|---|

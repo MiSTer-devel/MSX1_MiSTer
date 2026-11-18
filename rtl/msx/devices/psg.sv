@@ -24,7 +24,6 @@ module dev_psg (
     output MSX::sound_t    sound,
     input          [5:0]   joy[2],
     input         [24:0]   ps2_mouse,
-    input                  mouse_en,        // mouse allowed (OCM)
     input                  mouse_port,      // 0 = port 1, 1 = port 2
     input                  tape_in,
     input                  psg_echo,        // Yamanooto ECHO: a cartridge PSG also on A0h-A1h
@@ -51,7 +50,7 @@ module dev_psg (
     );
     always_ff @(posedge cpu_bus.clk) begin
         mouse_stb <= ps2_mouse[24];
-        if (cpu_bus.reset || ~mouse_en || |joy[mouse_port])
+        if (cpu_bus.reset || |joy[mouse_port])
             use_mouse <= 1'b0;
         else if (mouse_stb ^ ps2_mouse[24])
             use_mouse <= 1'b1;

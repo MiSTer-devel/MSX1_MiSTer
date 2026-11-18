@@ -1,6 +1,6 @@
 // dev_psg joystick ports with the PS/2 mouse (OCM): PSG register 14 shows the joystick until
 // the mouse moves, then the mouse nibbles strobed by register 15 bit 4 / 5 (pin 8); a joystick
-// action on that port gives it back; without mouse_en the mouse is ignored.
+// action on that port gives it back.
 // Run: wsl.exe -- bash rtl/msx/devices/tb/run_psg_mouse.sh
 module psg_mouse_tb;
 
@@ -15,10 +15,10 @@ MSX::sound_t     sound;
 wire  [7:0] data;
 logic [5:0] joy[2];
 logic [24:0] ps2_mouse = '0;
-logic       mouse_en = 1, mouse_port = 0;
+logic       mouse_port = 0;
 
 dev_psg dut (.cpu_bus(cpu_bus), .clock_bus(clock_bus), .io_device(io_device), .sound(sound),
-             .joy(joy), .ps2_mouse(ps2_mouse), .mouse_en(mouse_en), .mouse_port(mouse_port),
+             .joy(joy), .ps2_mouse(ps2_mouse), .mouse_port(mouse_port),
              .tape_in(1'b0), .data(data));
 
 logic [15:0] addr = '0;
@@ -107,12 +107,6 @@ initial begin
     mouse_port = 1;
     move(4, 0);
     expect_a("port 1 joystick (mouse on 2)", 6'b111111);
-
-    // Without mouse_en (not OCM) the mouse is ignored
-    mouse_port = 0; mouse_en = 0;
-    move(10, 10);
-    set_b(8'h0F);
-    expect_a("mouse disabled", 6'b111111);
 
     if (errors == 0) $display("PASS psg_mouse_tb");
     else             $display("FAILED psg_mouse_tb: %0d errors", errors);

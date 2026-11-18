@@ -26,7 +26,7 @@ Na SD kartu do `/media/fat/games/MSX1/` zkopíruj tyto soubory:
 Postup:
 1. Nainstaluj Python 3.
 2. Dumpy BIOS/firmware ROM dej do `tools/CreateMSXpack/ROM/` (musíš si je obstarat sám;
-   v repozitáři jsou jen ROM C-BIOS).
+   v repozitáři jsou jen ROM C-BIOS a IPL ROM 1chipMSX (OCM)).
 3. V `tools/CreateMSXpack` spusť `python createComp.py` a `python createDev.py`; balíčky vzniknou
    v `MSX/`. Podrobnosti a význam hlášek na konzoli jsou v
    [README CreateMSXpack](CreateMSXpack/README.cs.md).
@@ -102,5 +102,6 @@ Dokumentace: [README](vdpcmd/README.cs.md) | [README (EN)](vdpcmd/README.md).
 - **Kontrola výstupu MIDI:** [miditest](miditest/README.cs.md).
 
 Pythonové skripty používají jen standardní knihovnu, kromě ladicí pomůcky
-`CreateKeyMap/scancode_debugger.py` (potřebuje balíček `keyboard`). Skripty se musí spouštět
-z vlastní složky, protože datové soubory otevírají relativním jménem.
+`CreateKeyMap/scancode_debugger.py` (potřebuje balíček `keyboard`). `createKeyMap.py`,
+`createComp.py` a `createDev.py` se musí spouštět z vlastní složky, protože datové soubory
+otevírají relativním jménem.

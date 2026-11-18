@@ -25,9 +25,9 @@ Assembler je `pasmo.exe` z `tools/vdptest`. ROM se spustí bez záznamu v datab�
 ## Spuštění
 
 **FPGA**, stroj **Panasonic FS-A1GT** (MSX-MIDI má vestavěné):
-1. Nahrát pack `Panasonic_FS-A1GT.msx` a FW pack (`CART_FW_EN.msx`).
+1. Nahrát pack `Panasonic_FS-A1GT.msx` a FW pack (`CART_FW_EN.msx` nebo `CART_FW_JP.msx`).
 2. Přepínač firmwaru vypnutý (jinak se místo cartridge spustí firmware).
-3. `miditest.rom` do slotu A (Cartridge = ROM).
+3. `miditest.rom` do slotu A (OSD **Slot1** = ROM).
 4. OSD, stránka MIDI: *User Port* = MT32-pi (výchozí). Pro MidiLink: UART v režimu MIDI.
 
 Jiný stroj: libovolné MSX s cartridgí MSX-MIDI ve slotu B (OSD Slot2 = MSX-MIDI) a ROM ve

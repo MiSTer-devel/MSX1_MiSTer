@@ -29,7 +29,7 @@ mapper database (`AB` header at offset 0, see [vdptest](../vdptest/README.md)).
 
 ## Running
 
-Any MSX2, MSX2+ or turbo R: `vdpcmd.rom` into slot A (Cartridge = ROM). The program starts right
+Any MSX2, MSX2+ or turbo R: `vdpcmd.rom` into slot A (OSD **Slot1** = ROM). The program starts right
 after boot, measures for a few seconds (the picture switches between SCREEN 8 and a blank screen)
 and then prints a table in 80 columns. SPACE runs the measurement again.
 

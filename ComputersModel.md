@@ -14,8 +14,8 @@ The core is not tied to one computer: each machine below is a definition (an XML
 | MSX turbo R | 2 |
 | 1chipMSX / OCM (MSX2+ class) | 1 |
 
-159 of them were added in November 2026 by converting the openMSX machine descriptions
-(`share/machines`). Machines that need hardware the core does not have are listed at the end.
+160 of them were converted from the openMSX machine descriptions (`share/machines`) in November
+2026. openMSX machines that are not supported yet are listed at the end.
 
 **ROM dumps are not included.** You supply the ROM files and build the packs yourself with [CreateMSXpack](tools/CreateMSXpack/README.md) (see also [Tools](tools/README.md)). Only the two C-BIOS machines and the 1chipMSX can be built without your own ROMs. The **1chipMSX** also needs `OCM-BIOS.DAT` as the first file of a FAT16 SD card image (VHD).
 
@@ -34,7 +34,7 @@ Notes on the tables:
 |---|---|---|---|
 | [AX170](https://www.msx.org/wiki/Sakhr_AX-170) | MSX1 | Common Arabic MSX1 with a built-in Arabic ROM. | 64 KB RAM, Arabic ROM |
 | [AX230](https://www.msx.org/wiki/Sakhr_AX-230) | MSX1 | Arabic MSX1 with built-in games. | 64 KB RAM, Arabic ROM, games ROM, one cartridge slot |
-| [AX370](https://www.msx.org/wiki/Sakhr_AX-370) | MSX2 | Arabic MSX2 based on the Sanyo PHC-70FD, with a disk drive and built-in software. | 128 KB mapper, RTC, TC8566AF FDC + 1 drive, Al Alamiah BASIC 2.03, Sakhr Word Processor, Sakhr BASIC, Painter ROM |
+| [AX370](https://www.msx.org/wiki/Sakhr_AX-370) | MSX2 | Arabic MSX2 based on the Sanyo PHC-70FD, with a disk drive and built-in software. | V9958, 128 KB mapper, RTC, TC8566AF FDC + 1 drive, Al Alamiah BASIC 2.03, Sakhr Word Processor, Sakhr BASIC, Painter ROM |
 
 ## Bawareth
 | Model | Gen | Description | Key built-in hardware |
@@ -77,7 +77,7 @@ Notes on the tables:
 | Model | Gen | Description | Key built-in hardware |
 |---|---|---|---|
 | [CPC-300](https://www.msx.org/wiki/Daewoo_CPC-300) | MSX2 | Korean MSX2 with Hangul support. | 128 KB mapper, RTC, Hangul ROM |
-| [CPC-300E](https://www.msx.org/wiki/Daewoo_CPC-300E) | MSX2 | Educational version of the CPC-300. | 64 KB mapper |
+| [CPC-300E](https://www.msx.org/wiki/Daewoo_CPC-300E) | MSX2 | Educational version of the CPC-300. | 64 KB mapper, Hangul ROM |
 | [CPC-400S](https://www.msx.org/wiki/Daewoo_CPC-400S) | MSX2 | Korean desktop MSX2 with Hangul support and a disk drive. | 128 KB mapper, RTC, Hangul ROM and font (Kanji device), FDC + 1 drive |
 | [CPC-51 Zemmix V](https://www.msx.org/wiki/Daewoo_CPC-51) | MSX1 | Korean MSX1 game console. | 64 KB RAM, one cartridge slot |
 | [CPC-61 Zemmix Super V](https://www.msx.org/wiki/Daewoo_CPC-61) | MSX2 | Korean MSX2 game console. | 64 KB mapper, RTC, one cartridge slot |
@@ -299,7 +299,7 @@ Notes on the tables:
 | [HB-F1II](https://www.msx.org/wiki/Sony_HB-F1II) | MSX2 | Cost-reduced HB-F1 with built-in software (speed controller not emulated). | 64 KB RAM, RTC, firmware ROM |
 | [HB-F1XD](https://www.msx.org/wiki/Sony_HB-F1XD) | MSX2 | Japanese MSX2 with a built-in disk drive (speed controller not emulated). | 64 KB RAM, RTC, FDC + 1 drive |
 | [HB-F1XDJ](https://www.msx.org/wiki/Sony_HB-F1XDJ) | MSX2+ | Japanese MSX2+ with a built-in disk drive, MSX-MUSIC and the MSX-JE Kanji conversion (Ren-Sha Turbo and speed controller not emulated). | V9958, 64 KB mapper, RTC, MSX-MUSIC, Kanji ROM, FDC + 1 drive, MSX-JE ROM (Halnote mapper), MSX-JE SRAM (not saved) |
-| [HB-F1XDmk2](https://www.msx.org/wiki/Sony_HB-F1XDmk2) | MSX2 | Cost-reduced HB-F1XD: Japanese MSX2 with a built-in disk drive. | 64 KB mapper, RTC, FDC + 1 single-sided drive |
+| [HB-F1XDmk2](https://www.msx.org/wiki/Sony_HB-F1XDmk2) | MSX2 | Cost-reduced HB-F1XD: Japanese MSX2 with a built-in disk drive. | 64 KB mapper, RTC, FDC + 1 drive |
 | [HB-F1XV](https://www.msx.org/wiki/Sony_HB-F1XV) | MSX2+ | The last Sony MSX; technically the same as the HB-F1XDJ. | V9958, 64 KB mapper, RTC, MSX-MUSIC, Kanji ROM, FDC + 1 drive, MSX-JE ROM (Halnote mapper), MSX-JE SRAM (not saved) |
 | [HB-F5](https://www.msx.org/wiki/Sony_HB-F5) | MSX2 | Sony's first MSX2 with built-in Personal Databank software. | 64 KB RAM, RTC, firmware ROM |
 | [HB-F500](https://www.msx.org/wiki/Sony_HB-F500) | MSX2 | First Sony desktop MSX2 with a double-sided drive; unusual memory layout. | 64 KB RAM, RTC, Kanji ROM, FDC + 1 drive |
@@ -362,7 +362,7 @@ Notes on the tables:
 ## Yamaha
 | Model | Gen | Description | Key built-in hardware |
 |---|---|---|---|
-| [AX150](https://www.msx.org/wiki/Sakhr_AX-150) | MSX1 | Arabic MSX1 with built-in software. | 64 KB RAM |
+| [AX150](https://www.msx.org/wiki/Sakhr_AX-150) | MSX1 | Arabic MSX1 with built-in software. | 64 KB RAM, Arabic ROM |
 | [AX200](https://www.msx.org/wiki/Sakhr_AX-200) | MSX1 (V9938) | Arabic MSX1 with built-in software and the SFG-05 module. | V9938, 64 KB RAM, SFG-05 (OPM + YM2148 MIDI) |
 | [AX350II](https://www.msx.org/wiki/Sakhr_AX-350II) | MSX2 | Arabic MSX2 sold by Al Alamiah, with a disk drive and built-in software. | 128 KB mapper, RTC, FDC + 1 drive, Sakhr Word Processor, Sakhr Files fragment, Painter ROM |
 | [AX350IIF](https://www.msx.org/wiki/Sakhr_AX-350II) † | MSX2 | Arabic/French MSX2 made by Yamaha for Al Alamiah, with a drive and built-in software. | 128 KB mapper, RTC, Arabic ROM, word processor, Painter, FDC + 1 drive |
@@ -397,7 +397,7 @@ Notes on the tables:
 
 ## Not supported
 
-These openMSX machines need hardware the core does not have yet:
+These openMSX machines are not supported yet:
 
 | Model | Missing |
 |---|---|
@@ -406,4 +406,4 @@ These openMSX machines need hardware the core does not have yet:
 | [Toshiba HX-34](https://www.msx.org/wiki/Toshiba_HX-34) | Toshiba floppy controller wiring (registers 7FF0-7FF7) |
 | [Victor HC-90A](https://www.msx.org/wiki/Victor_HC-90), [HC-95A](https://www.msx.org/wiki/Victor_HC-95) | Victor floppy controller wiring, system control register 7FFD |
 | [Panasonic FS-A1FM](https://www.msx.org/wiki/Panasonic_FS-A1FM) | FS-A1FM firmware and modem mappers |
-| [Aucnet NIA-2001](https://www.msx.org/wiki/Aucnet_NIA-2001) | MSX-DOS2 ROM mapper |
+| [Aucnet NIA-2001](https://www.msx.org/wiki/Aucnet_NIA-2001) | only the machine definition (the MSX-DOS2 ROM mapper is in the core) |

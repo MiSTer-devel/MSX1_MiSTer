@@ -343,9 +343,10 @@ module VDP_REGISTER (
                         4'b0001: DBI <= {2'b00, VDP_ID, ~REQ_HSYNC_INT_N}; // READ S#1
                         4'b0010: DBI <= {VDPCMDTR, VD, HD, VDPCMDBD, 2'b11, FIELD, VDPCMDCE};  // READ S#2
                         4'b0011: DBI <= VDPS3S4SPCOLLISIONX[7:0];  // READ S#3
-                        4'b0100: DBI <= {7'b0000000, VDPS3S4SPCOLLISIONX[8]};  // READ S#4
+                        // S#4 = FEh | X8, S#6 = FCh | Y8 as openMSX (OCM-PLD 52e6710 sets 1s too)
+                        4'b0100: DBI <= {7'b1111111, VDPS3S4SPCOLLISIONX[8]};  // READ S#4
                         4'b0101: DBI <= VDPS5S6SPCOLLISIONY[7:0];  // READ S#5
-                        4'b0110: DBI <= {7'b0000000, VDPS5S6SPCOLLISIONY[8]};  // READ S#6
+                        4'b0110: DBI <= {7'b1111110, VDPS5S6SPCOLLISIONY[8]};  // READ S#6
                         4'b0111: DBI <= VDPCMDCLR;  // READ S#7: THE COLOR REGISTER
                         4'b1000: DBI <= VDPCMDSXTMP[7:0];  // READ S#8: SXTMP LSB
                         4'b1001: DBI <= {7'b1111111, VDPCMDSXTMP[8]};  // READ S#9: SXTMP MSB
@@ -368,8 +369,10 @@ module VDP_REGISTER (
                 CLR_HSYNC_INT <= 1'b0;
             end
         end else if (VDPREGWRPULSE == 1'b1) begin
-            if (VDPREGPTR == 6'b010011 || (VDPREGPTR == 6'b000000 && VDPP1DATA[4] == 1'b1)) begin
-                CLR_HSYNC_INT <= 1'b1; // CLEAR HSYNC INTERRUPT BY WRITE R19, R0
+            // FH is cleared when R#0 turns IE1 off (it is latched only while IE1 is on); an R#19
+            // write or R#0 with IE1 on keeps it (openMSX VDP::changeRegister)
+            if (VDPREGPTR == 6'b000000 && VDPP1DATA[4] == 1'b0) begin
+                CLR_HSYNC_INT <= 1'b1;
             end else begin
                 CLR_HSYNC_INT <= 1'b0;
             end

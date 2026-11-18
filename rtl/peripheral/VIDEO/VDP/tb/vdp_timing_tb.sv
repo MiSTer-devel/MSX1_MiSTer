@@ -189,6 +189,38 @@ module vdp_timing_tb;
         set_reg(15, 8'h02);
     endtask
 
+    // A pending FH (openMSX VDP::changeRegister): R#0 written with IE1 still on and an R#19 write
+    // keep it; only IE1 turned off (or an S#1 read) clears it
+    task automatic fh_clear(input string mode, input int r19);
+        bit low;
+        $display("%s: pending FH and register writes, R#19 = %0d", mode, r19);
+        wait_frame_start();
+        set_reg(19, 8'(r19));
+        set_reg(15, 8'h01); status(1);
+        set_reg(0, 8'h10);                      // IE1
+        while (line < disp0 + r19 + 2) @(posedge clk);
+        low = !int_n;
+        $display("  %-44s %s", "line interrupt pending", low ? "OK" : "FAIL");
+        if (!low) errors++;
+        set_reg(0, 8'h10);                      // R#0 again, IE1 stays on
+        low = !int_n;
+        $display("  %-44s %s", "R#0 with IE1 still on keeps FH", low ? "OK" : "FAIL");
+        if (!low) errors++;
+        set_reg(19, 8'(r19 + 50));              // new line
+        low = !int_n;
+        $display("  %-44s %s", "R#19 write keeps FH", low ? "OK" : "FAIL");
+        if (!low) errors++;
+        set_reg(0, 8'h00);                      // IE1 off clears FH
+        set_reg(0, 8'h10);
+        repeat (20) @(posedge clk);
+        low = !int_n;
+        $display("  %-44s %s", "IE1 off and on again clears FH", low ? "FAIL" : "OK");
+        if (low) errors++;
+        set_reg(0, 8'h00);
+        status(1);
+        set_reg(15, 8'h02);
+    endtask
+
     // IE1 off: nothing latched, S#1 FH reads the R#19 line window
     task automatic fh_level(input string mode, input int r19);
         int on = -1, onc, off = -1, offc, ones = 0;
@@ -312,6 +344,7 @@ module vdp_timing_tb;
         vblank_vr("NTSC 192", 192);
         line_int("NTSC 192", 100, 192);
         line_int("NTSC 192", 190, 192);
+        fh_clear("NTSC 192", 100);
         fh_level("NTSC 192", 100);
 
         wait_frame_start();

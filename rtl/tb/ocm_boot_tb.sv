@@ -500,6 +500,25 @@ initial begin
         else if (f4_first_read[2][7] !== 1'b0) begin errors++; $display("FAIL warm boot: F4 bit 7 = 1 (logo again)"); end
         else $display("warm boot: BIOS reads F4 = %02h, bit 7 = 0 (no logo)", f4_first_read[2]);
     end
+    // +cold: an "AB" header in ESE-SCC2 (a ROM SofaRun left there), then a cold reset (MiSTer menu
+    // Reset, status[0]). As OCM, the RAM must not keep it, and the IPL loads the BIOS again.
+    if ($test$plusargs("cold")) begin
+        int scc2, sec0;
+        for (int i = 0; i < 600 && f4_bios_wr == 0; i++) repeat (250_000) @(posedge clk_core);
+        repeat (200_000) @(posedge clk_core);
+        scc2 = 32'(sys.memory_upload.ram_slots[sys.memory_upload.lay_slots[{2'd2, 2'd0, 2'd1}][19:16]][44:18]) - (1 << 18);
+        sdram[scc2] = 8'h41; sdram[scc2 + 1] = 8'h42;
+        sec0 = sectors_read;
+        $display("%0t \"AB\" at ESE-SCC2 (SDRAM %07h), cold reset (MiSTer menu)", $time, scc2);
+        boot = 2; t_ipl_end = 0; main_m1 = 0; vdp_writes = 0;
+        status[0] = 1; repeat (4) @(posedge clk_core); status[0] = 0;
+        for (int i = 0; i < 600 && !(t_ipl_end != 0 && f4_first_read.exists(2)); i++) repeat (250_000) @(posedge clk_core);
+        if (sdram[scc2] == 8'h41 && sdram[scc2 + 1] == 8'h42) begin errors++; $display("FAIL cold reset: \"AB\" still in ESE-SCC2"); end
+        else $display("cold reset: ESE-SCC2 starts with %02h %02h", sdram[scc2], sdram[scc2 + 1]);
+        if (sectors_read - sec0 < 1024) begin errors++; $display("FAIL cold reset: BIOS not loaded again (%0d sectors)", sectors_read - sec0); end
+        else $display("cold reset: BIOS loaded again (%0d sectors)", sectors_read - sec0);
+        if (!f4_first_read.exists(2) || f4_first_read[2][7] !== 1'b1) begin errors++; $display("FAIL cold reset: no logo (F4 bit 7)"); end
+    end
     if (f4_first_read.exists(1) && f4_first_read[1][7] !== 1'b1) begin
         errors++; $display("FAIL cold boot: F4 bit 7 = 0 (no logo)");
     end

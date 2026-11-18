@@ -209,12 +209,18 @@ initial begin
     io_write(8'h40, 8'h08);
     io_write(8'h41, 8'h00);
     expect_speed("ID008 5.37 MHz", 2, 0, 6);
+    // read as the Matsushita turbo (openMSX MSXMatsushita): bit 2 = 0 available, bit 0 = 0 on
+    expect_read("ID008 port 41 turbo on", 8'h41, 8'hFA);
     io_write(8'h41, 8'h01);
     expect_speed("ID008 3.58 MHz", 0, 0, 0);
+    expect_read("ID008 port 41 turbo off", 8'h41, 8'hFB);
 
     // extclk3m (cmd 64): F11 only toggles 3.58 <-> 5.37
     io_write(8'h40, 8'hD4);
+    expect_read("port 49 (1chipMSX, NTSC/PAL auto)", 8'h49, 8'h40);
+    expect_read("port 4A", 8'h4A, 8'h00);
     io_write(8'h41, 8'd64);
+    expect_read("port 49 extclk3m", 8'h49, 8'h42);
     f11(); expect_speed("extclk3m F11 5.37", 2, 0, 6);
     f11(); expect_speed("extclk3m F11 3.58", 0, 0, 0);
     io_write(8'h41, 8'd63);

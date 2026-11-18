@@ -30,6 +30,7 @@
 // ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 // Revrite to SystemVerilog 2024 Molekula
+// 2026-11-18: 12 hour noon carry, block 1 readback (OCM-PLD rtc.v c978544, openMSX RP5C01)
 
 module rtc (
     input  logic                 clk21m,      // Clock signal
@@ -85,6 +86,8 @@ module rtc (
     logic                       w_60min;
     logic                       w_10hour;
     logic                       w_1224hour;
+    logic                       w_next_day;
+    logic [3:0]                 w_blk1_mask;
     logic                       w_10day;
     logic                       w_next_mon;
     logic                       w_10mon;
@@ -124,6 +127,17 @@ module rtc (
         w_wrt = req & wrt;
     end
 
+    // Block 1 (alarm, 12/24, leap year) is stored in the backup memory too; read through the
+    // openMSX RP5C01 masks, unused registers read 0
+    always_comb begin
+        case (reg_ptr)
+            4'd2, 4'd4, 4'd7: w_blk1_mask = 4'hF;
+            4'd3, 4'd6:       w_blk1_mask = 4'h7;
+            4'd5, 4'd8:       w_blk1_mask = 4'h3;
+            default:          w_blk1_mask = 4'h0;
+        endcase
+    end
+
     // RTC register read
     always_comb begin
         dbi = (w_adr_dec[13] && adr[0]) ? {4'b1111, reg_mode} :
@@ -140,7 +154,9 @@ module rtc (
               (w_bank_dec[0] && w_adr_dec[10] && adr[0]) ? {7'b1111000, reg_mon_h} :
               (w_bank_dec[0] && w_adr_dec[11] && adr[0]) ? {4'b1111,    reg_yea_l} :
               (w_bank_dec[0] && w_adr_dec[12] && adr[0]) ? {4'b1111,    reg_yea_h} :
+              (w_bank_dec[1] && w_adr_dec[10] && adr[0]) ? {7'b1111000, reg_1224} :
               (w_bank_dec[1] && w_adr_dec[11] && adr[0]) ? {6'b111100,  reg_leap} :
+              (w_bank_dec[1] && ~w_adr_dec[14] && ~w_adr_dec[15] && adr[0]) ? {4'b1111, w_mem_q[3:0] & w_blk1_mask} :
               (w_bank_dec[2] &&                  adr[0]) ? {4'b1111,    w_mem_q[3:0]} :
               8'b1111_1111;
     end
@@ -264,12 +280,14 @@ module rtc (
     assign w_10hour = reg_hou_l == 4'd9;
     assign w_1224hour = (~reg_1224 && reg_hou_h[4] && reg_hou_l == 4'd1)     ||
                         (reg_1224 && reg_hou_h == 2'b10 && reg_hou_l == 4'd3);
+    // 12 hour mode: 11 AM -> 12 PM is noon, only 11 PM -> AM is a new day (OCM-PLD c978544, openMSX)
+    assign w_next_day = w_1224hour && (reg_1224 || reg_hou_h[5]);
 
     // week day timer
     always_ff @(posedge clk21m) begin
         if (w_wrt && adr[0] && w_bank_dec[0] && w_adr_dec[6])
             reg_wee <= dbo[2:0];
-        else if (w_1sec && w_10sec && w_60sec && w_10min && w_60min && w_1224hour)
+        else if (w_1sec && w_10sec && w_60sec && w_10min && w_60min && w_next_day)
             if (reg_wee == 3'b110)
                 reg_wee <= '0;
             else
@@ -282,7 +300,7 @@ module rtc (
     always_ff @(posedge clk21m) begin
         if (w_wrt && adr[0] && w_bank_dec[0] && w_adr_dec[7])
             reg_day_l <= dbo[3:0];
-        else if (w_1sec && w_10sec && w_60sec && w_10min && w_60min && w_1224hour)
+        else if (w_1sec && w_10sec && w_60sec && w_10min && w_60min && w_next_day)
             if (w_10day)
                 reg_day_l <= 4'b0000;
             else if (w_next_mon)
@@ -299,7 +317,7 @@ module rtc (
     always_ff @(posedge clk21m) begin
         if (w_wrt && adr[0] && w_bank_dec[0] && w_adr_dec[8])
             reg_day_h <= dbo[1:0];
-        else if (w_1sec && w_10sec && w_60sec && w_10min && w_60min && w_1224hour)
+        else if (w_1sec && w_10sec && w_60sec && w_10min && w_60min && w_next_day)
             if (w_next_mon)
                 reg_day_h <= 2'b00;
             else if (w_10day)
@@ -320,7 +338,7 @@ module rtc (
     always_ff @(posedge clk21m) begin
         if (w_wrt && adr[0] && w_bank_dec[0] && w_adr_dec[9])
             reg_mon_l <= dbo[3:0];
-        else if (w_1sec && w_10sec && w_60sec && w_10min && w_60min && w_1224hour && w_next_mon)
+        else if (w_1sec && w_10sec && w_60sec && w_10min && w_60min && w_next_day && w_next_mon)
             if (w_10mon)
                 reg_mon_l <= 4'b0000;
             else if (w_1year)
@@ -337,7 +355,7 @@ module rtc (
     always_ff @(posedge clk21m) begin
         if (w_wrt && adr[0] && w_bank_dec[0] && w_adr_dec[10])
             reg_mon_h <= dbo[0];
-        else if (w_1sec && w_10sec && w_60sec && w_10min && w_60min && w_1224hour && w_next_mon)
+        else if (w_1sec && w_10sec && w_60sec && w_10min && w_60min && w_next_day && w_next_mon)
             if (w_10mon)
                 reg_mon_h <= 1'b1;
             else if (w_1year)
@@ -352,7 +370,7 @@ module rtc (
     always_ff @(posedge clk21m) begin
         if (w_wrt && adr[0] && w_bank_dec[0] && w_adr_dec[11])
             reg_yea_l <= dbo[3:0];
-        else if (w_1sec && w_10sec && w_60sec && w_10min && w_60min && w_1224hour && w_next_mon && w_1year)
+        else if (w_1sec && w_10sec && w_60sec && w_10min && w_60min && w_next_day && w_next_mon && w_1year)
             if (w_10year)
                 reg_yea_l <= 4'b0000;
             else
@@ -367,7 +385,7 @@ module rtc (
     always_ff @(posedge clk21m) begin
         if (w_wrt && adr[0] && w_bank_dec[0] && w_adr_dec[12])
             reg_yea_h <= dbo[3:0];
-        else if (w_1sec && w_10sec && w_60sec && w_10min && w_60min && w_1224hour && w_next_mon && w_1year && w_10year)
+        else if (w_1sec && w_10sec && w_60sec && w_10min && w_60min && w_next_day && w_next_mon && w_1year && w_10year)
             if (w_100year)
                 reg_yea_h <= 4'b0000;
             else
@@ -382,7 +400,7 @@ module rtc (
     always_ff @(posedge clk21m) begin
         if (w_wrt && adr[0] && w_bank_dec[1] && w_adr_dec[11])
             reg_leap <= dbo[1:0];
-        else if (w_1sec && w_10sec && w_60sec && w_10min && w_60min && w_1224hour && w_next_mon && w_1year)
+        else if (w_1sec && w_10sec && w_60sec && w_10min && w_60min && w_next_day && w_next_mon && w_1year)
             reg_leap <= reg_leap + 1'b1;
     end
 

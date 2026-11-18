@@ -123,7 +123,7 @@ module VDP_INTERRUPT (
         if (RESET) begin
             FF_HSYNC_INT_N <= 1'b1;
         end else begin
-            // FH is cleared by the CPU only (S#1 read, R#19 write, R#0 write with IE1), not at
+            // FH is cleared by the CPU only (S#1 read, R#0 write turning IE1 off), not at
             // vertical blanking, and latched only while IE1 is on (openMSX execHScan)
             if (CLR_HSYNC_INT) begin
                 FF_HSYNC_INT_N <= 1'b1;

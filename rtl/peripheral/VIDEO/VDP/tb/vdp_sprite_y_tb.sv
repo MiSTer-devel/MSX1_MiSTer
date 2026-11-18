@@ -181,13 +181,29 @@ module vdp_sprite_y_tb;
         wait_frames(2); status(0); status(5);
         wait_frames(1); status(0); check_val("collision C after a frame", st[5], 1);
         status(3); check_val("S#3 collision X", st, 127);
-        status(4); check_val("S#4 collision X bit 8", st, 0);
-        status(6); check_val("S#6 collision Y bit 8", st, 0);
+        // unused bits read 1: S#4 = FEh | X8, S#6 = FCh | Y8 (openMSX VDP::peekStatusReg)
+        status(4); check_val("S#4 collision X bit 8, rest 1", st, 8'hFE);
+        status(6); check_val("S#6 collision Y bit 8, rest 1", st, 8'hFC);
         status(5); check_val("S#5 collision Y", st, 86);
         status(0); wait_frames(1); status(0); check_val("C again a frame later", st[5], 1);
         vram_wr(14'h1E00, '{8'd63, 8'd100, 8'd0, 8'd0, 8'd63, 8'd116, 8'd0, 8'd0, 8'd216});
         wait_frames(2); status(0); wait_frames(1); status(0);
         check_val("C with the sprites 16 apart", st[5], 0);
+
+        // R#8 SPD: a change takes effect at the start of the next line (openMSX syncAtNextLine,
+        // ~144 cycles after HSYNC). Off on line 70: the sprite is not drawn from line 71. On again
+        // on line 74: line 75 was checked on line 74 while off, sprites again from line 76.
+        vram_wr(14'h1E04, '{8'd200}); wait_frames(2);
+        check("sprite 0 only", 64, 79, -1, -2);
+        wait_pos(9'd70, 9'd64); set_reg(8, 8'h0A);
+        wait_pos(9'd74, 9'd64); set_reg(8, 8'h08);
+        wait_frames(1);
+        check("SPD on at line 70, off at line 74", 64, 70, 76, 79);
+        wait_frames(1);
+        wait_pos(9'd70, 9'd250); set_reg(8, 8'h0A);        // in the right border: still line 71
+        wait_pos(9'd74, 9'd250); set_reg(8, 8'h08);
+        wait_frames(1);
+        check("SPD written in the right border", 64, 70, 76, 79);
 
         $display("%s vdp_sprite_y_tb (%0d errors)", errors ? "FAIL" : "PASS", errors);
         $finish;

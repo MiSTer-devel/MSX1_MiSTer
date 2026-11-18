@@ -109,6 +109,15 @@ always_ff @(posedge clk) begin
     if (reload) lastConfig <= act_config;
 end
 
-assign reload = ~reset & lastConfig != act_config;
+// 1chipMSX: a cold reset (MiSTer menu, status[0]) loads the configuration again, so the RAM
+// blocks are filled as after power-on. OCM / MSX_MiSTer clear ESE-SCC1/2 and ESE-RAM on a cold
+// reset: no ROM left by SofaRun starts by its "AB", the IPL loads the BIOS from the SD again.
+logic cold_pend = 1'b0;
+always_ff @(posedge clk) begin
+    if (HPS_status[0] && ocmMode) cold_pend <= 1'b1;
+    else if (reload)              cold_pend <= 1'b0;
+end
+
+assign reload = ~reset & (lastConfig != act_config || (cold_pend && ~HPS_status[0]));
 
 endmodule

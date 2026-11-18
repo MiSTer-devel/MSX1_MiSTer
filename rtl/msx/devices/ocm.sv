@@ -451,6 +451,8 @@ module dev_ocm
         if (io_sel && cpu_bus.rd) begin
             if (port == 4'h0)
                 data = io40_n;
+            else if (io40_n == ID008 && port == 4'h1)   // as the Matsushita turbo: bit 2 = 0 available,
+                data = {7'b1111101, io41_id008_n};       // bit 0 = 0 on (OCM-PLD Rev 11, e7be29f)
             else if (io40_n == ID008 && port == 4'h3)
                 data = 8'h00;
             else if (id212)
@@ -463,6 +465,10 @@ module dev_ocm
                     4'h6: data = {~|SccVol, SccVol, ~|OpllVol, OpllVol};
                     4'h7: data = {MegaSD_req, Mapper_req, VdpSpeedMode, tPanaRedir, tMegaSD, speed_lev};
                     4'h8: data = {1'b1, RstReq_sta, LastRst_sta, ~io41_id008_n, 1'b0, 1'b0, swioKmap, ~io41_id008_n};
+                    // forced V mode off, NTSC/PAL auto (without the io42 term: OCM-PLD 18f8ba4),
+                    // machine 0 = 1chipMSX, pseudo-stereo off; the display options are not kept
+                    4'h9: data = {1'b0, 1'b1, 4'b0000, extclk3m, 1'b0};
+                    4'hA: data = 8'h00;                 // Rev 9: right inverse audio off
                     4'hC: data = ff_dip_req;
                     4'hD: data = vram_slot_ids;
                     4'hE: data = OCM_PLD_XY;

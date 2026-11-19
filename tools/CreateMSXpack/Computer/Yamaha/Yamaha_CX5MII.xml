@@ -1,0 +1,57 @@
+<?xml version="1.0" ?>
+<msxConfig>
+  <cpu>Z80</cpu>                   <!-- Z80 --> 
+  <wait_count>1</wait_count>       <!-- 0 - 3 -->  
+  <cpu_frequency>0</cpu_frequency> <!-- 0-3.58, 1-5.37, 2-10.7, 3-7.16 MHz -->
+  <device mask="0xFC" port="0x98" VDP_ID="V9938">V99xx</device>
+  <device mask="0xF8" port="0xA0" system="true">PSG</device>
+  <device mask="0xF8" port="0xA8">PPI</device>
+  <kbd_layout>/yX/cWdlZv//ZP//cHMh////YP9hRgH///9XUCZUAv//MFUxMgQD//+AUzNRRwX//0MnNTRWBv///0I3UgcQ//8iQDZEABH//yMkQRdFEv///yD/FRP//2Ngdxb/FP//////////df///////////////////3L/dv//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////Yv//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////hIH///+Cg4b/h4X///////90//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////8=</kbd_layout>
+  <primary slot="0">
+    <secondary slot="0">
+      <block start="0" count="2">
+        <memory SHA1="0dde59e8d98fa524961cd37b0e100dbfb42cf576" filename = "cx5mii_basic-bios1.rom">ROM</memory> <!-- MSX BIOS with BASIC ROM -->
+      </block>
+    </secondary>
+  </primary>
+  <primary slot="3">
+    <secondary slot="0">
+      <block start="1" count="1">
+        <memory SHA1="0ce800666c0d66bc2aa0b73a16f228289b9198be" filename = "cx5mii_sub.rom">ROM</memory> <!-- CX5MII MSX sub ROM -->
+      </block>
+    </secondary>
+    <secondary slot="1">
+      <block start="1" count="1">
+        <memory SHA1="7b1798561ee1844a7d6432924fbee9b4fc591c19" filename = "cx5mii_fmvoicingprogramii.rom">ROM</memory> <!-- FM Voicing Program II -->
+      </block>
+    </secondary>
+    <secondary slot="2">
+      <block start="0">
+        <memory pattern="3">RAM</memory>    <!-- "Main RAM" -->
+      </block>
+    </secondary>
+    <secondary slot="3">
+      <block start="0">
+        <memory SHA1="6680d7118d85418813f1db9449bf3e20942b16da" filename = "sfg-05.rom">ROM</memory> <!-- Yamaha SFG-05 ROM -->
+        <mapper>YAMAHA_SFG</mapper>
+        <device variant="YM2164">OPM</device>
+        <device variant="SFG-05">YM2148</device>
+      </block>
+    </secondary>
+  </primary>
+  <!-- Location of external slots at the end of the XML definition -->
+  <primary slot="1">
+    <secondary slot="0">
+      <block start="0">
+        <cart>A</cart>
+      </block>
+    </secondary>
+  </primary>
+  <primary slot="2">
+    <secondary slot="0">
+      <block start="0">
+        <cart>B</cart>
+      </block>
+    </secondary>
+  </primary>
+</msxConfig>

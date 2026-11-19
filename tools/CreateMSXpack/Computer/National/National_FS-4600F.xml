@@ -1,0 +1,79 @@
+<?xml version="1.0" ?>
+<msxConfig>
+  <cpu>Z80</cpu>                   <!-- Z80 --> 
+  <wait_count>1</wait_count>       <!-- 0 - 3 -->  
+  <cpu_frequency>0</cpu_frequency> <!-- 0-3.58, 1-5.37, 2-10.7, 3-7.16 MHz -->  
+  <engine>S1985</engine>         <!-- MSX-Engine, NMOS Z80 outside -->
+  <device mask="0xF0" port="0x40">S1985</device>   <!-- switched I/O FEh: 16 bytes backup RAM, colour / pattern register -->
+  <device mask="0xFC" port="0x98" VDP_ID="V9938">V99xx</device>
+  <device mask="0xF8" port="0xA0" system="true">PSG</device>
+  <device mask="0xF8" port="0xA8">PPI</device>
+  <device mask="0xFE" port="0xB4">RTC</device>
+  <device mask="0xFE" port="0xD8" ROM_SHA1="5e872d5853698731a0ed22fb72dbcdfd59cd19c3">KANJI</device>
+  <kbd_layout>/yX/cWdlZv//ZP//cHMh////YP9hRgH///9XUCZUAv//MFUxMgQD//+AUzNRRwX//0MnNTRWBv///0I3UgcQ//8iQDZEABH//yMkQRdFEv///yD/FRP//2Ngdxb/FP//////////df///////////////////3L/dv//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////Yv//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////hIH///+Cg4b/h4X///////90//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////8=</kbd_layout>
+  <primary slot="0">
+    <secondary slot="0">
+      <block count="2">  <!-- MSX BIOS with BASIC ROM -->
+        <memory SHA1="0081ea0d25bc5cd8d70b60ad8cfdc7307812c0fd" filename="fs-4600f_basic-bios2.rom" size="32768">ROM</memory>
+      </block>
+    </secondary>
+    <secondary slot="1">
+      <block count="1"> <!-- MSX Sub ROM -->
+        <memory SHA1="0fbd45ef3dd7bb82d4c31f1947884f411f1ca344" filename="fs-4600f_msx2sub.rom" size="16384">ROM</memory>
+      </block>
+    </secondary>
+    <secondary slot="2">
+      <block count="1">  <!-- Word Font 1 -->
+        <memory SHA1="31292b9ca9fe7d1d8833530f44c0a5671bfefe4e" filename="fs-4600f_wordfont1.rom" size="16384">ROM</memory>
+      </block>
+      <block start="1" count="2">  <!-- MSX Kanji Driver -->
+        <memory SHA1="3a9a942ed888dd641cddf8deada1879c454df3c6" filename="fs-4600f_kanjibasic.rom" size="32768">ROM</memory>
+      </block>
+    </secondary>
+    <secondary slot="3">
+      <block count="1">  <!-- Word Font 2 -->
+        <memory SHA1="02155fc25c9bd23e1654fe81c74486351e1ecc28" filename="fs-4600f_wordfont2.rom" size="16384">ROM</memory>
+      </block>
+    </secondary>
+  </primary>
+  <primary slot="3">
+    <secondary slot="1">
+      <block>  <!-- MSX Word -->
+        <memory SHA1="005794c10a4237de3907ba4a44d436078d3c06c2" filename="fs-4600f_msxword.rom" size="65536">ROM</memory>
+        <mapper>NATIONAL</mapper>
+        <sram>4096</sram>               <!-- National mapper SRAM (MSX Word), not saved -->
+      </block>
+    </secondary>
+    <secondary slot="2">
+      <block>
+        <memory size="131072" pattern="4">RAM</memory>
+        <mapper>MSX2_RAM</mapper>
+        <device mask="0xFC" port="0xFC" size="131072">MEM_MAPPER</device>
+      </block>
+    </secondary>
+    <secondary slot="3">
+      <block start="1" count="1"> <!-- Memory Mapped FDC -->
+        <memory SHA1="073feb8bb645d935e099afaf61e6f04f52adee42" filename="fs-4600f_disk.rom">ROM</memory>
+        <device style="National" fdd_count="1">WD2793</device>
+      </block>
+      <block start="2" count="1">
+        <ref to_block="1">MEMORY</ref>
+      </block>
+    </secondary>
+  </primary>
+  <!-- Location of external slots at the end of the XML definition -->
+  <primary slot="1">
+    <secondary slot="0">
+      <block>
+        <cart>A</cart>
+      </block>
+    </secondary>
+  </primary>
+  <primary slot="2">
+    <secondary slot="0">
+      <block>
+        <cart>B</cart>
+      </block>
+    </secondary>
+  </primary>
+</msxConfig>

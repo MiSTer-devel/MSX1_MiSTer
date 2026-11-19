@@ -1,0 +1,7 @@
+# Exceptions to the ROM DB dump, applied last by createDB.py.
+# One line per ROM: CRC32 <tab> RomType from romtypes.json or FW configuration name.
+# createDB.py --prune removes lines that the dump already gives.
+9E229C0B	ASCII8
+# MSX-DOS2: the dump has no MSX-DOS2 ROMs. A cartridge ROM goes in as "CRC32<tab>MSXDOS2"
+# (bank register 6000h); MSX-DOS 2.20 patched for the ASCII8 mapper (msxdos2-asc8-mapper.rom):
+FCC4EACF	ASCII8

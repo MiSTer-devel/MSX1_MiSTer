@@ -1,0 +1,191 @@
+{
+    "WD2793": {
+        "fdd_count": {
+            "param_type": "int",
+            "enums": [],
+            "min": 1,
+            "max": 2,
+            "default": 1,
+            "values": [0, 4, 12]
+        },
+        "style": {
+            "param_type": "enum",
+            "enums": ["Philips", "National", "Sony"],
+            "min": null,
+            "max": null,
+            "default": 0,
+            "value_offset": 0
+        },
+        "single_sided": {
+            "param_type": "enum",
+            "enums": ["false", "true"],
+            "min": null,
+            "max": null,
+            "default": 0,
+            "value_offset": 4
+        },
+        "density": {
+            "param_type": "enum",
+            "enums": ["MFM", "FM"],
+            "min": null,
+            "max": null,
+            "default": 0,
+            "value_offset": 5
+        }
+    },
+    "TC8566AF": {
+        "fdd_count": {
+            "param_type": "int",
+            "enums": [],
+            "min": 1,
+            "max": 2,
+            "default": 1,
+            "values": [0, 4, 12]
+        },
+        "ioRegs": {
+            "param_type": "enum",
+            "enums": ["", "7FF2", "7FF8"],
+            "min": null,
+            "max": null,
+            "default": 0,
+            "value_offset": 0
+        },
+        "single_sided": {
+            "param_type": "enum",
+            "enums": ["false", "true"],
+            "min": null,
+            "max": null,
+            "default": 0,
+            "value_offset": 4
+        }
+    },
+    "MEM_MAPPER": {
+        "size": {
+            "param_type": "int",
+            "enums": [],
+            "min": 1,
+            "max": 255,
+            "div": 16384, 
+            "default": 1
+        }
+    },
+    "V99xx": {
+        "VDP_ID": {
+            "param_type": "enum",
+            "enums": ["V9938", "V9958", "UNKNOWN"],
+            "min": 0,
+            "max": 2,
+            "default": 0,
+            "values": [0, 2, 1]
+        }
+    },
+    "TMS99xx": {
+        "MODE": {
+            "param_type": "enum",
+            "enums": ["PAL", "NTSC"],
+            "min": 0,
+            "max": 1,
+            "default": 0
+        }
+    },
+    "DAC": {
+        "mapper": {
+            "param_type": "enum",
+            "enums": ["false", "true"],
+            "min": 0,
+            "max": 1,
+            "default": 0
+        }
+    },
+    "PSG": {
+        "system": {
+            "param_type": "enum",
+            "enums": ["false", "true"],
+            "min": 0,
+            "max": 1,
+            "default": 0
+        }
+    },
+    "PPI": {
+        "OCM": {
+            "param_type": "enum",
+            "enums": ["false", "true"],
+            "min": 0,
+            "max": 1,
+            "default": 0
+        }
+    },
+    "RESET_STATUS": {
+        "inverted": {
+            "param_type": "enum",
+            "enums": ["false", "true"],
+            "min": 0,
+            "max": 1,
+            "default": 0
+        }
+    },
+    "OPL4": {
+        "sampleram": {
+            "param_type": "int",
+            "enums": [],
+            "min": 0,
+            "max": 16,
+            "div": 131072,
+            "default": 0
+        }
+    },
+    "YM2148": {
+        "variant": {
+            "param_type": "enum",
+            "enums": ["SFG-01", "SFG-05"],
+            "min": 0,
+            "max": 1,
+            "default": 0
+        }
+    },
+    "OPM": {
+        "variant": {
+            "param_type": "enum",
+            "enums": ["YM2151", "YM2164"],
+            "min": 0,
+            "max": 1,
+            "default": 0
+        }
+    },
+    "KANJI": {
+        "hangul": {
+            "param_type": "enum",
+            "enums": ["false", "true"],
+            "min": null,
+            "max": null,
+            "default": 0,
+            "value_offset": 0
+        },
+        "level_2_via": {
+            "param_type": "enum",
+            "enums": ["read", "write", "interlocked_write_read", "only_level_1"],
+            "min": null,
+            "max": null,
+            "default": 0,
+            "value_offset": 2
+        }
+    },
+    "MATSUSHITA": {
+        "turbo": {
+            "param_type": "enum",
+            "enums": ["false", "true"],
+            "min": null,
+            "max": null,
+            "default": 0,
+            "value_offset": 0
+        },
+        "sram": {
+            "param_type": "enum",
+            "enums": ["false", "true"],
+            "min": null,
+            "max": null,
+            "default": 0,
+            "value_offset": 1
+        }
+    }
+}

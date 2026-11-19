@@ -1,0 +1,119 @@
+# Tools
+
+**English** | [Česky](README.cs.md)
+
+Helper tools of the MSX core for MiSTer. Back to the [main Readme](../Readme.md).
+
+| Tool | What it is for | Who needs it |
+|---|---|---|
+| [CreateMSXpack](CreateMSXpack/README.md) | Builds the machine packs and the FW pack | users and developers |
+| [CreateCRC](CreateCRC/README.md) | Builds the mapper database for ROM cartridges | developers (users take the ready-made `vampier.db`) |
+| [CreateKeyMap](CreateKeyMap/README.md) | Builds the PS/2 to MSX keyboard tables | developers |
+| [vdptest](vdptest/README.md) | VDP timing test ROMs | developers and testers |
+| [miditest](miditest/README.md) | MIDI output test ROM (MT32-pi, MidiLink) | testers |
+| [vdpcmd](vdpcmd/README.md) | bengalack's vdpcmd (VDP command speed) as a ROM, without MSX-DOS | developers and testers |
+| [pcmtest](pcmtest/README.md) | turbo R PCM played as in the game Criterion, counts skipped samples | developers and testers |
+
+## Quick start for users
+
+Copy these files to the SD card into `/media/fat/games/MSX/`:
+
+| File | Required? | Made by | OSD item |
+|---|---|---|---|
+| machine pack `.msx` (one per machine, e.g. `<Vendor>/<Machine>.msx`) | yes, at least one | `createComp.py` from [CreateMSXpack](CreateMSXpack/README.md) | Load ROM PACK |
+| FW pack `CART_FW_EN.msx` or `CART_FW_JP.msx` (they differ only in the FM-PAC ROM) | practically yes: without it cartridge slots do not work, not even "Empty" | `createDev.py` from [CreateMSXpack](CreateMSXpack/README.md) | Load FW  PACK |
+| mapper database `vampier.db` | optional; needed for ROM cartridges larger than 64 kB | ready-made in `CreateCRC/vampier.db`, no build needed | Load DB MAPPERS |
+
+Steps:
+1. Install Python 3.
+2. Put the BIOS/firmware ROM dumps into `tools/CreateMSXpack/ROM/` (you must supply them yourself;
+   only the C-BIOS ROMs and the 1chipMSX (OCM) IPL ROM are included).
+3. In `tools/CreateMSXpack` run `python createComp.py` and `python createDev.py`; the packs appear
+   in `MSX/`. Details and the meaning of the console messages are in the
+   [CreateMSXpack README](CreateMSXpack/README.md).
+4. Copy the contents of `MSX/` and `tools/CreateCRC/vampier.db` to `/media/fat/games/MSX/`.
+5. In the OSD load the FW pack, the database (optional) and the machine pack.
+
+Game ROMs (`*.rom`) are loaded straight from the SD card in the OSD (slot 1/slot 2 = ROM); they
+are not made by any tool. The keyboard tables are not copied to the SD card: they are embedded in
+the machine packs.
+
+## Tools
+
+### CreateMSXpack
+
+Converts the machine definitions (`Computer/**/*.xml`) and your BIOS ROM images into the machine
+packs `.msx`, and the cartridge definitions (`Extension/*.xml`) into the FW pack. ROMs are matched
+by SHA1 of the file content, not by file name.
+
+Start (in `tools/CreateMSXpack`): `python createComp.py` and `python createDev.py`.
+Documentation: [README](CreateMSXpack/README.md) | [README.cs](CreateMSXpack/README.cs.md).
+
+### CreateCRC
+
+Builds the CRC32 to mapper table (`vampier.db`) that the core uses to choose the mapper of a ROM
+cartridge. Users do not have to build it. It is useful when a ROM is missing in the database or
+needs a different mapper.
+
+Start (in `tools/CreateCRC`): `python createDB.py` (needs internet access).
+Documentation: [README](CreateCRC/README.md) | [README.cs](CreateCRC/README.cs.md).
+
+### CreateKeyMap
+
+Builds the 512-byte tables that translate PS/2 scancodes to the MSX keyboard matrix. They are
+embedded in the machine XML files; all machines currently use the `eu` table.
+
+Start (in `tools/CreateKeyMap`): `python createKeyMap.py`.
+Documentation: [README](CreateKeyMap/README.md) | [README.cs](CreateKeyMap/README.cs.md).
+
+### vdptest
+
+Test ROMs (`vdptest.rom`, `vdptest_auto.rom`, `cmdbench.rom`) that measure VDP timing: status
+flags, interrupts and command duration on TMS9918A/28A/29A, V9938 and V9958. The ROMs are built
+and in the repository, you just load them as a game ROM into slot A.
+
+Start: `sh tools/vdptest/build.sh` (rebuild only).
+Documentation: [README](vdptest/README.md) | [README.cs](vdptest/README.cs.md).
+
+### miditest
+
+A test ROM (`miditest.rom`) for MSX-MIDI: a demo song on channels 2–10, instrument and drum
+sweeps, playing from the keyboard and mt32-pi SysEx. The screen shows what sounds on each channel.
+The ROM is built and in the repository; load it as a game ROM into slot A, best on the FS-A1GT.
+
+Start: `sh tools/miditest/build.sh` (rebuild only).
+Documentation: [README](miditest/README.md) | [README.cs](miditest/README.cs.md).
+
+### vdpcmd
+
+bengalack's [vdpcmd](https://github.com/bengalack/vdpcmd) as a cartridge ROM (`vdpcmd.rom`): it
+measures how many pixels the VDP command engine handles in one frame and compares them with real
+machines. The original DOS program runs unchanged inside the ROM, so no MSX-DOS is needed. The ROM
+is built and in the repository; load it as a game ROM into slot A.
+
+Start: `sh tools/vdpcmd/build.sh` (rebuild only).
+Documentation: [README](vdpcmd/README.md) | [README.cs](vdpcmd/README.cs.md).
+
+### pcmtest
+
+A test ROM (`pcmtest.rom`) for the turbo R PCM: plays sounds of the game Criterion with its own
+player (S1990 timer, 7990 Hz, late samples skipped), optionally with VDP load, and shows how many
+samples were played and skipped. The sounds come from the game ROM and are not in the repository.
+
+Start: `python tools/pcmtest/mkraw.py <Criterion ROM>`, then `sh tools/pcmtest/build.sh`.
+Documentation: [README](pcmtest/README.md) | [README.cs](pcmtest/README.cs.md).
+
+## For developers
+
+- **New machine model or extension cartridge:** see
+  [CreateMSXpack/DEVELOPERS.md](CreateMSXpack/DEVELOPERS.md)
+  ([Česky](CreateMSXpack/DEVELOPERS.cs.md)).
+- **New keyboard layout:** [CreateKeyMap](CreateKeyMap/README.md).
+- **Mapper of a specific ROM (override) or a new mapper name:** [CreateCRC](CreateCRC/README.md).
+- **VDP timing checks:** [vdptest](vdptest/README.md), [vdpcmd](vdpcmd/README.md).
+- **MIDI output checks:** [miditest](miditest/README.md).
+
+The Python scripts use only the standard library, except the debugging helper
+`CreateKeyMap/scancode_debugger.py` (needs the `keyboard` package). `createKeyMap.py`,
+`createComp.py` and `createDev.py` must be run from their own folder, because they open their data
+files by relative name.

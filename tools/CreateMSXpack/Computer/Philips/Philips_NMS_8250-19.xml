@@ -1,0 +1,71 @@
+<?xml version="1.0" ?>
+<msxConfig>
+  <cpu>Z80</cpu>                   <!-- Z80 --> 
+  <wait_count>1</wait_count>       <!-- 0 - 3 -->  
+  <cpu_frequency>0</cpu_frequency> <!-- 0-3.58, 1-5.37, 2-10.7, 3-7.16 MHz -->
+  <device mask="0xFC" port="0x98" VDP_ID="V9938">V99xx</device>
+  <device mask="0xF8" port="0xA0" system="true">PSG</device>
+  <device mask="0xF8" port="0xA8">PPI</device>
+  <device mask="0xFE" port="0xB4">RTC</device>
+  <kbd_layout>/yX/cWdlZv//ZP//cHMh////YP9hRgH///9XUCZUAv//MFUxMgQD//+AUzNRRwX//0MnNTRWBv///0I3UgcQ//8iQDZEABH//yMkQRdFEv///yD/FRP//2Ngdxb/FP//////////df///////////////////3L/dv//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////Yv//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////hIH///+Cg4b/h4X///////90//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////8=</kbd_layout>
+  <primary slot="0">
+    <secondary slot="0">
+      <block count="2"> <!-- MSX BIOS with BASIC ROM -->
+       <memory SHA1="d18694e9e7040b2851fe985cefb89766868a2fd3" filename="nms8250-19_basic-bios2.rom">ROM</memory>
+      </block>
+    </secondary>
+  </primary>
+  <primary slot="3">
+    <secondary slot="0">
+      <block count="1"> <!-- MSX BIOS with BASIC ROM -->
+        <memory SHA1="fd4bcc81a8160a1dea06036c5f79d200f948f4d6" filename="nms8250-19_msx2sub.rom">ROM</memory>
+      </block>
+      <block start="1" count="1">
+        <ref to_block="0">MEMORY</ref>
+      </block>
+      <block start="2" count="1">
+        <ref to_block="0">MEMORY</ref>
+      </block>
+      <block start="3" count="1">
+        <ref to_block="0">MEMORY</ref>
+      </block>
+    </secondary>
+    <secondary slot="2">
+      <block> <!-- Main RAM -->
+        <memory size="131072" pattern="4">RAM</memory>
+        <mapper>MSX2_RAM</mapper>
+        <device mask="0xFC" port="0xFC" size="131072">MEM_MAPPER</device>
+      </block>
+    </secondary>
+    <secondary slot="3">
+      <block start="1" count="1">  <!-- Memory Mapped FDC -->
+        <memory SHA1="c3efedda7ab947a06d9345f7b8261076fa7ceeef" filename="nms8250_disk.rom">ROM</memory>
+        <device style="Philips" fdd_count="1">WD2793</device>
+      </block>
+      <block start="0" count="1">
+        <ref to_block="1">DEVICE</ref>
+      </block>
+      <block start="2" count="1">
+        <ref to_block="1">DEVICE</ref>
+      </block>
+      <block start="3" count="1">
+        <ref to_block="1">DEVICE</ref>
+      </block>
+    </secondary>
+  </primary>
+  <!-- Location of external slots at the end of the XML definition -->
+  <primary slot="1">
+    <secondary slot="0">
+      <block start="0">
+        <cart>A</cart>
+      </block>
+    </secondary>
+  </primary>
+  <primary slot="2">
+    <secondary slot="0">
+      <block start="0">
+         <cart>B</cart>
+      </block>
+    </secondary>
+  </primary>
+</msxConfig>

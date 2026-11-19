@@ -1,0 +1,43 @@
+<?xml version="1.0" ?>
+<msxConfig>
+  <cpu>Z80</cpu>                   <!-- Z80 --> 
+  <wait_count>1</wait_count>       <!-- 0 - 3 -->  
+  <cpu_frequency>0</cpu_frequency> <!-- 0-3.58, 1-5.37, 2-10.7, 3-7.16 MHz -->
+  <engine subtype="A">T7937</engine> <!-- MSX-Engine with a CMOS Z80 -->
+  <device mask="0xFE" port="0x98" MODE="PAL">TMS99xx</device>
+  <device mask="0xF8" port="0xA0" system="true">PSG</device>
+  <device mask="0xF8" port="0xA8">PPI</device>
+  <kbd_layout>/yX/cWdlZv//ZP//cHMh////YP9hRgH///9XUCZUAv//MFUxMgQD//+AUzNRRwX//0MnNTRWBv///0I3UgcQ//8iQDZEABH//yMkQRdFEv///yD/FRP//2Ngdxb/FP//////////df///////////////////3L/dv//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////Yv//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////hIH///+Cg4b/h4X///////90//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////8=</kbd_layout>
+  <primary slot="0">
+    <secondary slot="0">
+      <block start="0" count="2">
+        <memory SHA1="5e094fca95ab8e91873ee372a3f1239b9a48a48d" filename = "ax170_basic-bios1.rom">ROM</memory>
+      </block>
+    </secondary>
+  </primary>
+  <primary slot="1">
+    <secondary slot="0">
+      <block start="1" count="2">
+        <memory SHA1="0287b2ec897b9196788cd9f10c99e1487d7adbbb" filename = "ax170_arabic.rom">ROM</memory>
+      </block>
+    </secondary>
+  </primary>
+  <primary slot="3">
+    <secondary slot="0">
+      <block start="0" count="4">
+        <memory pattern="2">RAM</memory>
+      </block>
+    </secondary>
+<!-- Location of external slots at the end of the XML definition -->    
+    <secondary slot="3">
+      <block>
+        <cart>B</cart>
+      </block>
+    </secondary>
+  </primary>
+  <primary slot="2">
+    <block>
+      <cart>A</cart>
+    </block>
+  </primary>
+</msxConfig>

@@ -1,0 +1,56 @@
+<?xml version="1.0" ?>
+<msxConfig>
+  <cpu>Z80</cpu>                   <!-- Z80 --> 
+  <wait_count>1</wait_count>       <!-- 0 - 3 -->  
+  <cpu_frequency>0</cpu_frequency> <!-- 0-3.58, 1-5.37, 2-10.7, 3-7.16 MHz -->
+  <device mask="0xFC" port="0x98" VDP_ID="V9938">V99xx</device>
+  <device mask="0xF8" port="0xA0" system="true">PSG</device>
+  <device mask="0xF8" port="0xA8">PPI</device>
+  <device mask="0xFE" port="0xB4">RTC</device>
+  <kbd_layout>/yX/cWdlZv//ZP//cHMh////YP9hRgH///9XUCZUAv//MFUxMgQD//+AUzNRRwX//0MnNTRWBv///0I3UgcQ//8iQDZEABH//yMkQRdFEv///yD/FRP//2Ngdxb/FP//////////df///////////////////3L/dv//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////Yv//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////hIH///+Cg4b/h4X///////90//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////8=</kbd_layout>
+  <primary slot="0">
+    <secondary slot="0">
+      <block count="2">
+        <memory SHA1="421ac0dbfdf35b35fe5adba5d528efba28edcecb" filename="vg8240_basic-bios2.rom">ROM</memory>
+      </block>
+    </secondary>
+  </primary>
+  <primary slot="3">
+    <secondary slot="0">
+      <block count="1">
+        <memory SHA1="b003a5a12920facb30aa3e526a71fb557c669309" filename="vg8240_msx2sub.rom">ROM</memory>
+      </block>
+    </secondary>
+    <secondary slot="2">
+      <block>
+        <memory size="65536" pattern="4">RAM</memory>
+        <mapper>MSX2_RAM</mapper>
+        <device mask="0xFC" port="0xFC" size="65536">MEM_MAPPER</device>
+      </block>
+    </secondary>
+    <secondary slot="3">
+      <block start="1" count="1">
+        <memory SHA1="24f3bea9f47a4d9f89be1ae1040facbfd0dba1bd" filename="vg8240_disk.rom">ROM</memory>
+        <device style="Philips" fdd_count="1" single_sided="true">WD2793</device>
+      </block>
+      <block start="2" count="1">
+        <ref to_block="1">DEVICE</ref>
+      </block>
+    </secondary>
+  <!-- Location of external slots at the end of the XML definition -->
+  </primary>
+    <primary slot="1">
+    <secondary slot="0">
+      <block>
+        <cart>A</cart>
+      </block>
+    </secondary>
+  </primary>
+  <primary slot="2">
+    <secondary slot="0">
+      <block>
+        <cart>B</cart>
+      </block>
+    </secondary>
+  </primary>
+</msxConfig>

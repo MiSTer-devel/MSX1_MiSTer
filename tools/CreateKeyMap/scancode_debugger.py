@@ -1,0 +1,184 @@
+# CreateKeyMap: prints the PS/2 scancodes of pressed keys
+#
+# Copyright (c) 2024-2026 Molekula
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+import keyboard
+import time
+
+# Bitové příznaky
+LCTRL        = 0x000100
+LSHIFT       = 0x000200
+LALT         = 0x000400
+LGUI         = 0x000800
+RCTRL        = 0x001000
+RSHIFT       = 0x002000
+RALT         = 0x004000
+RGUI         = 0x008000
+EXT          = 0x080000
+EMU_SWITCH_1 = 0x100000
+EMU_SWITCH_2 = 0x200000
+
+# ps2set2 mapa (zkráceno pro přehlednost — nahraď svou verzí)
+ps2set2 = {
+    "KEY_ESC": 0x76,
+    "KEY_1": 0x16,
+    "KEY_2": 0x1e,
+    "KEY_3": 0x26,
+    "KEY_4": 0x25,
+    "KEY_5": 0x2e,
+    "KEY_6": 0x36,
+    "KEY_7": 0x3d,
+    "KEY_8": 0x3e,
+    "KEY_9": 0x46,
+    "KEY_0": 0x45,
+    "KEY_MINUS": 0x4e,
+    "KEY_EQUAL": 0x55,
+    "KEY_BACKSPACE": 0x66,
+    "KEY_TAB": 0x0d,
+    "KEY_Q": 0x15,
+    "KEY_W": 0x1d,
+    "KEY_E": 0x24,
+    "KEY_R": 0x2d,
+    "KEY_T": 0x2c,
+    "KEY_Y": 0x35,
+    "KEY_U": 0x3c,
+    "KEY_I": 0x43,
+    "KEY_O": 0x44,
+    "KEY_P": 0x4d,
+    "KEY_LEFTBRACE": 0x54,
+    "KEY_RIGHTBRACE": 0x5b,
+    "KEY_ENTER": 0x5a,
+    "KEY_LEFTCTRL": LCTRL | 0x14,
+    "KEY_A": 0x1c,
+    "KEY_S": 0x1b,
+    "KEY_D": 0x23,
+    "KEY_F": 0x2b,
+    "KEY_G": 0x34,
+    "KEY_H": 0x33,
+    "KEY_J": 0x3b,
+    "KEY_K": 0x42,
+    "KEY_L": 0x4b,
+    "KEY_SEMICOLON": 0x4c,
+    "KEY_APOSTROPHE": 0x52,
+    "KEY_GRAVE": 0x0e,
+    "KEY_LEFTSHIFT": LSHIFT | 0x12,
+    "KEY_BACKSLASH": 0x5d,
+    "KEY_Z": 0x1a,
+    "KEY_X": 0x22,
+    "KEY_C": 0x21,
+    "KEY_V": 0x2a,
+    "KEY_B": 0x32,
+    "KEY_N": 0x31,
+    "KEY_M": 0x3a,
+    "KEY_COMMA": 0x41,
+    "KEY_DOT": 0x49,
+    "KEY_SLASH": 0x4a,
+    "KEY_RIGHTSHIFT": RSHIFT | 0x59,
+    "KEY_KPASTERISK": 0x7c,
+    "KEY_LEFTALT": LALT | 0x11,
+    "KEY_SPACE": 0x29,
+    "KEY_CAPSLOCK": 0x58,
+    "KEY_F1": 0x05,
+    "KEY_F2": 0x06,
+    "KEY_F3": 0x04,
+    "KEY_F4": 0x0c,
+    "KEY_F5": 0x03,
+    "KEY_F6": 0x0b,
+    "KEY_F7": 0x83,
+    "KEY_F8": 0x0a,
+    "KEY_F9": 0x01,
+    "KEY_F10": 0x09,
+    "KEY_NUMLOCK": EMU_SWITCH_2 | 0x77,
+    "KEY_SCROLLLOCK": EMU_SWITCH_1 | 0x7e,
+    "KEY_KP7": 0x6c,
+    "KEY_KP8": 0x75,
+    "KEY_KP9": 0x7d,
+    "KEY_KPMINUS": 0x7b,
+    "KEY_KP4": 0x6b,
+    "KEY_KP5": 0x73,
+    "KEY_KP6": 0x74,
+    "KEY_KPPLUS": 0x79,
+    "KEY_KP1": 0x69,
+    "KEY_KP2": 0x72,
+    "KEY_KP3": 0x7a,
+    "KEY_KP0": 0x70,
+    "KEY_KPDOT": 0x71,
+    "KEY_102ND": 0x61,
+    "KEY_F11": 0x78,
+    "KEY_F12": 0x07,
+    "KEY_KPENTER": EXT | 0x5a,
+    "KEY_RIGHTCTRL": RCTRL | EXT | 0x14,
+    "KEY_KPSLASH": EXT | 0x4a,
+    "KEY_SYSRQ": 0xE2,
+    "KEY_RIGHTALT": RALT | EXT | 0x11,
+    "KEY_HOME": EXT | 0x6c,
+    "KEY_UP": EXT | 0x75,
+    "KEY_PAGEUP": EXT | 0x7d,
+    "KEY_LEFT": EXT | 0x6b,
+    "KEY_RIGHT": EXT | 0x74,
+    "KEY_END": EXT | 0x69,
+    "KEY_DOWN": EXT | 0x72,
+    "KEY_PAGEDOWN": EXT | 0x7a,
+    "KEY_INSERT": EXT | 0x70,
+    "KEY_DELETE": EXT | 0x71,
+    "KEY_PAUSE": 0xE1,
+    "KEY_F17": EMU_SWITCH_1 | 1,
+    "KEY_F18": EMU_SWITCH_1 | 2,
+    "KEY_F19": EMU_SWITCH_1 | 3,
+    "KEY_F20": EMU_SWITCH_1 | 4,
+    "KEY_U-MLAUT": 0x5D,  # přemapované z DE rozložení
+    "KEY_LEFTMETA": LGUI | EXT | 0x1f,
+    "KEY_RIGHTMETA": RGUI | EXT | 0x27,
+}
+
+# Převede jméno z knihovny `keyboard` na tvar používaný v `ps2set2`
+def normalize_key_name(name):
+    name = name.upper()
+    keymap = {
+        "CTRL": "CONTROL",
+        "ESC": "ESC",
+        "ENTER": "ENTER",
+        "SPACE": "SPACE",
+        "ALT": "ALT",
+        "SHIFT": "SHIFT",
+        "WINDOWS": "META",
+    }
+
+    for k, v in keymap.items():
+        if k in name:
+            name = name.replace(k, v)
+
+    # Speciální ošetření: LEFT/RIGHT
+    if name.startswith("LEFT ") or name.startswith("RIGHT "):
+        parts = name.split(" ")
+        if len(parts) == 2:
+            return f"KEY_{parts[0]}{parts[1]}"
+    return f"KEY_{name}"
+
+print("Stiskni klávesu (CTRL+C pro ukončení):")
+
+try:
+    while True:
+        event = keyboard.read_event()
+        if event.event_type == keyboard.KEY_DOWN:
+            print(f"0x{event.scan_code:08X}")
+            for key, value in ps2set2.items():
+                if value == event.scan_code:
+                    print(f"{key}: 0x{scancode:02X}")
+                break
+            else:
+                norm_name = normalize_key_name(event.name)
+                print(f"{norm_name}: nenalezen v ps2set2 0x{event.scan_code:04X}")
+
+
+#            norm_name = normalize_key_name(event.name)
+#            scancode = ps2set2.get(norm_name)
+
+#            if scancode is not None:
+#                print(f"{norm_name}: 0x{scancode:02X}")
+#            else:
+#                print(f"{norm_name}: nenalezen v ps2set2 0x{event.scan_code:04X}")
+
+except KeyboardInterrupt:
+    print("\nUkončeno.")

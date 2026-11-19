@@ -1,0 +1,5 @@
+set_global_assignment -name QIP_FILE           [file join $::quartus(qip_path) mappers/files.qip                     ]
+set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) mappers.sv                            ]
+set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) subslot.sv                            ]
+
+

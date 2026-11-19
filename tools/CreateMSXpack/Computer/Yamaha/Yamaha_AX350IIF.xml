@@ -1,0 +1,71 @@
+<?xml version="1.0" ?>
+<msxConfig>
+  <cpu>Z80</cpu>                   <!-- Z80 --> 
+  <wait_count>1</wait_count>       <!-- 0 - 3 -->  
+  <cpu_frequency>0</cpu_frequency> <!-- 0-3.58, 1-5.37, 2-10.7, 3-7.16 MHz -->  
+  <engine>S1985</engine>         <!-- MSX-Engine, NMOS Z80 outside -->
+  <device mask="0xF0" port="0x40">S1985</device>   <!-- switched I/O FEh: 16 bytes backup RAM, colour / pattern register -->
+  <device mask="0xFC" port="0x98" VDP_ID="V9938">V99xx</device>
+  <device mask="0xF8" port="0xA0" system="true">PSG</device>
+  <device mask="0xF8" port="0xA8">PPI</device>
+  <device mask="0xFE" port="0xB4">RTC</device>
+  <kbd_layout>/yX/cWdlZv//ZP//cHMh////YP9hRgH///9XUCZUAv//MFUxMgQD//+AUzNRRwX//0MnNTRWBv///0I3UgcQ//8iQDZEABH//yMkQRdFEv///yD/FRP//2Ngdxb/FP//////////df///////////////////3L/dv//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////Yv//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////hIH///+Cg4b/h4X///////90//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////8=</kbd_layout>
+  <primary slot="0">
+    <secondary slot="0">
+      <block start="0" count="2"> <!-- MSX BIOS with BASIC ROM -->
+        <memory SHA1="b034764e6a8978db60b1d652917f5e24a66a7925" filename="ax350iif_basic-bios2.rom">ROM</memory>
+      </block>
+    </secondary>
+    <secondary slot="1">
+      <block start="1" count="2"> <!-- Arabic ROM -->
+        <memory SHA1="5077b9c86ce1dc0a22c71782dac7fb3ca2a467e0" filename="ax350iif_arabic.rom">ROM</memory>
+      </block>
+    </secondary>
+    <secondary slot="2">
+      <block start="1" count="2"> <!-- Sakhr Word Processor -->
+        <memory SHA1="54ff13b58868018fcd43c916b8d7c7200ebdcabe" filename="ax350iif_swp.rom">ROM</memory>
+      </block>
+    </secondary>
+  </primary>
+  <primary slot="3">
+    <secondary slot="0">
+      <block> <!-- Painter -->
+        <memory SHA1="ace202e87337fbc54fea21e22c0b3af0abe6f4ae" filename="ax350iif_painter.rom">ROM</memory>
+      </block>
+    </secondary>
+    <secondary slot="1">
+      <block  count="1"> <!-- MSX2 subROM -->
+        <memory SHA1="4cbceba8f37f08272b612b6fc212eeaf379da9c3" filename="ax350iif_msx2sub.rom">ROM</memory>
+      </block>
+      <block  start="1" count="1"> <!-- Memory Mapped FDC -->
+        <memory SHA1="bd0ad648d728c691fcee08eaaaa95e15e29c0d0d" filename="ax350iif_disk.rom">ROM</memory>
+        <device style="National" fdd_count="1">WD2793</device>
+      </block>
+      <block start="2" count="1">
+        <ref to_block="1">MEMORY</ref>
+      </block>
+    </secondary>
+    <secondary slot="2">
+      <block>  <!-- Main RAM -->
+        <memory size="131072" pattern="4">RAM</memory>
+        <mapper>MSX2_RAM</mapper>
+        <device mask="0xFC" port="0xFC" size="131072">MEM_MAPPER</device>
+      </block>
+    </secondary>
+  </primary>
+  <!-- Location of external slots at the end of the XML definition -->  
+  <primary slot="1">
+    <secondary slot="0">
+      <block>
+        <cart>A</cart>
+      </block>
+    </secondary>
+  </primary>
+  <primary slot="2">
+    <secondary slot="0">
+      <block>
+        <cart>B</cart>
+      </block>
+    </secondary>
+  </primary>
+</msxConfig>

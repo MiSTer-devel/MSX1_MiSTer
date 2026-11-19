@@ -1,0 +1,102 @@
+{ "" "" "" "Inferred RAM node \"emu:emu\|mister_io:mister_io\|ps2_kbd_fifo_rtl_0\" from synchronous design logic.  Pass-through logic has been added to match the read-during-write behavior of the original design." {  } {  } 0 276020 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Inferred RAM node \"emu:emu\|mister_io:mister_io\|ps2_mouse_fifo_rtl_0\" from synchronous design logic.  Pass-through logic has been added to match the read-during-write behavior of the original design." {  } {  } 0 276020 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Synthesized away node \"emu:emu\|pll:pll\|pll_0002:pll_inst\|altera_pll:altera_pll_i\|outclk_wire\[2\]\"" {  } {  } 0 14320 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "RST port on the PLL is not properly connected on instance emu:emu\|pll:pll\|pll_0002:pll_inst\|altera_pll:altera_pll_i\|general\[1\].gpll. The reset port on the PLL should be connected. If the PLL loses lock for any reason, you might need to manually reset the PLL in order to re-establish lock to the reference clock." {  } {  } 0 0 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "RST port on the PLL is not properly connected on instance emu:emu\|pll:pll\|pll_0002:pll_inst\|altera_pll:altera_pll_i\|general\[0\].gpll. The reset port on the PLL should be connected. If the PLL loses lock for any reason, you might need to manually reset the PLL in order to re-establish lock to the reference clock." {  } {  } 0 0 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Ignored locations or region assignments to the following nodes" {  } {  } 0 15705 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "RST port on the PLL is not properly connected on instance emu:emu\|pll:pll\|pll_0002:pll_inst\|altera_pll:altera_pll_i\|general\[2\].gpll. The reset port on the PLL should be connected. If the PLL loses lock for any reason, you might need to manually reset the PLL in order to re-establish lock to the reference clock." {  } {  } 0 0 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Verilog HDL or VHDL warning at de10_top.v(129): object \"io_win\" assigned a value but never read" {  } {  } 0 10036 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Verilog HDL or VHDL warning at de10_top.v(134): object \"io_sdd\" assigned a value but never read" {  } {  } 0 10036 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Verilog HDL or VHDL warning at de10_top.v(97): object \"io_win\" assigned a value but never read" {  } {  } 0 10036 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Verilog HDL or VHDL warning at de10_top.v(102): object \"io_sdd\" assigned a value but never read" {  } {  } 0 10036 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Some pins have incomplete I/O assignments. Refer to the I/O Assignment Warnings report for details" {  } {  } 0 15714 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "LOCKED port on the PLL is not properly connected on instance \"pll_hdmi:pll_hdmi\|pll_hdmi_0002:pll_hdmi_inst\|altera_pll:altera_pll_i\|general\[0\].gpll\". The LOCKED port on the PLL should be connected when the FBOUTCLK port is connected. Although it is unnecessary to connect the LOCKED signal, any logic driven off of an output clock of the PLL will not know when the PLL is locked and ready." {  } {  } 0 21300 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Found combinational loop of 47 nodes" {  } {  } 0 332125 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "LOCKED port on the PLL is not properly connected on instance \"emu:emu\|pll:pll\|pll_0002:pll_inst\|altera_pll:altera_pll_i\|general\[0\].gpll\". The LOCKED port on the PLL should be connected when the FBOUTCLK port is connected. Although it is unnecessary to connect the LOCKED signal, any logic driven off of an output clock of the PLL will not know when the PLL is locked and ready." {  } {  } 0 21300 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Verilog HDL or VHDL warning at sys_top.v(209): object \"vip_newcfg\" assigned a value but never read" {  } {  } 0 10036 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Verilog HDL or VHDL warning at sys_top.v(594): object \"VSET\" assigned a value but never read" {  } {  } 0 10036 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Ignored filter at sys_top.sdc(17): vip\|output_inst\|vid_clk could not be matched with a net" {  } {  } 0 332174 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Ignored create_generated_clock at sys_top.sdc(16): Argument <targets> is an empty collection" {  } {  } 0 332049 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Ignored filter at sys_top.sdc(37): VID_CLK could not be matched with a clock" {  } {  } 0 332174 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "LOCKED port on the PLL is not properly connected on instance \"pll_audio:pll_audio\|pll_audio_0002:pll_audio_inst\|altera_pll:altera_pll_i\|general\[0\].gpll\". The LOCKED port on the PLL should be connected when the FBOUTCLK port is connected. Although it is unnecessary to connect the LOCKED signal, any logic driven off of an output clock of the PLL will not know when the PLL is locked and ready." {  } {  } 0 21300 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "*" {  } {  } 0 21074 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "*" {  } {  } 0 276020 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "*" {  } {  } 0 276027 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "RST" {  } {  } 0 9999 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "altera_pll.v" {  } {  } 0 9999 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "altera_cyclonev_pll.v" {  } {  } 0 9999 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "altera_pll_reconfig_core.v" {  } {  } 0 9999 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "cyclonev_pll" {  } {  } 0 9999 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Verilog HDL error at IKAOPLL_dac.v(138): constant value overflow" {  } {  } 0 10259 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Verilog HDL or VHDL warning at IKAOPLL_pg.v(85): object \"debug_cyc1c_pmamt_full\" assigned a value but never read" {  } {  } 0 10036 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Verilog HDL or VHDL warning at IKAOPLL_pg.v(361): object \"debug_phasereg_static\" assigned a value but never read" {  } {  } 0 10036 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Verilog HDL or VHDL warning at IKAOPLL_eg.v(85): object \"debug_envcntr\" assigned a value but never read" {  } {  } 0 10036 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Verilog HDL or VHDL warning at IKAOPLL_eg.v(398): object \"debug_envreg_static\" assigned a value but never read" {  } {  } 0 10036 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Verilog HDL or VHDL warning at IKAOPLL_eg.v(399): object \"debug_envstat_static\" assigned a value but never read" {  } {  } 0 10036 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Verilog HDL or VHDL warning at IKAOPLL_op.v(245): object \"debug_opwavereg_static\" assigned a value but never read" {  } {  } 0 10036 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Net \"lfo_lut.data_a\" at jt51_lfo.v(49) has no driver or initial value, using a default initial value '0'" {  } {  } 0 10030 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Net \"lfo_lut.waddr_a\" at jt51_lfo.v(49) has no driver or initial value, using a default initial value '0'" {  } {  } 0 10030 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Net \"lfo_lut.we_a\" at jt51_lfo.v(49) has no driver or initial value, using a default initial value '0'" {  } {  } 0 10030 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Net \"sinetable.data_a\" at jt51_phrom.v(35) has no driver or initial value, using a default initial value '0'" {  } {  } 0 10030 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Net \"sinetable.waddr_a\" at jt51_phrom.v(35) has no driver or initial value, using a default initial value '0'" {  } {  } 0 10030 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Net \"sinetable.we_a\" at jt51_phrom.v(35) has no driver or initial value, using a default initial value '0'" {  } {  } 0 10030 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Net \"explut.data_a\" at jt51_exprom.v(36) has no driver or initial value, using a default initial value '0'" {  } {  } 0 10030 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Net \"explut.waddr_a\" at jt51_exprom.v(36) has no driver or initial value, using a default initial value '0'" {  } {  } 0 10030 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Net \"explut.we_a\" at jt51_exprom.v(36) has no driver or initial value, using a default initial value '0'" {  } {  } 0 10030 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Verilog HDL or VHDL warning at sys/video_mixer.sv(17): MESSAGE_ON or MESSAGE_OFF directive cannot process the non-HDL message ID 12161." {  } {  } 0 10720 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Verilog HDL information at video_freak.sv(173): always construct contains both blocking and non-blocking assignments" {  } {  } 0 10268 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Verilog HDL warning at jt51_mod.v(52): extended using \"x\" or \"z\"" {  } {  } 0 10273 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Verilog HDL warning at jt51_op.v(132): extended using \"x\" or \"z\"" {  } {  } 0 10273 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Verilog HDL warning at jt51_op.v(201): extended using \"x\" or \"z\"" {  } {  } 0 10273 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Verilog HDL information at jt51_reg_ch.v(77): always construct contains both blocking and non-blocking assignments" {  } {  } 0 10268 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Verilog HDL or VHDL warning at tv80_alu.sv(104): conditional expression evaluates to a constant" {  } {  } 0 10037 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Verilog HDL Case Statement warning at fmdem.sv(151): can't check case statement for completeness because the case expression has too many possible states" {  } {  } 0 10762 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Net \"key_map.data_a\" at ym2148.sv(55) has no driver or initial value, using a default initial value '0'" {  } {  } 0 10030 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Net \"key_map.waddr_a\" at ym2148.sv(55) has no driver or initial value, using a default initial value '0'" {  } {  } 0 10030 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Net \"key_map.we_a\" at ym2148.sv(55) has no driver or initial value, using a default initial value '0'" {  } {  } 0 10030 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Net \"C_WAIT_TABLE_501.data_a\" at vdp_wait_control.sv(84) has no driver or initial value, using a default initial value '0'" {  } {  } 0 10030 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Net \"C_WAIT_TABLE_501.waddr_a\" at vdp_wait_control.sv(84) has no driver or initial value, using a default initial value '0'" {  } {  } 0 10030 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Net \"C_WAIT_TABLE_502.data_a\" at vdp_wait_control.sv(89) has no driver or initial value, using a default initial value '0'" {  } {  } 0 10030 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Net \"C_WAIT_TABLE_502.waddr_a\" at vdp_wait_control.sv(89) has no driver or initial value, using a default initial value '0'" {  } {  } 0 10030 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Net \"C_WAIT_TABLE_503.data_a\" at vdp_wait_control.sv(94) has no driver or initial value, using a default initial value '0'" {  } {  } 0 10030 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Net \"C_WAIT_TABLE_503.waddr_a\" at vdp_wait_control.sv(94) has no driver or initial value, using a default initial value '0'" {  } {  } 0 10030 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Net \"C_WAIT_TABLE_504.data_a\" at vdp_wait_control.sv(99) has no driver or initial value, using a default initial value '0'" {  } {  } 0 10030 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Net \"C_WAIT_TABLE_504.waddr_a\" at vdp_wait_control.sv(99) has no driver or initial value, using a default initial value '0'" {  } {  } 0 10030 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Net \"C_WAIT_TABLE_505.data_a\" at vdp_wait_control.sv(104) has no driver or initial value, using a default initial value '0'" {  } {  } 0 10030 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Net \"C_WAIT_TABLE_505.waddr_a\" at vdp_wait_control.sv(104) has no driver or initial value, using a default initial value '0'" {  } {  } 0 10030 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Net \"C_WAIT_TABLE_601.data_a\" at vdp_wait_control.sv(113) has no driver or initial value, using a default initial value '0'" {  } {  } 0 10030 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Net \"C_WAIT_TABLE_601.waddr_a\" at vdp_wait_control.sv(113) has no driver or initial value, using a default initial value '0'" {  } {  } 0 10030 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Net \"C_WAIT_TABLE_602.data_a\" at vdp_wait_control.sv(118) has no driver or initial value, using a default initial value '0'" {  } {  } 0 10030 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Net \"C_WAIT_TABLE_602.waddr_a\" at vdp_wait_control.sv(118) has no driver or initial value, using a default initial value '0'" {  } {  } 0 10030 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Net \"C_WAIT_TABLE_603.data_a\" at vdp_wait_control.sv(123) has no driver or initial value, using a default initial value '0'" {  } {  } 0 10030 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Net \"C_WAIT_TABLE_603.waddr_a\" at vdp_wait_control.sv(123) has no driver or initial value, using a default initial value '0'" {  } {  } 0 10030 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Net \"C_WAIT_TABLE_604.data_a\" at vdp_wait_control.sv(128) has no driver or initial value, using a default initial value '0'" {  } {  } 0 10030 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Net \"C_WAIT_TABLE_604.waddr_a\" at vdp_wait_control.sv(128) has no driver or initial value, using a default initial value '0'" {  } {  } 0 10030 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Net \"C_WAIT_TABLE_605.data_a\" at vdp_wait_control.sv(133) has no driver or initial value, using a default initial value '0'" {  } {  } 0 10030 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Net \"C_WAIT_TABLE_605.waddr_a\" at vdp_wait_control.sv(133) has no driver or initial value, using a default initial value '0'" {  } {  } 0 10030 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Net \"C_WAIT_TABLE_501.we_a\" at vdp_wait_control.sv(84) has no driver or initial value, using a default initial value '0'" {  } {  } 0 10030 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Net \"C_WAIT_TABLE_502.we_a\" at vdp_wait_control.sv(89) has no driver or initial value, using a default initial value '0'" {  } {  } 0 10030 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Net \"C_WAIT_TABLE_503.we_a\" at vdp_wait_control.sv(94) has no driver or initial value, using a default initial value '0'" {  } {  } 0 10030 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Net \"C_WAIT_TABLE_504.we_a\" at vdp_wait_control.sv(99) has no driver or initial value, using a default initial value '0'" {  } {  } 0 10030 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Net \"C_WAIT_TABLE_505.we_a\" at vdp_wait_control.sv(104) has no driver or initial value, using a default initial value '0'" {  } {  } 0 10030 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Net \"C_WAIT_TABLE_601.we_a\" at vdp_wait_control.sv(113) has no driver or initial value, using a default initial value '0'" {  } {  } 0 10030 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Net \"C_WAIT_TABLE_602.we_a\" at vdp_wait_control.sv(118) has no driver or initial value, using a default initial value '0'" {  } {  } 0 10030 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Net \"C_WAIT_TABLE_603.we_a\" at vdp_wait_control.sv(123) has no driver or initial value, using a default initial value '0'" {  } {  } 0 10030 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Net \"C_WAIT_TABLE_604.we_a\" at vdp_wait_control.sv(128) has no driver or initial value, using a default initial value '0'" {  } {  } 0 10030 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "Net \"C_WAIT_TABLE_605.we_a\" at vdp_wait_control.sv(133) has no driver or initial value, using a default initial value '0'" {  } {  } 0 10030 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "*" {  } {  } 0 21074 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "*" {  } {  } 0 276020 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "*" {  } {  } 0 276027 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "*" {  } {  } 0 12158 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "jt49_exp.v" {  } {  } 0 9999 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "RST" {  } {  } 0 9999 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "altera_pll.v" {  } {  } 0 9999 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "altera_cyclonev_pll.v" {  } {  } 0 9999 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "altera_pll_reconfig_core.v" {  } {  } 0 9999 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "cyclonev_pll" {  } {  } 0 9999 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "jtopll_mmr.v" {  } {  } 0 9999 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "jtopll_reg.v" {  } {  } 0 9999 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "jtopl_pg_sum.v" {  } {  } 0 9999 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "jtopl_eg_step.v" {  } {  } 0 9999 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "jtopl_eg_final.v" {  } {  } 0 9999 "" 0 0 "Design Software" 0 -1 0 ""}
+{ "" "" "" "emu:emu\|hps_io:hps_io\|EXT_BUS" {  } {  } 0 9999 "" 0 0 "Design Software" 0 -1 0 ""}

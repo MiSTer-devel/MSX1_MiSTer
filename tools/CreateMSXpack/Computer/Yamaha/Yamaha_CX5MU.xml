@@ -1,0 +1,46 @@
+<?xml version="1.0" ?>
+<msxConfig>
+  <cpu>Z80</cpu>                   <!-- Z80 --> 
+  <wait_count>1</wait_count>       <!-- 0 - 3 -->  
+  <cpu_frequency>0</cpu_frequency> <!-- 0-3.58, 1-5.37, 2-10.7, 3-7.16 MHz -->
+  <device mask="0xFE" port="0x98" MODE="NTSC">TMS99xx</device>
+  <device mask="0xF8" port="0xA0" system="true">PSG</device>
+  <device mask="0xF8" port="0xA8">PPI</device>
+  <kbd_layout>/yX/cWdlZv//ZP//cHMh////YP9hRgH///9XUCZUAv//MFUxMgQD//+AUzNRRwX//0MnNTRWBv///0I3UgcQ//8iQDZEABH//yMkQRdFEv///yD/FRP//2Ngdxb/FP//////////df///////////////////3L/dv//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////Yv//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////hIH///+Cg4b/h4X///////90//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////8=</kbd_layout>
+  <primary slot="0">
+    <secondary slot="0">
+      <block start="0" count="2">
+        <memory SHA1="706dd67036baeec7127e4ccd8c8db8f6ce7d0e4c" filename = "cx5m_basic-bios1.rom">ROM</memory> <!-- MSX BIOS with BASIC ROM -->
+      </block>
+      <block start="2" count="2">
+        <memory pattern="3">RAM</memory>    <!-- "Main RAM" -->
+      </block>
+    </secondary>
+  </primary>
+  <primary slot="3">
+    <secondary slot="0">
+      <block start="0" >
+   <!-- <memory SHA1="49a1750c10e407293af6bce27a02e99307ceba12" filename = "sfg-01.rom">ROM</memory> -->
+        <memory SHA1="434651305f92aa770a89e40b81125fb22d91603d" filename = "sfg-01.rom">ROM</memory> <!-- Yamaha SFG-01 ROM -->
+        <mapper>YAMAHA_SFG</mapper>
+        <device variant="YM2151">OPM</device>
+        <device variant="SFG-01">YM2148</device>
+      </block>    
+    </secondary>
+  </primary>
+  <!-- Location of external slots at the end of the XML definition -->
+  <primary slot="1">
+    <secondary slot="0">
+      <block start="0">
+        <cart>A</cart>
+      </block>
+    </secondary>
+  </primary>
+  <primary slot="2">
+    <secondary slot="0">
+      <block start="0">
+        <cart>B</cart>
+      </block>
+    </secondary>
+  </primary>
+</msxConfig>

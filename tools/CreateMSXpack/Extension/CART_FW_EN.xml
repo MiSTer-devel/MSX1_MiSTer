@@ -1,0 +1,298 @@
+<?xml version="1.0" ?>
+<fwConfig>  
+  <fw name="KONAMI">
+    <block>
+      <mapper>KONAMI</mapper>   
+    </block>
+  </fw>
+  <fw name="ASCII8">
+    <block>
+      <mapper>ASCII8</mapper>   
+    </block>
+  </fw>
+  <fw name="ASCII8SRAM2">
+    <block>
+      <mapper>ASCII8</mapper>   
+      <sram>2048</sram>
+    </block>
+  </fw>
+  <fw name="ASCII8SRAM8">
+    <block>
+      <mapper>ASCII8</mapper>   
+      <sram>8192</sram>
+    </block>
+  </fw>
+  <fw name="ASCII16">
+    <block>
+      <mapper>ASCII16</mapper>   
+    </block>
+  </fw>
+  <fw name="ASCII16SRAM2">
+    <block>
+      <mapper>ASCII16</mapper>
+      <sram>2048</sram>
+    </block>
+  </fw>
+  <fw name="ASCII16SRAM8">
+    <block>
+      <mapper>ASCII16</mapper>   
+      <sram>8192</sram>
+    </block>
+  </fw>
+  <fw name="WIZARDRY">
+    <block>
+      <mapper>WIZARDRY</mapper>   
+      <sram>8192</sram>             <!-- openMSX RomAscii8_8: always 8 KB -->
+    </block>
+  </fw>
+  <fw name="KOEI">
+    <block>
+      <mapper>KOEI</mapper>   
+      <sram>32768</sram>
+    </block>
+  </fw>
+  <fw name="KonamiSCC">
+    <block>
+      <device>SCC</device>
+      <mapper>KONAMI_SCC</mapper>   
+    </block>
+  </fw>
+  <fw name="SCC">
+    <block>
+      <device>SCC</device>
+      <mapper>KONAMI_SCC</mapper>   
+    </block>
+  </fw>
+  <fw name="SCC+">
+    <block>
+      <ram>131072</ram>
+      <mapper>KONAMI_SCC_PLUS</mapper>
+      <device>SCC</device>
+    </block>
+  </fw>
+  <fw name="ASCII16X">                <!-- ASCII16-X: the ROM image is the start of an 8 MB flash (S29GL064S) -->
+    <block>
+      <flash>8388608</flash>
+      <mapper>ASCII16X</mapper>
+    </block>
+  </fw>
+  <fw name="KUC">                     <!-- Konami Ultimate Collection: 8 MB flash (M29W640GB), SCC/SCC+,
+                                           DAC written by the mapper (7FFF bit 3) -->
+    <block>
+      <flash>8388608</flash>
+      <mapper>KUC</mapper>
+      <device>SCC</device>
+      <device mapper="true">DAC</device>
+    </block>
+  </fw>
+  <fw name="YAMANOOTO">               <!-- Yamanooto: 8 MB flash (S29GL064N), SCC/SCC+, PSG at 10h-11h
+                                           (write only; ECHO also on A0h-A1h) -->
+    <block>
+      <flash>8388608</flash>
+      <mapper>YAMANOOTO</mapper>
+      <device>SCC</device>
+      <device port="0x10" mask="0xFE">PSG</device>
+    </block>
+  </fw>
+  <fw name="NEO8">
+    <block>
+      <mapper>NEO8</mapper>
+    </block>
+  </fw>
+  <fw name="NEO16">
+    <block>
+      <mapper>NEO16</mapper>
+    </block>
+  </fw>
+  <fw name="MSXDOS2">                 <!-- MSX-DOS2 cartridge: 16 KB bank in 4000-7FFF, register 6000-6FFF -->
+    <block>
+      <mapper>MSXDOS2</mapper>
+    </block>
+  </fw>
+  <fw name="RTYPE">
+    <block>
+      <mapper>RTYPE</mapper>   
+    </block>
+  </fw>
+  
+  <fw name="0x0000">
+    <block start="0" count="4" offset="0">
+      <mapper>OFFSET</mapper>   
+    </block>
+  </fw>
+  <fw name="0x4000">
+    <block start="1" count="3" offset="0">
+      <mapper>OFFSET</mapper>   
+    </block>
+  </fw>
+  <fw name="0x8000">
+    <block start="2" count="2" offset="0">
+      <mapper>OFFSET</mapper>   
+    </block>
+  </fw>
+  <fw name="Mirror_0x0000">
+    <block start="0" count="4" fix_offset="0">
+      <mapper>MIRROR</mapper>   
+    </block>
+  </fw>
+  <fw name="Mirror_0x4000">
+    <block start="0" count="4" fix_offset="1">
+      <mapper>MIRROR</mapper>   
+    </block>
+  </fw>
+  <fw name="Mirror_0x8000">
+    <block start="0" count="4" fix_offset="2">
+      <mapper>MIRROR</mapper>   
+    </block>
+  </fw>
+  <fw name="16kb">
+    <block>
+      <mapper>GENRIC_16KB</mapper>   
+    </block>
+  </fw>
+  <fw name="CrossBlaim">
+    <block>
+      <mapper>CROSS_BLAIM</mapper>   
+    </block>
+  </fw>
+  <fw name="Generic8kB">
+    <block>
+      <mapper>GENRIC_8KB</mapper>   
+    </block>
+  </fw>
+  <fw name="HarryFox">
+    <block>
+      <mapper>HARRY_FOX</mapper>   
+    </block>
+  </fw>
+  <fw name="Zemina80">
+    <block>
+      <mapper>ZEMINA80</mapper>   
+    </block>
+  </fw>
+  <fw name="Zemina90">
+    <block>
+      <mapper>ZEMINA90</mapper>
+      <device mask="0xFF" port="0x77">LATCH_PORT</device>
+    </block>
+  </fw>
+  <fw name="SuperSwangi">
+    <block>
+      <mapper>SUPERSWANGI</mapper>
+    </block>
+  </fw>
+  <fw name="Synthesizer">
+    <block start="1" count="2" offset="0">
+      <mapper>OFFSET</mapper>
+      <device>DAC</device>
+    </block>
+  </fw>
+  <fw name="MSXWrite">
+    <block>
+      <mapper>MSXWRITE</mapper>
+    </block>
+  </fw>
+  <fw name="FM_PAC">
+    <block>
+      <filename>FM_PAC_EN.ROM</filename>
+      <SHA1>6996489fcec52934b8beed87643cc33d02ecc301</SHA1>
+      <mapper>FMPAC</mapper>
+      <device mask="0xFE" port="0x7C">OPLL</device>
+      <sram>8192</sram>
+    </block>
+  </fw>
+  <fw name="GM2_ROM">
+    <block>
+      <mapper>GM2</mapper>
+      <sram>8192</sram>
+    </block>
+  </fw>
+  <fw name="GM2">
+    <block>
+      <filename>GM2.ROM</filename>
+      <SHA1>5c00f9e3a48411e08fac89b1dfdd2a6e95853919</SHA1>
+      <mapper>GM2</mapper>
+      <sram>8192</sram>
+    </block>
+  </fw>
+  <fw name="VY0010">
+    <block start="1" count="1">
+      <filename>VY0010.ROM</filename>
+      <SHA1>8924e3e11eb1c8c1edcb7efa63c26d2bdc142473</SHA1>
+      <device style="Philips" fdd_count="1">WD2793</device>
+    </block>
+  </fw>
+  
+  <fw name="MEGASCC1">                <!-- ESE MegaSCC+ 1 MB -->
+    <block>
+      <ram>1048576</ram>
+      <mapper>MEGASCC</mapper>
+      <device>SCC</device>
+    </block>
+  </fw>
+  <fw name="MEGASCC2">                <!-- ESE MegaSCC+ 2 MB -->
+    <block>
+      <ram>2097152</ram>
+      <mapper>MEGASCC</mapper>
+      <device>SCC</device>
+    </block>
+  </fw>
+  <fw name="MEGAASCII8">              <!-- ESE MegaRAM ASCII-8K 1 MB -->
+    <block>
+      <ram>1048576</ram>
+      <mapper>MEGAASCII8</mapper>
+    </block>
+  </fw>
+  <fw name="MEGAASCII16">             <!-- ESE MegaRAM ASCII-16K 2 MB -->
+    <block>
+      <ram>2097152</ram>
+      <mapper>MEGAASCII16</mapper>
+    </block>
+  </fw>
+  <fw name="MOONSOUND">               <!-- Sunrise MoonSound: OPL4 with the 2 MB wave ROM and 2 MB of sample RAM
+                                           behind it; nothing of it is visible in the slot -->
+    <block start="0" count="1">
+      <filename>yrw801.rom</filename>
+      <SHA1>32760893ce06dbe3930627755ba065cc3d8ec6ca</SHA1>
+      <extend>4194304</extend>
+      <mapper>HIDDEN</mapper>
+      <device memory="block" sampleram="2097152">OPL4</device>
+    </block>
+  </fw>
+  <fw name="MSX_MIDI">                <!-- MSX-MIDI without a ROM (MIDI Interface 3): 8251 + 8254 at E8h-EFh,
+                                           the slot itself stays empty -->
+    <block>
+      <device port="0xE8" mask="0xF8">MSX_MIDI</device>
+    </block>
+  </fw>
+  <fw name="MEGA_FLASH_ROM">
+    <secondary slot="0">
+      <block start="0" count="4">
+        <filename>mfrsd.ROM</filename>
+        <SHA1 size="16384">1621f623b834dc57cb2983f30b36bcc3ac56cafd</SHA1>
+        <mapper>MFRSD0</mapper>
+      </block>
+    </secondary>
+    <secondary slot="1">
+      <block>
+        <ram>4177920</ram>
+        <mapper>MFRSD1</mapper>
+        <device>SCC</device>
+      </block>
+    </secondary>
+    <secondary slot="2">
+      <block>
+        <mapper>MFRSD2</mapper>
+        <ram>524288</ram>
+        <device mask="0xFC" port="0xFC" param="32">MEM_MAPPER</device>
+      </block>
+    </secondary>  
+    <secondary slot="3">
+      <block>
+        <filename>mfrsd.ROM</filename>
+        <SHA1 size="1048576" skip="7340032">1621f623b834dc57cb2983f30b36bcc3ac56cafd</SHA1>
+        <mapper>MFRSD3</mapper>
+      </block>
+    </secondary>
+  </fw>
+</fwConfig>

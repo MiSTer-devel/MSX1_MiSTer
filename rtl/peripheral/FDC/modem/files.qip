@@ -1,0 +1,4 @@
+set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) fmmod.sv   ]
+set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) mfmmod.sv  ]
+set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) fmdem.sv   ]
+set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) mfmdem.sv  ]

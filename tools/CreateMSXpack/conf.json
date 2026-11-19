@@ -1,0 +1,7 @@
+{
+  "BLOCK": 0,
+  "DEVICE": 1,
+  "KEYBOARD_LAYOUT": 2,
+  "CARTRIGE": 3,
+  "END":7
+}

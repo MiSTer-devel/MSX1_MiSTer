@@ -1,0 +1,4 @@
+# sound data come from the game ROM: not in the repository
+data/
+pcmtest.rom
+sounds.inc

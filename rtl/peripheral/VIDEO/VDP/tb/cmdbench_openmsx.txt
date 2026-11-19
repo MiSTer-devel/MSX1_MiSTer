@@ -1,0 +1,20 @@
+# Reference for vdp_cmd_tb: tools/vdptest/cmdbench.rom in openMSX (master e6883ff2a, 2026-11-10,
+# the VDP timing model of doc/internal/vdp-vram-timing/2026-measurement-analysis.md), Philips
+# NMS 8245 (V9938), run by tools/vdptest/cmdbench.tcl. Iterations of 56 T from the command start
+# (one line before the display) to CE = 0. Columns: HMMV LMMV SRCH YMMM HMMM LMMM LINE100 LINE255.
+# Rows: cmdbench.asm CFGTAB (SCREEN 5 NTSC 212/192 sprites on/off, display off, the same in PAL,
+# SCREEN 6, 7, 8 NTSC 212 sprites on, SCREEN 8 sprites off).
+2520 10372 94 4318 5134 14511 122 138
+2467 10076 94 4139 4975 13980 122 138
+2423 9569 74 2780 3915 10676 104 122
+2380 9414 74 2772 3899 10662 104 122
+1999 7912 69 2651 3711 10530 96 112
+2425 9901 94 3938 4849 13717 122 139
+2385 9713 94 3767 4742 13362 122 139
+2361 9276 74 2755 3875 10654 104 122
+2327 9123 74 2747 3858 10644 104 122
+1999 7912 69 2651 3711 10530 97 112
+1272 10372 95 4318 2571 14511 122 139
+2521 10372 94 8614 5134 14511 122 139
+5018 10372 94 8614 10161 14511 122 139
+4823 9569 74 5506 7802 10677 104 122
